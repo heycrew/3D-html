@@ -15,6 +15,9 @@ window.SD = window.SD || {};
     customCss: '',
     params: SD.defaults(),
     materials: { items: [], folder: './images/', filenameX: 'frame-{index}.jpg', pad: 0 },
+    pageType: 'single',   /* single = 单品 360；lots = 拍品列表（博古架） */
+    lots: [],             /* 拍品列表模式下的多套素材 */
+    activeLot: 0,
     stage: { width: 520, bg: 'checker' }
   };
   SD.STATE = STATE;
@@ -288,6 +291,7 @@ window.SD = window.SD || {};
       syncParamsUI();
       renderMaterials();
       refresh();
+      if (STATE.pageType === 'lots') { SD.Lots.saveCurrent(); SD.Lots.render(); }
       toast('ok', '已导入 ' + items.length + ' 张素材');
       status('就绪 · 素材 ' + STATE.materials.items.length + ' 张');
     }).catch(function (e) {
@@ -308,6 +312,7 @@ window.SD = window.SD || {};
       syncParamsUI();
       renderMaterials();
       refresh();
+      if (STATE.pageType === 'lots') { SD.Lots.saveCurrent(); SD.Lots.render(); }
       toast('ok', '已载入示例素材', '水平 4 帧（前/右/后/左）＋ 垂直 2 帧（上/下）');
       status('就绪 · 示例素材 6 张');
     });
@@ -373,6 +378,15 @@ window.SD = window.SD || {};
   }
 
   SD.refresh = refresh;
+
+  /* 切换拍品后：素材面板 / 参数面板 / 预览 / 拍品列表 全部刷新 */
+  SD.syncAfterLotChange = function () {
+    renderMaterials();
+    syncFrameCount();
+    syncParamsUI();
+    refresh();
+    SD.Lots.render();
+  };
 
   /* ================= 导出 ================= */
   function doExport() {
@@ -542,6 +556,23 @@ window.SD = window.SD || {};
       toast('ok', '已按素材比例设置', r);
     });
 
+    $('pageType').addEventListener('change', function () {
+      var t = $('pageType').value;
+      STATE.pageType = t;
+      if (t === 'lots') {
+        SD.Lots.ensureInit();
+        SD.Lots.render();
+        status('已切到拍品列表模式：左侧可管理多个拍品');
+      } else {
+        SD.Lots.saveCurrent();
+        SD.Lots.render();
+        status('已切到单品 360 模式');
+      }
+      syncParamsUI();
+      refresh();
+    });
+    $('btnAddLot').addEventListener('click', function () { SD.Lots.add(); });
+
     $('btnAddHotspot').addEventListener('click', function () {
       if (!SD.Codegen.activeItems(STATE).length) {
         toast('warn', '先导入素材', '热点要打在实际画面上');
@@ -623,6 +654,9 @@ window.SD = window.SD || {};
       toast('err', '360 库未加载', '请确认 lib/360-view.min.js 与工作台在同一目录', 8000);
     }
 
+    SD.Lots.ensureInit();
+    SD.Lots.render();
+
     SD.Materials.ping().then(function (ok) {
       SERVER_OK = ok;
       if (!ok) {
@@ -634,6 +668,11 @@ window.SD = window.SD || {};
         var pane = $('codepane');
         pane.classList.add('open');
         updateCode();
+      }
+      if (/[?&]lots/.test(location.search)) {
+        var pt = $('pageType');
+        pt.value = 'lots';
+        pt.dispatchEvent(new Event('change'));
       }
       if (/[?&]demo/.test(location.search)) loadDemo();
     });

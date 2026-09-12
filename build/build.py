@@ -27,6 +27,8 @@ JS_ORDER = [
     '05-codegen.js',
     '06-hotspots.js',
     '07-export.js',
+    '09-lots.js',
+    '10-bogu.js',
     '08-app.js',
 ]
 

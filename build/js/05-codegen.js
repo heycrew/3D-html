@@ -139,6 +139,12 @@ SD.Codegen = (function () {
   function buildHtml(state, opts) {
     opts = opts || {};
     var mode = opts.mode || 'files';
+
+    /* 拍品列表（博古架）走独立生成器 */
+    if (state.pageType === 'lots' && SD.Bogu) {
+      return SD.Bogu.buildHtml(state, opts);
+    }
+
     var tpl = SD.templateById(state.templateId);
     var cfg = buildConfig(state, { mode: mode });
     var title = state.title || '360° 产品展示';

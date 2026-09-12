@@ -107,9 +107,18 @@ SD.Export = (function () {
   /* ---------- 主流程：写到一个用户选择的目录 ---------- */
   async function exportToDirectory(state, onProgress) {
     var items = SD.Codegen.activeItems(state);
-    if (!items.length) throw new Error('还没有素材，先导入图片或载入示例');
+    var isLots = state.pageType === 'lots';
+    if (isLots) {
+      SD.Lots.saveCurrent();
+      var lotTotal = (state.lots || []).reduce(function (n, l) {
+        return n + SD.Bogu.onItems(l).length;
+      }, 0);
+      if (!lotTotal) throw new Error('还没有拍品素材，先给拍品导入图片');
+    } else if (!items.length) {
+      throw new Error('还没有素材，先导入图片或载入示例');
+    }
 
-    var names = planNames(items);
+    var names = isLots ? [] : planNames(items);
     var dir;
     try {
       dir = await window.showDirectoryPicker({ mode: 'readwrite', id: 'ci360-export' });
@@ -118,7 +127,10 @@ SD.Export = (function () {
       throw e;
     }
 
-    var total = items.length + 4;
+    var nImgs = isLots
+      ? (state.lots || []).reduce(function (n, l) { return n + SD.Bogu.onItems(l).length; }, 0)
+      : items.length;
+    var total = nImgs + 4;
     var step = 0;
     function tick(label) {
       step++;
@@ -132,8 +144,8 @@ SD.Export = (function () {
                  fy: state.materials.filenameY };
     state.materials.folder = './images/';
     state.materials.pad = 0;
-    if (xs.length) state.materials.filenameX = 'frame-{index}' + extOf(xs[0].name);
-    if (ys.length) state.materials.filenameY = 'vframe-{index}' + extOf(ys[0].name);
+    if (!isLots && xs.length) state.materials.filenameX = 'frame-{index}' + extOf(xs[0].name);
+    if (!isLots && ys.length) state.materials.filenameY = 'vframe-{index}' + extOf(ys[0].name);
     var html = SD.Codegen.buildHtml(state, { mode: 'files' });
     state.materials.folder = prev.folder;
     state.materials.filenameX = prev.fx;
@@ -142,11 +154,30 @@ SD.Export = (function () {
     tick('index.html');
 
     /* 2) images/ */
-    for (var i = 0; i < items.length; i++) {
-      var f = items[i].file;
-      var blob = f || await (await fetch(items[i].url)).blob();
-      await writeIn(dir, 'images/' + names[i], blob);
-      tick(names[i]);
+    if (isLots) {
+      /* 每个拍品一个子目录：images/lot-1/frame-1.jpg … */
+      for (var li = 0; li < (state.lots || []).length; li++) {
+        var its = SD.Bogu.onItems(state.lots[li]);
+        var xi = 0, yi = 0;
+        for (var k = 0; k < its.length; k++) {
+          var it = its[k];
+          var ex = extOf(it.name);
+          var nm;
+          if (it.axis === 'y') { yi++; nm = 'vframe-' + yi + ex; }
+          else { xi++; nm = 'frame-' + xi + ex; }
+          it.exportName = nm;   /* Bogu.buildHtml 生成页面时会用到 */
+          var bb = it.file || await (await fetch(it.url)).blob();
+          await writeIn(dir, 'images/lot-' + (li + 1) + '/' + nm, bb);
+          tick('lot-' + (li + 1) + '/' + nm);
+        }
+      }
+    } else {
+      for (var i = 0; i < items.length; i++) {
+        var f = items[i].file;
+        var blob = f || await (await fetch(items[i].url)).blob();
+        await writeIn(dir, 'images/' + names[i], blob);
+        tick(names[i]);
+      }
     }
 
     /* 3) lib/ */

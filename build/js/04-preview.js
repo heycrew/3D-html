@@ -28,6 +28,17 @@ SD.Preview = (function () {
     if (!mounted || !host) return;
     destroy();
 
+    /* 拍品列表（博古架）：整页交给 iframe，布局所见即所得 */
+    if (state.pageType === 'lots' && SD.Bogu) {
+      var box = document.createElement('iframe');
+      box.setAttribute('title', '预览');
+      box.style.cssText = 'width:100%;height:100%;border:0;display:block;background:#f5f2ec';
+      box.srcdoc = SD.Bogu.buildHtml(state, { mode: 'preview' });
+      host.appendChild(box);
+      if (SD.ShowEmpty) SD.ShowEmpty(false);
+      return;
+    }
+
     var cfg;
     try {
       cfg = SD.Codegen.buildConfig(state, { mode: 'preview' });

@@ -97,6 +97,24 @@ SD.SCHEMA = [
     ]
   },
   {
+    id: 'bogu', name: '博古架布局', open: false,
+    desc: '仅「拍品列表」页面类型生效',
+    params: [
+      { key: 'boguLayout', label: '布局预设', type: 'select', def: 'cuoluo',
+        options: [['cuoluo', '错落'], ['jiugong', '九宫'], ['pinzi', '品字']] },
+      { key: 'boguTheme', label: '架子木色', type: 'select', def: 'dark',
+        options: [['dark', '深木'], ['warm', '浅木'], ['black', '黑檀']] },
+      { key: 'boguCols', label: '列数', type: 'num', def: 0, min: 0, max: 10,
+        desc: '0 = 用预设自带列数' },
+      { key: 'boguRowH', label: '格子基准行高', type: 'num', def: 0, min: 0, max: 240,
+        unit: 'px', desc: '0 = 用预设值' },
+      { key: 'boguGap', label: '格子间距', type: 'num', def: 14, min: 0, max: 40, unit: 'px' },
+      { key: 'boguShowCap', label: '显示名称', type: 'bool', def: true },
+      { key: 'boguShowCode', label: '显示编号', type: 'bool', def: true },
+      { key: 'boguMask', label: '遮罩浓度', type: 'num', def: 0.86, min: 0.3, max: 0.98, step: 0.02 }
+    ]
+  },
+  {
     id: 'cdn', name: 'Cloudimage CDN（可选）', open: false,
     desc: '留空即走普通 URL，不依赖任何外部服务',
     params: [
