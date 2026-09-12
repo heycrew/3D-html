@@ -1,0 +1,15 @@
+* text=auto
+
+# Windows 脚本必须保持 CRLF，否则可能无法执行
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# 其余源码统一 LF
+*.js    text eol=lf
+*.html  text eol=lf
+*.py    text eol=lf
+*.txt   text eol=lf
+
+# 第三方压缩文件不做任何行尾处理
+*.min.js  -text

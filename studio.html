@@ -1,0 +1,2157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>360° 全景展示工作台</title>
+<style>
+:root{
+  --sd-bg:#0f1115; --sd-bg2:#171a21; --sd-bg3:#1f242d; --sd-bg4:#272d38;
+  --sd-line:#2b323d; --sd-line2:#39414f;
+  --sd-fg:#e8ecf3; --sd-fg2:#9aa5b6; --sd-fg3:#6b7686;
+  --sd-accent:#4f8ef7; --sd-accent2:#3a6fd0; --sd-ok:#38b26a; --sd-warn:#e0a83c; --sd-err:#e05a5a;
+  --sd-radius:7px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--sd-bg); color:var(--sd-fg);
+  font:13px/1.55 "Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#333b47;border-radius:6px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#454e5d;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- 顶栏 ---------- */
+#topbar{
+  display:flex; align-items:center; gap:10px; padding:0 14px; height:52px;
+  background:var(--sd-bg2); border-bottom:1px solid var(--sd-line); flex:none;
+}
+#brand{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;letter-spacing:.2px}
+#brand .logo{
+  width:26px;height:26px;border-radius:7px;flex:none;
+  background:linear-gradient(135deg,#4f8ef7,#8b5cf6);
+  display:grid;place-items:center;font-size:14px;
+}
+#brand small{font-weight:400;color:var(--sd-fg3);font-size:11px;margin-left:2px}
+.topbar-sep{width:1px;height:24px;background:var(--sd-line);margin:0 4px}
+.topbar-spacer{flex:1}
+
+.btn{
+  display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;
+  background:var(--sd-bg3); border:1px solid var(--sd-line2); border-radius:var(--sd-radius);
+  cursor:pointer; white-space:nowrap; transition:background .12s,border-color .12s;
+}
+.btn:hover{background:var(--sd-bg4);border-color:#48515f}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--sd-accent);border-color:var(--sd-accent);color:#fff;font-weight:600}
+.btn.primary:hover{background:var(--sd-accent2);border-color:var(--sd-accent2)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--sd-fg2)}
+.btn.ghost:hover{background:var(--sd-bg3);color:var(--sd-fg)}
+.btn.sm{height:26px;padding:0 9px;font-size:12px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary:disabled{background:var(--sd-bg3);border-color:var(--sd-line2);color:var(--sd-fg3)}
+
+select,input[type=text],input[type=number],textarea{
+  background:var(--sd-bg); border:1px solid var(--sd-line2); border-radius:6px;
+  padding:5px 8px; outline:none;
+}
+select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{border-color:var(--sd-accent)}
+
+/* ---------- 主体三栏 ---------- */
+#workspace{flex:1;display:grid;grid-template-columns:268px minmax(0,1fr) 312px;overflow:hidden}
+
+.col{display:flex;flex-direction:column;overflow:hidden;background:var(--sd-bg2)}
+#col-left{border-right:1px solid var(--sd-line)}
+#col-right{border-left:1px solid var(--sd-line);background:var(--sd-bg2)}
+.col-head{
+  display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;flex:none;
+  border-bottom:1px solid var(--sd-line); font-size:12px; font-weight:600;
+  color:var(--sd-fg2); letter-spacing:.4px;
+}
+.col-head .spacer{flex:1}
+.col-body{flex:1;overflow-y:auto;overflow-x:hidden}
+
+/* ---------- 素材面板 ---------- */
+#dropzone{
+  margin:12px; padding:18px 12px; border:1.5px dashed var(--sd-line2); border-radius:var(--sd-radius);
+  text-align:center; color:var(--sd-fg3); cursor:pointer; transition:.15s; background:var(--sd-bg3);
+}
+#dropzone:hover,#dropzone.over{border-color:var(--sd-accent);color:var(--sd-fg2);background:var(--sd-bg4)}
+#dropzone .big{font-size:22px;display:block;margin-bottom:6px;opacity:.8}
+#dropzone .hint{font-size:11px;margin-top:4px;color:var(--sd-fg3);line-height:1.5}
+.mat-actions{display:flex;gap:6px;padding:0 12px 10px;flex-wrap:wrap}
+.mat-actions .btn{flex:1;justify-content:center;min-width:64px}
+#matStats{padding:0 12px 8px;font-size:11px;color:var(--sd-fg3);line-height:1.6}
+#matStats b{color:var(--sd-fg2);font-weight:600}
+#matList{padding:0 8px 14px}
+.mat-group{margin-bottom:10px}
+.mat-group-title{
+  display:flex;align-items:center;gap:6px;padding:4px 6px;font-size:11px;color:var(--sd-fg3);
+  font-weight:600;letter-spacing:.3px;
+}
+.mat-group-title .tag{
+  background:var(--sd-bg4);border-radius:4px;padding:1px 6px;color:var(--sd-fg2);font-weight:600;
+}
+.mat-items{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.mat-item{
+  position:relative;aspect-ratio:1;border-radius:5px;overflow:hidden;background:var(--sd-bg3);
+  border:1px solid var(--sd-line);cursor:pointer;
+}
+.mat-item img{width:100%;height:100%;object-fit:contain;display:block;background:#0b0d11}
+.mat-item .idx{
+  position:absolute;left:0;bottom:0;background:rgba(0,0,0,.72);color:#fff;
+  font-size:9px;padding:0 4px;border-top-right-radius:4px;line-height:14px;
+}
+.mat-item.is-off{opacity:.32}
+.mat-item.is-off::after{
+  content:"已排除";position:absolute;inset:0;display:grid;place-items:center;
+  background:rgba(0,0,0,.55);font-size:10px;color:#fff;
+}
+.mat-empty{color:var(--sd-fg3);font-size:12px;text-align:center;padding:18px 12px;line-height:1.7}
+
+/* ---------- 中间：预览 ---------- */
+#col-center{background:var(--sd-bg);position:relative;display:flex;flex-direction:column}
+#stage-toolbar{
+  display:flex;align-items:center;gap:8px;padding:0 12px;height:40px;flex:none;
+  border-bottom:1px solid var(--sd-line);background:var(--sd-bg2);font-size:12px;color:var(--sd-fg2);
+}
+#stage-toolbar .spacer{flex:1}
+.swatch{width:20px;height:20px;border-radius:5px;border:1px solid var(--sd-line2);cursor:pointer}
+.swatch.on{outline:2px solid var(--sd-accent);outline-offset:1px}
+#stage-wrap{flex:1;overflow:auto;display:grid;place-items:center;padding:20px;min-height:0}
+#stage-frame{
+  position:relative;box-shadow:0 8px 40px rgba(0,0,0,.5);border-radius:4px;overflow:hidden;
+  background:#fff; transition:width .1s;
+}
+#stage-frame.checker{
+  background-image:linear-gradient(45deg,#d8d8d8 25%,transparent 25%),
+                   linear-gradient(-45deg,#d8d8d8 25%,transparent 25%),
+                   linear-gradient(45deg,transparent 75%,#d8d8d8 75%),
+                   linear-gradient(-45deg,transparent 75%,#d8d8d8 75%);
+  background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0;background-color:#f2f2f2;
+}
+#stage-host{width:100%;height:100%}
+#stage-empty{
+  position:absolute;inset:0;display:grid;place-items:center;text-align:center;
+  color:#8b95a5;background:#1a1e26;font-size:13px;line-height:1.8;padding:20px;
+}
+#stage-empty .big{font-size:34px;display:block;margin-bottom:10px;opacity:.55}
+#stage-empty.hide{display:none}
+
+/* 代码抽屉 */
+#codepane{flex:none;border-top:1px solid var(--sd-line);background:var(--sd-bg2);display:flex;flex-direction:column}
+#codepane-head{
+  display:flex;align-items:center;gap:8px;padding:0 12px;height:36px;flex:none;cursor:pointer;
+  font-size:12px;color:var(--sd-fg2);user-select:none;
+}
+#codepane-head:hover{background:var(--sd-bg3)}
+#codepane-head .spacer{flex:1}
+#codepane-head .chev{transition:transform .18s;display:inline-block;font-size:10px}
+#codepane.open #codepane-head .chev{transform:rotate(90deg)}
+#codepane-body{height:0;overflow:hidden;transition:height .18s ease}
+#codepane.open #codepane-body{height:300px}
+#codebox{
+  width:100%;height:100%;border:0;border-top:1px solid var(--sd-line);background:#0b0d11;
+  color:#c8d3e3;font:12px/1.6 Consolas,"Cascadia Mono",Menlo,monospace;
+  padding:10px 12px;resize:none;outline:none;white-space:pre;overflow:auto;
+}
+
+/* ---------- 右侧参数面板 ---------- */
+.pgroup{border-bottom:1px solid var(--sd-line)}
+.pgroup-head{
+  display:flex;align-items:center;gap:8px;padding:0 12px;height:38px;cursor:pointer;
+  font-size:12px;font-weight:600;color:var(--sd-fg2);user-select:none;
+}
+.pgroup-head:hover{background:var(--sd-bg3)}
+.pgroup-head .chev{transition:transform .18s;font-size:10px;color:var(--sd-fg3)}
+.pgroup.open .pgroup-head .chev{transform:rotate(90deg)}
+.pgroup-head .cnt{
+  margin-left:auto;font-size:10px;color:var(--sd-fg3);background:var(--sd-bg3);
+  padding:1px 6px;border-radius:9px;font-weight:400;
+}
+.pgroup-body{display:none;padding:4px 12px 14px}
+.pgroup.open .pgroup-body{display:block}
+
+.prow{display:flex;align-items:center;gap:10px;padding:5px 0;min-height:30px}
+.prow label{flex:1;color:var(--sd-fg2);font-size:12px;cursor:default;min-width:0}
+.prow label .sub{display:block;font-size:10px;color:var(--sd-fg3);line-height:1.4;margin-top:1px}
+.prow .ctl{flex:none;display:flex;align-items:center;gap:6px}
+.prow input[type=text],.prow input[type=number],.prow select{width:132px}
+.prow input[type=number]{width:76px;text-align:right}
+.prow input[type=color]{width:40px;height:26px;padding:1px;border:1px solid var(--sd-line2);border-radius:5px;background:var(--sd-bg);cursor:pointer}
+.prow.wide{display:block}
+.prow.wide textarea{width:100%;height:56px;margin-top:4px;font-family:Consolas,monospace;font-size:11px;resize:vertical}
+
+.switch{position:relative;width:38px;height:21px;flex:none}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch .track{
+  position:absolute;inset:0;background:var(--sd-bg4);border-radius:11px;
+  transition:background .16s;border:1px solid var(--sd-line2);
+}
+.switch .track::after{
+  content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+  background:#8d97a7;transition:transform .16s,background .16s;
+}
+.switch input:checked + .track{background:var(--sd-accent);border-color:var(--sd-accent)}
+.switch input:checked + .track::after{transform:translateX(17px);background:#fff}
+
+.tri{display:inline-flex;background:var(--sd-bg);border:1px solid var(--sd-line2);border-radius:6px;overflow:hidden}
+.tri button{
+  background:transparent;border:0;padding:4px 9px;cursor:pointer;color:var(--sd-fg3);font-size:11px;min-width:34px;
+}
+.tri button:hover{background:var(--sd-bg3);color:var(--sd-fg2)}
+.tri button.on{background:var(--sd-accent);color:#fff;font-weight:600}
+
+/* ---------- 状态栏 ---------- */
+#statusbar{
+  flex:none;height:28px;display:flex;align-items:center;gap:14px;padding:0 14px;
+  background:var(--sd-bg2);border-top:1px solid var(--sd-line);font-size:11px;color:var(--sd-fg3);
+}
+#statusbar .spacer{flex:1}
+#statusbar .dot{width:6px;height:6px;border-radius:50%;background:var(--sd-ok);display:inline-block;margin-right:5px}
+#statusbar .dot.warn{background:var(--sd-warn)}
+#statusbar .dot.err{background:var(--sd-err)}
+
+/* ---------- 通知 ---------- */
+#toasts{position:fixed;right:16px;bottom:44px;display:flex;flex-direction:column;gap:8px;z-index:90;pointer-events:none}
+.toast{
+  background:var(--sd-bg4);border:1px solid var(--sd-line2);border-left:3px solid var(--sd-accent);
+  border-radius:6px;padding:9px 13px;max-width:340px;box-shadow:0 8px 26px rgba(0,0,0,.5);
+  animation:tin .18s ease;font-size:12px;
+}
+.toast.ok{border-left-color:var(--sd-ok)}
+.toast.warn{border-left-color:var(--sd-warn)}
+.toast.err{border-left-color:var(--sd-err)}
+.toast b{display:block;margin-bottom:2px}
+.toast span{color:var(--sd-fg2);font-size:11px;line-height:1.5}
+@keyframes tin{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+
+/* ---------- 弹窗 ---------- */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.62);display:grid;place-items:center;z-index:100}
+.modal{
+  background:var(--sd-bg2);border:1px solid var(--sd-line2);border-radius:10px;
+  width:min(560px,92vw);max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.65);
+}
+.modal-head{display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--sd-line);font-weight:600}
+.modal-head .spacer{flex:1}
+.modal-body{padding:16px 18px;overflow:auto;line-height:1.75;color:var(--sd-fg2);font-size:12.5px}
+.modal-body h4{color:var(--sd-fg);margin:16px 0 6px;font-size:13px}
+.modal-body h4:first-child{margin-top:0}
+.modal-body code{background:var(--sd-bg);padding:1px 5px;border-radius:4px;font-family:Consolas,monospace;font-size:11.5px;color:#9ec3ff}
+.modal-body ol,.modal-body ul{margin:6px 0;padding-left:20px}
+.modal-body li{margin:3px 0}
+.modal-foot{padding:12px 18px;border-top:1px solid var(--sd-line);display:flex;gap:8px;justify-content:flex-end}
+.mini-note{font-size:11px;color:var(--sd-fg3);padding:6px 12px 10px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <div id="brand">
+    <span class="logo">◎</span>
+    <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
+  </div>
+  <div class="topbar-sep"></div>
+  <label style="color:var(--sd-fg2);font-size:12px">页面模板</label>
+  <select id="tplSelect" style="width:150px"></select>
+  <div class="topbar-sep"></div>
+  <button class="btn ghost sm" id="btnHelp">使用说明</button>
+  <div class="topbar-spacer"></div>
+  <button class="btn sm" id="btnImportCfg">导入配置</button>
+  <button class="btn sm" id="btnExportCfg">导出配置</button>
+  <button class="btn primary" id="btnExport">导出 HTML</button>
+</header>
+
+<main id="workspace">
+
+  <!-- 左：素材 -->
+  <aside class="col" id="col-left">
+    <div class="col-head">
+      <span>素材</span>
+      <span class="spacer"></span>
+      <button class="btn ghost sm" id="btnSortName" title="按文件名自然排序">重排</button>
+      <button class="btn ghost sm" id="btnClearMat" title="清空素材">清空</button>
+    </div>
+    <div class="col-body">
+      <div id="dropzone">
+        <span class="big">🖼</span>
+        <div>拖拽图片到此处</div>
+        <div class="hint">或点击选择文件 / 选择文件夹<br>支持任意帧数（6 张也能用）</div>
+      </div>
+      <div class="mat-actions">
+        <button class="btn sm" id="btnPickFiles">选择图片</button>
+        <button class="btn sm" id="btnPickDir">选择文件夹</button>
+        <button class="btn sm" id="btnDemo">载入示例</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:0 12px 10px;font-size:11px;color:var(--sd-fg3)">
+        <span>导入到</span>
+        <div class="tri" id="axisPick">
+          <button type="button" class="on" data-axis="x">水平旋转</button>
+          <button type="button" data-axis="y">垂直俯仰</button>
+        </div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
+      <div id="matStats"></div>
+      <div id="matList"></div>
+    </div>
+  </aside>
+
+  <!-- 中：预览 -->
+  <section class="col" id="col-center">
+    <div id="stage-toolbar">
+      <span>预览</span>
+      <div class="topbar-sep"></div>
+      <label style="color:var(--sd-fg3);font-size:11px">背景</label>
+      <div class="swatch checker on" data-bg="checker" title="透明棋盘"></div>
+      <div class="swatch" data-bg="#ffffff" style="background:#fff" title="白色"></div>
+      <div class="swatch" data-bg="#000000" style="background:#000" title="黑色"></div>
+      <div class="swatch" data-bg="#f5f6f8" style="background:#f5f6f8" title="浅灰"></div>
+      <div class="topbar-sep"></div>
+      <label style="color:var(--sd-fg3);font-size:11px">宽</label>
+      <input type="number" id="stageW" value="520" min="120" max="2400" style="width:70px;text-align:right">
+      <span style="color:var(--sd-fg3);font-size:11px">px</span>
+      <div class="topbar-sep"></div>
+      <button class="btn ghost sm" id="btnAutoRatio" title="按素材实际宽高比设置">自适应比例</button>
+      <div class="topbar-sep"></div>
+      <button class="btn ghost sm" id="btnAddHotspot" title="在预览图上点选位置添加热点">＋ 添加热点</button>
+      <button class="btn ghost sm" id="btnHotspotList" title="查看 / 删除热点">热点 <span id="hsCount">0</span></button>
+      <span class="spacer"></span>
+      <span id="stageMeta" style="color:var(--sd-fg3);font-size:11px"></span>
+    </div>
+    <div id="stage-wrap">
+      <div id="stage-frame">
+        <div id="stage-host"></div>
+        <div id="stage-empty">
+          <div>
+            <span class="big">◎</span>
+            还没有素材<br>
+            <span style="font-size:12px;color:#6b7686">从左侧导入图片，或点「载入示例」先看看效果</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="codepane">
+      <div id="codepane-head">
+        <span class="chev">▶</span>
+        <span>生成的 HTML 代码</span>
+        <span id="codeInfo" style="color:var(--sd-fg3)"></span>
+        <span class="spacer"></span>
+        <button class="btn ghost sm" id="btnCopyCode">复制</button>
+        <button class="btn ghost sm" id="btnDownloadCode">下载 index.html</button>
+      </div>
+      <div id="codepane-body">
+        <textarea id="codebox" spellcheck="false" readonly></textarea>
+      </div>
+    </div>
+  </section>
+
+  <!-- 右：参数 -->
+  <aside class="col" id="col-right">
+    <div class="col-head">
+      <span>参数设置</span>
+      <span class="spacer"></span>
+      <button class="btn ghost sm" id="btnResetParams">恢复默认</button>
+    </div>
+    <div class="col-body" id="paramsHost"></div>
+  </aside>
+
+</main>
+
+<footer id="statusbar">
+  <span><span class="dot" id="stDot"></span><span id="stMsg">就绪</span></span>
+  <span class="spacer"></span>
+  <span id="stMat"></span>
+  <span id="stFrame"></span>
+</footer>
+
+<div id="toasts"></div>
+
+<!-- ===== 360 库（外联，随工作台目录一起分发） ===== -->
+<script src="lib/360-view.min.js"></script>
+
+<!-- ===== 工作台逻辑 ===== -->
+<script>
+/* =====================================================================
+ * 01-schema.js —— 参数定义（严格对应 Cloudimage 360 View 4.10.0）
+ * 每个参数：key(v4 JS 配置名) / label / type / def / desc
+ * type: text | num | bool | select | color | tri | list
+ * tri = 三态布尔：null(未设置) / true / false
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.SCHEMA = [
+  {
+    id: 'source', name: '图片源', open: true,
+    desc: '决定图片从哪里来、共几帧',
+    params: [
+      { key: 'folder', label: '图片目录', type: 'text', def: './images/',
+        desc: '图片所在目录，以 / 结尾' },
+      { key: 'filenameX', label: '文件名模板（水平）', type: 'text', def: 'frame-{index}.jpg',
+        desc: '{index} 会替换为序号' },
+      { key: 'amountX', label: '水平帧数', type: 'num', def: 36, min: 1, max: 240,
+        desc: '一圈拍了多少张' },
+      { key: 'indexZeroBase', label: '序号补零位数', type: 'num', def: 0, min: 0, max: 6,
+        desc: '3 表示 001、002…' },
+      { key: 'imageListX', label: '水平图片列表（可选）', type: 'list', def: '',
+        desc: '文件名不规则时用，每行一个 URL；填了则忽略目录+模板' },
+      { key: 'filenameY', label: '文件名模板（垂直）', type: 'text', def: '',
+        desc: '俯仰视角图，如 top-{index}.jpg' },
+      { key: 'amountY', label: '垂直帧数', type: 'num', def: 0, min: 0, max: 120,
+        desc: '0 = 不启用垂直轴' },
+      { key: 'imageListY', label: '垂直图片列表（可选）', type: 'list', def: '', desc: '每行一个 URL' },
+      { key: 'filenameGrid', label: '网格文件名模板', type: 'text', def: '',
+        desc: '二维网格用，含 {indexX} 与 {indexY}' },
+      { key: 'imageListGrid', label: '网格图片列表（可选）', type: 'list', def: '',
+        desc: '每行一个 URL，Y 外层 X 内层' }
+    ]
+  },
+  {
+    id: 'behavior', name: '旋转行为', open: false,
+    desc: '自动旋转与惯性',
+    params: [
+      { key: 'autoplay', label: '自动旋转', type: 'bool', def: false },
+      { key: 'autoplayBehavior', label: '自动旋转方式', type: 'select', def: 'spin-x',
+        options: [['spin-x', '水平环绕'], ['spin-y', '垂直环绕'], ['spin-xy', '逐行扫描'], ['spin-yx', '逐列扫描']] },
+      { key: 'autoplayReverse', label: '自动旋转反向', type: 'bool', def: false },
+      { key: 'playOnce', label: '只播一遍', type: 'bool', def: false },
+      { key: 'speed', label: '自动旋转间隔', type: 'num', def: 80, min: 10, max: 2000, unit: 'ms' },
+      { key: 'inertia', label: '拖动惯性', type: 'bool', def: false, desc: '松手后继续滑行' }
+    ]
+  },
+  {
+    id: 'control', name: '交互控制', open: false,
+    desc: '鼠标 / 触摸 / 键盘',
+    params: [
+      { key: 'draggable', label: '鼠标拖动旋转', type: 'bool', def: true },
+      { key: 'swipeable', label: '触摸滑动旋转', type: 'bool', def: true },
+      { key: 'dragSpeed', label: '拖动灵敏度', type: 'num', def: 150, min: 10, max: 1000 },
+      { key: 'dragReverse', label: '拖动方向反向', type: 'bool', def: false },
+      { key: 'keys', label: '方向键控制', type: 'bool', def: false },
+      { key: 'keysReverse', label: '方向键反向', type: 'bool', def: false },
+      { key: 'stopAtEdges', label: '到边界停止', type: 'bool', def: false, desc: '不循环' },
+      { key: 'stopAtEdgesX', label: '水平边界停止', type: 'tri', def: null, desc: '未设置 = 跟随上一项' },
+      { key: 'stopAtEdgesY', label: '垂直边界停止', type: 'tri', def: null, desc: '未设置 = 跟随上一项' },
+      { key: 'pinchZoom', label: '双指缩放', type: 'bool', def: true }
+    ]
+  },
+  {
+    id: 'display', name: '外观与控件', open: false,
+    desc: '容器比例、缩放、主题',
+    params: [
+      { key: 'aspectRatio', label: '容器宽高比', type: 'text', def: '', placeholder: '如 4/3、1/1' },
+      { key: 'theme', label: '内置主题', type: 'select', def: '',
+        options: [['', '不指定'], ['light', '浅色'], ['dark', '深色']] },
+      { key: 'fullscreen', label: '全屏按钮', type: 'bool', def: false },
+      { key: 'zoomMax', label: '最大放大倍数', type: 'num', def: 5, min: 1, max: 10, step: 0.5 },
+      { key: 'zoomStep', label: '每次缩放步进', type: 'num', def: 0.5, min: 0.1, max: 3, step: 0.1 },
+      { key: 'zoomControls', label: '缩放按钮组', type: 'bool', def: true },
+      { key: 'zoomControlsPosition', label: '缩放按钮位置', type: 'select', def: 'bottom-right',
+        options: [['bottom-right', '右下'], ['bottom-left', '左下'], ['bottom-center', '下中'],
+                  ['top-right', '右上'], ['top-left', '左上'], ['top-center', '上中']] },
+      { key: 'scrollHint', label: '滚轮缩放提示', type: 'bool', def: true },
+      { key: 'hints', label: '首次交互提示', type: 'bool', def: true },
+      { key: 'initialIconShown', label: '初始 360° 图标', type: 'bool', def: true },
+      { key: 'bottomCircle', label: '底部进度环', type: 'bool', def: false },
+      { key: 'bottomCircleOffset', label: '进度环偏移', type: 'num', def: 5, min: 0, max: 60, unit: 'px' },
+      { key: 'initOnClick', label: '点击后才加载', type: 'bool', def: false, desc: '省流量，适合一页多个' },
+      { key: 'lazyload', label: '懒加载', type: 'bool', def: true }
+    ]
+  },
+  {
+    id: 'hotspot', name: '热点', open: false,
+    desc: '在画面上打标记（时间轴自动生成）',
+    params: [
+      { key: 'hotspotTrigger', label: '触发方式', type: 'select', def: 'hover',
+        options: [['hover', '悬停'], ['click', '点击']] },
+      { key: 'hotspotTimelineOnClick', label: '点时间轴显示弹窗', type: 'bool', def: true },
+      { key: 'markerTheme', label: '标记样式', type: 'select', def: '',
+        options: [['', '默认'], ['default', 'default'], ['inverted', 'inverted'], ['brand', 'brand（品牌色）']] },
+      { key: 'brandColor', label: '品牌色', type: 'color', def: '#ff6600' }
+    ]
+  },
+  {
+    id: 'cdn', name: 'Cloudimage CDN（可选）', open: false,
+    desc: '留空即走普通 URL，不依赖任何外部服务',
+    params: [
+      { key: 'ciToken', label: 'CDN Token', type: 'text', def: '', desc: '填了才走 Cloudimage 转码' },
+      { key: 'ciFilters', label: 'CDN 滤镜', type: 'text', def: '' },
+      { key: 'ciTransformation', label: 'CDN 变换', type: 'text', def: '' }
+    ]
+  }
+];
+
+/* 所有参数的默认值快照 */
+SD.defaults = function () {
+  var o = {};
+  SD.SCHEMA.forEach(function (g) {
+    g.params.forEach(function (p) { o[p.key] = p.def; });
+  });
+  return o;
+};
+
+/* 参数定义索引 */
+SD.paramDef = function (key) {
+  var found = null;
+  SD.SCHEMA.forEach(function (g) {
+    g.params.forEach(function (p) { if (p.key === key) found = p; });
+  });
+  return found;
+};
+
+/* 扁平参数列表 */
+SD.allParams = function () {
+  var out = [];
+  SD.SCHEMA.forEach(function (g) { g.params.forEach(function (p) { out.push(p); }); });
+  return out;
+};
+
+/* =====================================================================
+ * 02-templates.js —— 页面外观模板
+ * 每个模板 = 产物页面的 DOM 结构 + CSS + 参数默认覆盖
+ * 预览与导出共用同一份定义，保证所见即所得
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.TEMPLATES = [
+  {
+    id: 'bare',
+    name: '极简铺满',
+    desc: '查看器铺满整个页面，只保留缩放与全屏按钮',
+    defaults: { fullscreen: true, zoomControls: true, aspectRatio: '', hints: true },
+    body: [
+      '<div id="viewer" class="cloudimage-360"></div>'
+    ].join('\n'),
+    css: [
+      'html,body{height:100%;margin:0;padding:0;overflow:hidden;background:#f6f7f9;',
+      '  font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;}',
+      'body{display:grid;place-items:center;}',
+      '/* 高度跟随视口、宽度按素材比例自适应，保证整图完整显示且不被放大 */',
+      '#viewer{height:100vh;height:100dvh;width:auto;max-width:100vw;max-height:100vh;}'
+    ].join('\n')
+  },
+
+  {
+    id: 'card',
+    name: '电商详情卡',
+    desc: '左侧 360° 查看器 + 右侧商品信息，带「加入购物车」',
+    defaults: { fullscreen: true, zoomControls: true, aspectRatio: '4/3', hints: true },
+    body: [
+      '<div class="wrap">',
+      '  <div class="viewer-col">',
+      '    <div id="viewer" class="cloudimage-360"></div>',
+      '  </div>',
+      '  <div class="info">',
+      '    <h1>商品名称</h1>',
+      '    <p class="sub">副标题 / 卖点一句话</p>',
+      '    <div class="price">¥ 1,299.00</div>',
+      '    <p class="desc">拖动图片可 360° 查看商品细节。双击放大，滚轮或双指缩放，支持全屏。</p>',
+      '    <div class="tags"><span>正品保障</span><span>七天无理由</span><span>顺丰包邮</span></div>',
+      '    <button class="buy">加入购物车</button>',
+      '  </div>',
+      '</div>'
+    ].join('\n'),
+    css: [
+      'body{margin:0;background:#fff;color:#1f2329;',
+      '  font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;}',
+      '.wrap{display:flex;gap:32px;max-width:1160px;margin:0 auto;padding:32px 24px;',
+      '  flex-wrap:wrap;align-items:flex-start;}',
+      '.viewer-col{flex:1 1 520px;min-width:300px;}',
+      '#viewer{width:100%;aspect-ratio:4/3;background:#f6f7f9;border-radius:10px;',
+      '  overflow:hidden;border:1px solid #eceef2;}',
+      '.info{flex:1 1 300px;min-width:260px;padding-top:6px;}',
+      '.info h1{font-size:22px;margin:0 0 6px;line-height:1.4;}',
+      '.info .sub{color:#8a929e;font-size:13px;margin:0 0 16px;}',
+      '.price{color:#e4393c;font-size:28px;font-weight:700;margin-bottom:16px;}',
+      '.desc{color:#5c6673;line-height:1.9;font-size:14px;margin:0 0 18px;}',
+      '.tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;}',
+      '.tags span{background:#f2f4f7;color:#5c6673;font-size:12px;padding:4px 10px;border-radius:4px;}',
+      '.buy{background:#ff5a2c;color:#fff;border:0;border-radius:8px;padding:13px 40px;',
+      '  font-size:15px;font-weight:600;cursor:pointer;transition:background .15s;}',
+      '.buy:hover{background:#e84c20;}'
+    ].join('\n')
+  },
+
+  {
+    id: 'dark',
+    name: '暗色展厅',
+    desc: '深色背景 + 聚光灯效果，适合展示高质感商品',
+    defaults: { fullscreen: true, zoomControls: true, theme: 'dark', hints: false,
+                aspectRatio: '4/3', scrollHint: false },
+    body: [
+      '<div id="stage">',
+      '  <div id="viewer" class="cloudimage-360"></div>',
+      '</div>'
+    ].join('\n'),
+    css: [
+      'html,body{height:100%;margin:0;background:#0a0b0e;}',
+      '#stage{width:100%;height:100vh;height:100dvh;display:grid;place-items:center;',
+      '  background:radial-gradient(circle at 50% 42%,#1d222b 0%,#0a0b0e 68%);}',
+      '#viewer{height:min(100vh,88vw);width:auto;max-width:90vw;max-height:100vh;}',
+      ':root{',
+      '  --ci360-button-bg:rgba(255,255,255,.07);',
+      '  --ci360-button-bg-hover:rgba(255,255,255,.14);',
+      '  --ci360-icon-color:#c6cede;',
+      '  --ci360-icon-color-hover:#ffffff;',
+      '  --ci360-zoom-controls-bg:rgba(255,255,255,.07);',
+      '  --ci360-zoom-controls-bg-hover:rgba(255,255,255,.14);',
+      '  --ci360-zoom-controls-color:#c6cede;',
+      '  --ci360-zoom-controls-color-hover:#ffffff;',
+      '  --ci360-spinner-color:#fff;',
+      '  --ci360-fullscreen-bg:#0a0b0e;',
+      '  --ci360-popper-bg:rgba(28,32,40,.97);',
+      '  --ci360-popper-color:#e6eaf2;',
+      '}'
+    ].join('\n')
+  },
+
+  {
+    id: 'hero',
+    name: '居中卡片',
+    desc: '浅色渐变背景上的圆角卡片，适合落地页首屏',
+    defaults: { fullscreen: false, zoomControls: true, aspectRatio: '4/3', hints: true },
+    body: [
+      '<div class="card">',
+      '  <div id="viewer" class="cloudimage-360"></div>',
+      '  <p class="cap">拖动查看 360° 全貌</p>',
+      '</div>'
+    ].join('\n'),
+    css: [
+      'body{margin:0;min-height:100vh;display:grid;place-items:center;',
+      '  background:linear-gradient(135deg,#eef3fa 0%,#dee8f5 100%);',
+      '  font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;}',
+      '.card{background:#fff;border-radius:18px;padding:18px 18px 10px;',
+      '  box-shadow:0 22px 60px rgba(24,52,96,.16);}',
+      '#viewer{width:min(86vw,720px);aspect-ratio:4/3;border-radius:12px;overflow:hidden;}',
+      '.cap{text-align:center;color:#8a95a6;font-size:13px;margin:14px 0 8px;}'
+    ].join('\n')
+  },
+
+  {
+    id: 'gallery',
+    name: '多产品页',
+    desc: '一页多个 360° 卡片，点击后才加载（省流量）',
+    defaults: { initOnClick: true, fullscreen: false, zoomControls: true, hints: false },
+    disabled: true,   /* 依赖多场景导航（M5），暂未启用 */
+    body: [
+      '<h1 class="page-title">产品总览</h1>',
+      '<div class="grid" id="grid"></div>',
+      '<script>',
+      '/* 由工作台在导出时展开为多个 viewer 卡片 */',
+      '<\/script>'
+    ].join('\n'),
+    css: [
+      'body{margin:0;background:#f6f7f9;color:#1f2329;',
+      '  font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;}',
+      '.page-title{font-size:22px;font-weight:600;text-align:center;padding:34px 20px 6px;margin:0;}',
+      '.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));',
+      '  gap:20px;max-width:1200px;margin:0 auto;padding:24px;}',
+      '.item{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(20,40,80,.07);}',
+      '.item .cloudimage-360{width:100%;aspect-ratio:4/3;background:#f2f4f7;}',
+      '.item .name{padding:12px 14px;font-size:14px;color:#3c454f;}',
+      '.item .price{padding:0 14px 14px;color:#e4393c;font-weight:600;font-size:15px;}'
+    ].join('\n')
+  }
+];
+
+SD.templateById = function (id) {
+  for (var i = 0; i < SD.TEMPLATES.length; i++) {
+    if (SD.TEMPLATES[i].id === id) return SD.TEMPLATES[i];
+  }
+  return SD.TEMPLATES[0];
+};
+
+/* =====================================================================
+ * 03-materials.js —— 素材管线
+ *
+ * 关键约束（已实测）：Cloudimage 360 View 只接受普通 HTTP URL —— file://、
+ * data:、blob: 一律加载不出来。所以本地图片必须经「读取 → 降采样 → 上传到
+ * 本地服务」后，用 /@mat/... 这样的真实 URL 交给预览。
+ * 导出时则改用原始文件写进 images/ 目录。
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.Materials = (function () {
+  var PREVIEW_MAX_EDGE = 960;   /* 预览图最大边长，够看清、又不拖慢渲染 */
+  var serverOk = false;
+  var checked = false;
+
+  /* ---------- 探测本地服务 ---------- */
+  function ping() {
+    if (checked) return Promise.resolve(serverOk);
+    return fetch('/@ping', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { checked = true; serverOk = !!(j && j.ok); return serverOk; })
+      .catch(function () { checked = true; serverOk = false; return false; });
+  }
+
+  function isServer() { return serverOk; }
+  function isFileMode() { return location.protocol === 'file:'; }
+
+  function clearServer() {
+    if (!serverOk) return Promise.resolve();
+    return fetch('/@mat', { method: 'DELETE' }).catch(function () {});
+  }
+
+  function safeName(name) {
+    return String(name || 'frame').replace(/[\\\/:*?"<>|]+/g, '_');
+  }
+
+  /* ---------- 读图 ---------- */
+  function loadImage(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () { resolve({ img: img, objUrl: url }); };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('无法读取图片：' + file.name));
+      };
+      img.src = url;
+    });
+  }
+
+  /* ---------- 单张：降采样 + 上传 ---------- */
+  function upload(file, axis) {
+    return loadImage(file).then(function (o) {
+      var img = o.img;
+      var scale = Math.min(1, PREVIEW_MAX_EDGE / Math.max(img.width, img.height));
+      var w = Math.max(1, Math.round(img.width * scale));
+      var h = Math.max(1, Math.round(img.height * scale));
+
+      var cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+
+      var meta = {
+        name: file.name,
+        w: img.width, h: img.height,
+        previewW: w, previewH: h,
+        file: file,
+        off: false,
+        axis: axis === 'y' ? 'y' : 'x'
+      };
+
+      return new Promise(function (resolve) {
+        cv.toBlob(function (blob) {
+          if (!blob) { URL.revokeObjectURL(o.objUrl); resolve(meta); return; }
+          fetch('/@upload', {
+            method: 'POST',
+            headers: { 'X-File-Name': encodeURIComponent(safeName(file.name)) },
+            body: blob
+          })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              meta.url = j.url;
+              URL.revokeObjectURL(o.objUrl);
+              resolve(meta);
+            })
+            .catch(function () {
+              URL.revokeObjectURL(o.objUrl);
+              resolve(meta);
+            });
+        }, 'image/png');
+      });
+    });
+  }
+
+  /* ---------- 批量导入（按文件名自然排序，串行上传以免打爆内存） ---------- */
+  function importFiles(files, axis, onProgress) {
+    var list = Array.prototype.slice.call(files).filter(function (f) {
+      return /^image\//.test(f.type) ||
+             /\.(jpe?g|png|webp|gif|bmp|avif)$/i.test(f.name);
+    });
+    if (!list.length) return Promise.resolve([]);
+
+    list.sort(function (a, b) {
+      return String(a.name).localeCompare(String(b.name), 'zh-Hans-CN',
+        { numeric: true, sensitivity: 'base' });
+    });
+
+    var out = [];
+    var chain = Promise.resolve();
+    list.forEach(function (f, i) {
+      chain = chain.then(function () {
+        if (onProgress) onProgress(i + 1, list.length, f.name);
+        return upload(f, axis).then(function (m) { out.push(m); });
+      });
+    });
+    return chain.then(function () { return out; });
+  }
+
+  /* ---------- 生成示例素材（无素材时可直接看效果） ---------- */
+  function demoItems() {
+    return new Promise(function (resolve) {
+      var colors = ['#d94141', '#2fae63', '#2f6fd0', '#d9a72f', '#9a3fd0', '#2fa9b8'];
+      var labels = ['前', '右', '后', '左', '上', '下'];
+      var out = [];
+      var chain = Promise.resolve();
+      labels.forEach(function (lb, i) {
+        chain = chain.then(function () {
+          var cv = document.createElement('canvas');
+          cv.width = 480; cv.height = 360;
+          var x = cv.getContext('2d');
+          x.fillStyle = colors[i]; x.fillRect(0, 0, 480, 360);
+          x.fillStyle = 'rgba(255,255,255,.95)';
+          x.font = 'bold 110px "Microsoft YaHei",sans-serif';
+          x.textAlign = 'center'; x.textBaseline = 'middle';
+          x.fillText(lb, 240, 165);
+          x.font = '22px "Microsoft YaHei",sans-serif';
+          x.fillStyle = 'rgba(255,255,255,.78)';
+          x.fillText('第 ' + (i + 1) + ' / 6 帧', 240, 268);
+
+          return new Promise(function (res) {
+            cv.toBlob(function (blob) {
+              var meta = { name: 'frame-' + (i + 1) + '.png', w: 480, h: 360,
+                           previewW: 480, previewH: 360, off: false,
+                           axis: i < 4 ? 'x' : 'y' };
+              if (!serverOk || !blob) { res(meta); return; }
+              fetch('/@upload', {
+                method: 'POST',
+                headers: { 'X-File-Name': encodeURIComponent(meta.name) },
+                body: blob
+              }).then(function (r) { return r.json(); })
+                .then(function (j) { meta.url = j.url; res(meta); })
+                .catch(function () { res(meta); });
+            }, 'image/png');
+          });
+        });
+        chain = chain.then(function (m) { out.push(m); });
+      });
+      chain.then(function () { resolve(out); });
+    });
+  }
+
+  return {
+    ping: ping,
+    isServer: isServer,
+    isFileMode: isFileMode,
+    clearServer: clearServer,
+    importFiles: importFiles,
+    demoItems: demoItems,
+    PREVIEW_MAX_EDGE: PREVIEW_MAX_EDGE
+  };
+})();
+
+/* =====================================================================
+ * 04-preview.js —— 实时预览（同文档真实渲染）
+ *
+ * 为什么不用 iframe.srcdoc：实测 CI360 在 srcdoc 文档里完全不渲染。
+ * 另外库不支持参数热更新，所以每次改动都 destroyAll() + 清空容器 + 重新 init()。
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.Preview = (function () {
+  var host = null;
+  var timer = null;
+  var mounted = false;
+
+  function mount(el) {
+    host = el;
+    mounted = true;
+  }
+
+  function destroy() {
+    try {
+      var ci = (typeof window.CI360 === 'function') ? new window.CI360() : window.CI360;
+      if (ci && ci.destroyAll) ci.destroyAll();
+    } catch (e) { /* 尚未初始化过，忽略 */ }
+    if (host) host.innerHTML = '';
+  }
+
+  function render(state) {
+    if (!mounted || !host) return;
+    destroy();
+
+    var cfg;
+    try {
+      cfg = SD.Codegen.buildConfig(state, { mode: 'preview' });
+    } catch (e) {
+      SD.status('预览配置生成失败：' + (e && e.message), 'err');
+      return;
+    }
+
+    var list = cfg.imageListX || [];
+    if (!list.length) {
+      if (SD.ShowEmpty) SD.ShowEmpty(true);
+      return;
+    }
+    if (SD.ShowEmpty) SD.ShowEmpty(false);
+
+    var el = document.createElement('div');
+    el.className = 'cloudimage-360';
+    el.id = 'viewer';
+    el.style.cssText = 'width:100%;height:100%';
+    host.appendChild(el);
+
+    try {
+      var ci = (typeof window.CI360 === 'function') ? new window.CI360() : window.CI360;
+      ci.init(el, cfg);
+    } catch (e) {
+      SD.status('预览初始化失败：' + (e && e.message), 'err');
+    }
+  }
+
+  function schedule(state, delay) {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(function () {
+      timer = null;
+      render(state);
+    }, delay === undefined ? 220 : delay);
+  }
+
+  return { mount: mount, destroy: destroy, render: render, schedule: schedule };
+})();
+
+/* =====================================================================
+ * 05-codegen.js —— 产物 HTML 代码生成
+ *
+ * 同一份生成逻辑同时服务「预览」「导出」，保证所见即所得。
+ * 两个实测结论固化在这里：
+ *   1) 4.10.0 把「实例」挂到 window.CI360，不能照抄 README 的 new CI360()
+ *   2) 库只认普通 HTTP URL，所以预览用上传后的 /@mat/... URL，
+ *      产出物则用 folder + filenameX 指向 images/ 目录
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.Codegen = (function () {
+
+  var LIB_HREF = './lib/360-view.min.js';
+  var LIB_CDN = 'https://cdn.cloudimage.io/360-view/4.10.0/360-view.min.js';
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  /* JSON → 可安全放进 <script> 的字面量 */
+  function safeJson(obj, pretty) {
+    var t = JSON.stringify(obj, null, pretty ? 2 : 0);
+    return (t === undefined ? '{}' : t).replace(/<\//g, '<\\/');
+  }
+
+  function parseList(txt) {
+    if (!txt) return [];
+    return String(txt).split(/\r?\n/)
+      .map(function (s) { return s.trim(); })
+      .filter(function (s) { return s.length > 0; });
+  }
+
+  /* 当前生效的素材（排除被手动剔除的帧） */
+  function activeItems(state) {
+    var m = state.materials || {};
+    return (m.items || []).filter(function (it) { return !it.off; });
+  }
+
+  var IMAGE_KEYS = ['folder', 'filenameX', 'amountX', 'indexZeroBase',
+                    'filenameY', 'amountY', 'filenameGrid',
+                    'imageListX', 'imageListY', 'imageListGrid'];
+
+  /* 最大公约数 → 把 w/h 化成 4/3、1/1 这样的比例串 */
+  function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { var t = a % b; a = b; b = t; } return a || 1; }
+
+  function sizeRatio(it) {
+    if (!it || !it.w || !it.h) return '';
+    var g = gcd(it.w, it.h);
+    return (it.w / g) + '/' + (it.h / g);
+  }
+
+  function clearImageKeys(cfg) {
+    IMAGE_KEYS.forEach(function (k) { delete cfg[k]; });
+  }
+
+  /* ---------- 生成 v4 配置对象 ----------
+   * opts.mode:
+   *   'preview' → imageListX = 上传后的真实 HTTP URL（本地服务 /@mat/...）
+   *   'files'   → folder + filenameX + amountX（导出为 images/ 目录）
+   *   'inline'  → imageListX = data: URL（单文件交付）
+   */
+  function buildConfig(state, opts) {
+    opts = opts || {};
+    var mode = opts.mode || 'files';
+    var cfg = {};
+    var p = state.params || {};
+
+    SD.allParams().forEach(function (d) {
+      var v = p[d.key];
+      if (v === undefined || v === null || v === '') return;
+      if (d.type === 'list') {
+        var arr = parseList(v);
+        if (arr.length) cfg[d.key] = arr;
+        return;
+      }
+      if (d.type === 'tri') { cfg[d.key] = !!v; return; }
+      cfg[d.key] = v;
+    });
+
+    if (SD.Hotspots) SD.Hotspots.applyTo(cfg);
+
+    var m = state.materials || {};
+    var items = activeItems(state);
+    if (!items.length) return cfg;
+
+    /* 容器比例默认跟随素材。否则 CI360 会按图片比例把 canvas 撑出视口：
+       画面被放大裁切（看着发虚）+ 页面出现滚动条，拖动也会被带偏。 */
+    if (!cfg.aspectRatio) {
+      var autoRatio = sizeRatio(items[0]);
+      if (autoRatio) cfg.aspectRatio = autoRatio;
+    }
+
+    var xs = items.filter(function (it) { return (it.axis || 'x') !== 'y'; });
+    var ys = items.filter(function (it) { return it.axis === 'y'; });
+
+    if (mode === 'files') {
+      clearImageKeys(cfg);
+      cfg.folder = m.folder || './images/';
+      if (xs.length) {
+        cfg.filenameX = m.filenameX || 'frame-{index}.jpg';
+        cfg.amountX = xs.length;
+        cfg.indexZeroBase = m.pad || 0;
+      }
+      if (ys.length) {
+        cfg.filenameY = m.filenameY || 'vframe-{index}.jpg';
+        cfg.amountY = ys.length;
+      }
+    } else if (mode === 'inline') {
+      clearImageKeys(cfg);
+      if (xs.length) cfg.imageListX = xs.map(function (it) { return it.dataUrl || it.name; });
+      if (ys.length) cfg.imageListY = ys.map(function (it) { return it.dataUrl || it.name; });
+    } else {
+      clearImageKeys(cfg);
+      if (xs.length) cfg.imageListX = xs.map(function (it) { return it.url || it.name; });
+      if (ys.length) cfg.imageListY = ys.map(function (it) { return it.url || it.name; });
+    }
+    return cfg;
+  }
+
+  function initScript(cfg, opts) {
+    var external = !opts || opts.external === undefined ? true : opts.external;
+    var line = external
+      ? '  var ci = (typeof window.CI360 === "function") ? new window.CI360() : window.CI360;'
+      : '  var ci = (typeof window.CI360 === "function") ? new window.CI360() : window.CI360;';
+    return [
+      '(function () {',
+      '  var el = document.getElementById("viewer");',
+      '  var config = ' + safeJson(cfg, true) + ';',
+      line,
+      '  ci.init(el, config);',
+      '})();'
+    ].join('\n');
+  }
+
+  /* ---------- 完整产物 HTML ---------- */
+  function buildHtml(state, opts) {
+    opts = opts || {};
+    var mode = opts.mode || 'files';
+    var tpl = SD.templateById(state.templateId);
+    var cfg = buildConfig(state, { mode: mode });
+    var title = state.title || '360° 产品展示';
+    var libSrc = opts.libHref || LIB_HREF;
+
+    var libTag = '<script src="' + esc(libSrc) + '"><\/script>';
+
+    return [
+      '<!DOCTYPE html>',
+      '<html lang="zh-CN">',
+      '<head>',
+      '<meta charset="utf-8">',
+      '<meta name="viewport" content="width=device-width,initial-scale=1">',
+      '<title>' + esc(title) + '</title>',
+      '<style>',
+      tpl.css,
+      (state.customCss || ''),
+      '</style>',
+      '</head>',
+      '<body>',
+      '',
+      tpl.body,
+      '',
+      '<!-- Cloudimage 360 View 4.10.0 (MIT License) -->',
+      libTag,
+      '<script>',
+      initScript(cfg),
+      '<\/script>',
+      '</body>',
+      '</html>',
+      ''
+    ].join('\n');
+  }
+
+  /* ---------- 供嵌入已有页面的片段（走 CDN） ---------- */
+  function buildSnippet(state) {
+    var cfg = buildConfig(state, { mode: 'files' });
+    var tpl = SD.templateById(state.templateId);
+    return [
+      '<style>',
+      tpl.css,
+      '</style>',
+      '<div id="viewer" class="cloudimage-360"></div>',
+      '<script src="' + LIB_CDN + '"><\/script>',
+      '<script>',
+      initScript(cfg),
+      '<\/script>'
+    ].join('\n');
+  }
+
+  return {
+    esc: esc,
+    safeJson: safeJson,
+    parseList: parseList,
+    activeItems: activeItems,
+    buildConfig: buildConfig,
+    buildHtml: buildHtml,
+    buildSnippet: buildSnippet,
+    LIB_HREF: LIB_HREF,
+    LIB_CDN: LIB_CDN
+  };
+})();
+
+/* =====================================================================
+ * 06-hotspots.js —— 热点可视化编辑
+ *
+ * CI360 的热点在 JS 配置里是数组，positions 为「帧索引 → {x, y}」映射。
+ * 省略 containerSize 时坐标按百分比（0-100）解释，所以工作台直接取
+ * 点击位置占舞台的百分比，所见即所得。
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.Hotspots = (function () {
+  var picking = false;
+  var layer = null;
+
+  function st() { return SD.STATE; }
+
+  function list() {
+    var s = st();
+    if (!s.hotspots) s.hotspots = [];
+    return s.hotspots;
+  }
+
+  function stageEl() { return document.getElementById('stage-frame'); }
+
+  /* 当前预览停在第几帧（0-based） */
+  function activeFrame() {
+    try {
+      var ci = (typeof window.CI360 === 'function') ? new window.CI360() : window.CI360;
+      var v = ci && ci.getViewById ? ci.getViewById('viewer') : null;
+      if (v && typeof v.activeImageX === 'number') return v.activeImageX;
+    } catch (e) { /* 忽略 */ }
+    return 0;
+  }
+
+  /* ---------- 选点层 ---------- */
+  function buildLayer() {
+    if (layer && layer.parentNode) return layer;
+    var stage = stageEl();
+    if (!stage) return null;
+    layer = document.createElement('div');
+    layer.id = 'hotspot-layer';
+    layer.style.cssText =
+      'position:absolute;inset:0;z-index:20;cursor:crosshair;display:none;' +
+      'background:rgba(79,142,247,.10);outline:2px dashed rgba(79,142,247,.7);outline-offset:-2px';
+    layer.addEventListener('click', onPick);
+    stage.appendChild(layer);
+    return layer;
+  }
+
+  function startPicking() {
+    if (!buildLayer()) return;
+    picking = true;
+    layer.style.display = 'block';
+    SD.status('加热点：在预览图上点一下要放标记的位置（Esc 取消）', 'warn');
+  }
+
+  function stopPicking() {
+    picking = false;
+    if (layer) layer.style.display = 'none';
+  }
+
+  function onPick(e) {
+    if (!picking) return;
+    var r = stageEl().getBoundingClientRect();
+    var x = Math.max(0, Math.min(100, +(((e.clientX - r.left) / r.width) * 100).toFixed(2)));
+    var y = Math.max(0, Math.min(100, +(((e.clientY - r.top) / r.height) * 100).toFixed(2)));
+    stopPicking();
+    askDetails(activeFrame(), x, y);
+  }
+
+  /* ---------- 填写内容 ---------- */
+  function askDetails(frame, x, y) {
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = [
+      '<div class="modal" style="width:min(460px,92vw)">',
+      '  <div class="modal-head"><span>新增热点</span></div>',
+      '  <div class="modal-body">',
+      '    <p style="margin:0 0 10px">位置：第 <b>' + (frame + 1) + '</b> 帧，',
+      '       x <b>' + x + '%</b>，y <b>' + y + '%</b></p>',
+      '    <label style="display:block;margin-bottom:10px">',
+      '      <span style="font-size:12px;color:var(--sd-fg2)">标记标题（时间轴上会显示）</span>',
+      '      <input type="text" id="hsLabel" placeholder="例如：瓶口细节" ' +
+      '        style="width:100%;margin-top:4px">',
+      '    </label>',
+      '    <label style="display:block">',
+      '      <span style="font-size:12px;color:var(--sd-fg2)">弹窗内容（可写 HTML）</span>',
+      '      <textarea id="hsBody" style="width:100%;height:78px;margin-top:4px" ' +
+      '        placeholder="例如：&lt;b&gt;手工描金&lt;/b&gt;&lt;p&gt;口径 8cm，纯手工绘制&lt;/p&gt;"></textarea>',
+      '    </label>',
+      '  </div>',
+      '  <div class="modal-foot">',
+      '    <button class="btn" data-cancel>取消</button>',
+      '    <button class="btn primary" data-ok>添加</button>',
+      '  </div>',
+      '</div>'
+    ].join('\n');
+    document.body.appendChild(mask);
+
+    setTimeout(function () {
+      var i = document.getElementById('hsLabel');
+      if (i) i.focus();
+    }, 30);
+
+    function close() { if (mask.parentNode) mask.parentNode.removeChild(mask); }
+
+    mask.addEventListener('click', function (e) {
+      if (e.target === mask || e.target.hasAttribute('data-cancel')) { close(); return; }
+      if (e.target.hasAttribute('data-ok')) {
+        var lab = (document.getElementById('hsLabel').value || '').trim();
+        var body = (document.getElementById('hsBody').value || '').trim();
+        list().push({
+          id: 'hs-' + Date.now().toString(36),
+          label: lab || ('热点 ' + (list().length + 1)),
+          content: body,
+          frame: frame,
+          x: x, y: y
+        });
+        close();
+        if (SD.refresh) SD.refresh();
+        SD.toast('ok', '已添加热点', '位置：第 ' + (frame + 1) + ' 帧');
+      }
+    });
+  }
+
+  /* ---------- 列表管理 ---------- */
+  function showList() {
+    var items = list();
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    var rows = items.length
+      ? items.map(function (h, i) {
+          return '<div style="display:flex;align-items:center;gap:10px;padding:7px 0;' +
+                 'border-bottom:1px solid var(--sd-line)">' +
+                 '<span style="color:var(--sd-fg3);width:20px">' + (i + 1) + '</span>' +
+                 '<span style="flex:1">' + SD.Codegen.esc(h.label) +
+                 '<span style="color:var(--sd-fg3);font-size:11px"> · 第 ' + (h.frame + 1) +
+                 ' 帧 · ' + h.x + '%, ' + h.y + '%</span></span>' +
+                 '<button class="btn ghost sm" data-del="' + h.id + '">删除</button>' +
+                 '</div>';
+        }).join('\n')
+      : '<p style="color:var(--sd-fg3)">还没有热点。点「添加热点」后在预览图上选位置。</p>';
+
+    mask.innerHTML = [
+      '<div class="modal" style="width:min(520px,92vw)">',
+      '  <div class="modal-head"><span>热点列表（' + items.length + '）</span></div>',
+      '  <div class="modal-body">' + rows + '</div>',
+      '  <div class="modal-foot">',
+      '    <button class="btn" data-clear>全部清空</button>',
+      '    <button class="btn primary" data-close>完成</button>',
+      '  </div>',
+      '</div>'
+    ].join('\n');
+    document.body.appendChild(mask);
+
+    function close() { if (mask.parentNode) mask.parentNode.removeChild(mask); }
+
+    mask.addEventListener('click', function (e) {
+      var del = e.target.getAttribute && e.target.getAttribute('data-del');
+      if (del) {
+        var arr = list();
+        for (var i = 0; i < arr.length; i++) {
+          if (arr[i].id === del) { arr.splice(i, 1); break; }
+        }
+        close();
+        if (SD.refresh) SD.refresh();
+        showList();
+        return;
+      }
+      if (e.target.hasAttribute('data-clear')) {
+        st().hotspots = [];
+        close();
+        if (SD.refresh) SD.refresh();
+        SD.toast('ok', '热点已清空');
+        return;
+      }
+      if (e.target === mask || e.target.hasAttribute('data-close')) close();
+    });
+  }
+
+  /* ---------- 写进 CI360 配置 ---------- */
+  function applyTo(cfg) {
+    var items = list();
+    if (!items.length) return cfg;
+    cfg.hotspots = items.map(function (h) {
+      var pos = {};
+      pos[h.frame] = { x: h.x, y: h.y };
+      return {
+        id: h.id,
+        label: h.label,
+        orientation: 'x',
+        positions: pos,
+        content: h.content || ('<strong>' + SD.Codegen.esc(h.label) + '</strong>')
+      };
+    });
+    return cfg;
+  }
+
+  function count() { return list().length; }
+
+  return {
+    startPicking: startPicking,
+    stopPicking: stopPicking,
+    showList: showList,
+    applyTo: applyTo,
+    count: count,
+    activeFrame: activeFrame
+  };
+})();
+
+/* =====================================================================
+ * 07-export.js —— 导出器
+ *
+ * 主路径：File System Access API（showDirectoryPicker）直接把整个产物目录
+ * 写到磁盘 —— 工作台跑在 http://localhost 下属于安全上下文，该 API 可用。
+ * 产物结构：
+ *     导出/
+ *     ├─ index.html          引用 ./lib/ 与 ./images/
+ *     ├─ images/             frame-1.jpg …
+ *     ├─ lib/360-view.min.js
+ *     ├─ serve.ps1
+ *     ├─ 启动.bat
+ *     └─ 使用说明.txt
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.Export = (function () {
+
+  function canPickDir() {
+    return typeof window.showDirectoryPicker === 'function';
+  }
+
+  function extOf(name) {
+    var m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
+    return m ? '.' + m[1].toLowerCase() : '.jpg';
+  }
+
+  /* 导出时统一重命名，保证 {index} 模板与排序都可靠 */
+  function planNames(items) {
+    var xi = 0, yi = 0, out = [];
+    for (var i = 0; i < items.length; i++) {
+      var ext = extOf(items[i].name);
+      if (items[i].axis === 'y') { yi++; out.push('vframe-' + yi + ext); }
+      else { xi++; out.push('frame-' + xi + ext); }
+    }
+    return out;
+  }
+
+  function batContent(openFile, port) {
+    return [
+      '@echo off',
+      'cd /d "%~dp0"',
+      'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0serve.ps1" -Port ' + (port || 8790) +
+        ' -Open "' + openFile + '"',
+      'echo.',
+      'echo Server stopped.',
+      'pause',
+      ''
+    ].join('\r\n');
+  }
+
+  function readmeText(state, count, names) {
+    return [
+      '360° 产品展示 —— 使用说明',
+      '========================================',
+      '',
+      '【怎么打开】',
+      '  直接双击 index.html 通常看不到图片：Cloudimage 360 View 会给每张图',
+      '  设置 crossOrigin="anonymous"，浏览器在 file:// 协议下会拦掉这些请求。',
+      '  请改为双击 启动.bat —— 它会用 Windows 自带的 PowerShell 起一个本地',
+      '  服务并自动打开浏览器（不需要安装任何东西，也不需要管理员权限）。',
+      '',
+      '【目录说明】',
+      '  index.html            展示页面（不要改名）',
+      '  images/               图片素材，共 ' + count + ' 张',
+      '  lib/360-view.min.js   360 查看器库（Cloudimage 360 View 4.10.0，MIT）',
+      '  serve.ps1             本地服务脚本（由 启动.bat 调用）',
+      '  启动.bat              双击即可预览',
+      '',
+      '【怎么放到服务器上】',
+      '  把整个文件夹上传到网站目录即可，无需 PHP / Node 等运行环境。',
+      '  访问 index.html 就是成品页面。',
+      '',
+      '【当前配置】',
+      '  页面模板：' + (state.templateId || ''),
+      '  素材张数：' + count,
+      '  图片顺序：' + names.join('、'),
+      '',
+      '【手动导出时注意】',
+      '  images/ 里的文件名必须与 index.html 中 filenameX 的 {index} 模板一致，',
+      '  序号从 1 开始。',
+      ''
+    ].join('\r\n');
+  }
+
+  /* ---------- 读写辅助 ---------- */
+  function fetchBytes(rel) {
+    return fetch(rel, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('读取 ' + rel + ' 失败（' + r.status + '）');
+      return r.arrayBuffer();
+    });
+  }
+
+  async function writeIn(dir, relPath, data) {
+    var parts = String(relPath).split('/');
+    var name = parts.pop();
+    var cur = dir;
+    for (var i = 0; i < parts.length; i++) {
+      cur = await cur.getDirectoryHandle(parts[i], { create: true });
+    }
+    var fh = await cur.getFileHandle(name, { create: true });
+    var w = await fh.createWritable();
+    await w.write(data);
+    await w.close();
+  }
+
+  /* ---------- 主流程：写到一个用户选择的目录 ---------- */
+  async function exportToDirectory(state, onProgress) {
+    var items = SD.Codegen.activeItems(state);
+    if (!items.length) throw new Error('还没有素材，先导入图片或载入示例');
+
+    var names = planNames(items);
+    var dir;
+    try {
+      dir = await window.showDirectoryPicker({ mode: 'readwrite', id: 'ci360-export' });
+    } catch (e) {
+      if (e && e.name === 'AbortError') return { cancelled: true };
+      throw e;
+    }
+
+    var total = items.length + 4;
+    var step = 0;
+    function tick(label) {
+      step++;
+      if (onProgress) onProgress(step, total, label);
+    }
+
+    /* 1) index.html —— 指向 ./images/ 与 ./lib/ */
+    var xs = items.filter(function (it) { return (it.axis || 'x') !== 'y'; });
+    var ys = items.filter(function (it) { return it.axis === 'y'; });
+    var prev = { folder: state.materials.folder, fx: state.materials.filenameX,
+                 fy: state.materials.filenameY };
+    state.materials.folder = './images/';
+    state.materials.pad = 0;
+    if (xs.length) state.materials.filenameX = 'frame-{index}' + extOf(xs[0].name);
+    if (ys.length) state.materials.filenameY = 'vframe-{index}' + extOf(ys[0].name);
+    var html = SD.Codegen.buildHtml(state, { mode: 'files' });
+    state.materials.folder = prev.folder;
+    state.materials.filenameX = prev.fx;
+    state.materials.filenameY = prev.fy;
+    await writeIn(dir, 'index.html', html);
+    tick('index.html');
+
+    /* 2) images/ */
+    for (var i = 0; i < items.length; i++) {
+      var f = items[i].file;
+      var blob = f || await (await fetch(items[i].url)).blob();
+      await writeIn(dir, 'images/' + names[i], blob);
+      tick(names[i]);
+    }
+
+    /* 3) lib/ */
+    var libBytes = await fetchBytes('lib/360-view.min.js');
+    await writeIn(dir, 'lib/360-view.min.js', libBytes);
+    tick('lib/360-view.min.js');
+
+    /* 4) serve.ps1 */
+    var ps = await fetchBytes('serve.ps1');
+    await writeIn(dir, 'serve.ps1', ps);
+    tick('serve.ps1');
+
+    /* 5) 启动.bat + 使用说明 */
+    await writeIn(dir, '启动.bat', batContent('index.html', 8790));
+    await writeIn(dir, '使用说明.txt', readmeText(state, items.length, names));
+
+    return { ok: true, dir: dir.name, files: items.length + 5, names: names };
+  }
+
+  /* ---------- 降级：只下载 index.html ---------- */
+  function exportHtmlOnly(state) {
+    var html = SD.Codegen.buildHtml(state, { mode: 'files' });
+    SD.downloadFile('index.html', html, 'text/html');
+    return html;
+  }
+
+  return {
+    canPickDir: canPickDir,
+    planNames: planNames,
+    batContent: batContent,
+    readmeText: readmeText,
+    exportToDirectory: exportToDirectory,
+    exportHtmlOnly: exportHtmlOnly
+  };
+})();
+
+/* =====================================================================
+ * 08-app.js —— 状态、面板装配与主循环
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return SD.Codegen.esc(s); };
+
+  /* ================= 状态 ================= */
+  var STATE = {
+    templateId: SD.TEMPLATES[0].id,
+    title: '360° 产品展示',
+    customCss: '',
+    params: SD.defaults(),
+    materials: { items: [], folder: './images/', filenameX: 'frame-{index}.jpg', pad: 0 },
+    stage: { width: 520, bg: 'checker' }
+  };
+  SD.STATE = STATE;
+
+  var SERVER_OK = false;
+  var AXIS = 'x';   /* 后续导入的图片归到哪条轴 */
+
+  /* ================= 通用 UI ================= */
+  function toast(kind, title, msg, ms) {
+    var el = document.createElement('div');
+    el.className = 'toast ' + (kind || '');
+    el.innerHTML = '<b>' + esc(title) + '</b>' + (msg ? '<span>' + esc(msg) + '</span>' : '');
+    $('toasts').appendChild(el);
+    setTimeout(function () {
+      el.style.transition = 'opacity .28s';
+      el.style.opacity = '0';
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 300);
+    }, ms || 3200);
+  }
+  SD.toast = toast;
+
+  function status(msg, kind) {
+    $('stMsg').textContent = msg;
+    $('stDot').className = 'dot' + (kind ? ' ' + kind : '');
+  }
+  SD.status = status;
+
+  function showEmpty(show) {
+    var el = $('stage-empty');
+    if (!el) return;
+    if (show) el.classList.remove('hide');
+    else el.classList.add('hide');
+  }
+  SD.ShowEmpty = showEmpty;
+
+  /* ================= 参数面板 ================= */
+  function setParam(key, val) {
+    STATE.params[key] = val;
+    refresh();
+  }
+
+  function rowFor(d) {
+    var row = document.createElement('div');
+    row.className = 'prow' + (d.type === 'list' ? ' wide' : '');
+    var val = STATE.params[d.key];
+
+    var lab = document.createElement('label');
+    lab.innerHTML = esc(d.label) +
+      (d.desc ? '<span class="sub">' + esc(d.desc) + '</span>' : '');
+    row.appendChild(lab);
+
+    var ctl = document.createElement('div');
+    ctl.className = 'ctl';
+
+    if (d.type === 'bool') {
+      var sw = document.createElement('label'); sw.className = 'switch';
+      var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!val;
+      cb.addEventListener('change', function () { setParam(d.key, cb.checked); });
+      var track = document.createElement('span'); track.className = 'track';
+      sw.appendChild(cb); sw.appendChild(track);
+      ctl.appendChild(sw);
+
+    } else if (d.type === 'tri') {
+      var tri = document.createElement('div'); tri.className = 'tri';
+      [['跟随', null], ['是', true], ['否', false]].forEach(function (opt) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = opt[0];
+        if (val === opt[1]) b.className = 'on';
+        b.addEventListener('click', function () {
+          setParam(d.key, opt[1]);
+          Array.prototype.forEach.call(tri.children, function (x) { x.className = ''; });
+          b.className = 'on';
+        });
+        tri.appendChild(b);
+      });
+      ctl.appendChild(tri);
+
+    } else if (d.type === 'select') {
+      var sel = document.createElement('select');
+      (d.options || []).forEach(function (o) {
+        var op = document.createElement('option');
+        op.value = o[0]; op.textContent = o[1];
+        if (String(val) === String(o[0])) op.selected = true;
+        sel.appendChild(op);
+      });
+      sel.addEventListener('change', function () { setParam(d.key, sel.value); });
+      ctl.appendChild(sel);
+
+    } else if (d.type === 'num') {
+      var num = document.createElement('input');
+      num.type = 'number';
+      num.value = val === null || val === undefined ? '' : val;
+      if (d.min !== undefined) num.min = d.min;
+      if (d.max !== undefined) num.max = d.max;
+      if (d.step !== undefined) num.step = d.step;
+      num.addEventListener('change', function () {
+        var v = num.value === '' ? '' : Number(num.value);
+        if (typeof v === 'number' && d.min !== undefined && v < d.min) v = d.min;
+        if (typeof v === 'number' && d.max !== undefined && v > d.max) v = d.max;
+        num.value = v;
+        setParam(d.key, v);
+      });
+      ctl.appendChild(num);
+      if (d.unit) {
+        var u = document.createElement('span');
+        u.style.cssText = 'color:var(--sd-fg3);font-size:11px';
+        u.textContent = d.unit;
+        ctl.appendChild(u);
+      }
+
+    } else if (d.type === 'color') {
+      var col = document.createElement('input');
+      col.type = 'color';
+      col.value = /^#[0-9a-f]{6}$/i.test(String(val)) ? val : '#ff6600';
+      col.addEventListener('input', function () { setParam(d.key, col.value); });
+      ctl.appendChild(col);
+
+    } else if (d.type === 'list') {
+      var ta = document.createElement('textarea');
+      ta.value = val || '';
+      ta.placeholder = '每行一个（可留空）';
+      ta.addEventListener('change', function () { setParam(d.key, ta.value); });
+      ctl.appendChild(ta);
+
+    } else {
+      var tx = document.createElement('input');
+      tx.type = 'text';
+      tx.value = val === null || val === undefined ? '' : val;
+      if (d.placeholder) tx.placeholder = d.placeholder;
+      tx.addEventListener('change', function () { setParam(d.key, tx.value); });
+      ctl.appendChild(tx);
+    }
+
+    row.appendChild(ctl);
+    return row;
+  }
+
+  function buildParams() {
+    var host = $('paramsHost');
+    var openState = {};
+    Array.prototype.forEach.call(host.querySelectorAll('.pgroup'), function (g, i) {
+      openState[i] = g.classList.contains('open');
+    });
+
+    host.innerHTML = '';
+    SD.SCHEMA.forEach(function (g, i) {
+      var box = document.createElement('div');
+      var isOpen = openState[i] === undefined ? g.open : openState[i];
+      box.className = 'pgroup' + (isOpen ? ' open' : '');
+
+      var head = document.createElement('div');
+      head.className = 'pgroup-head';
+      head.innerHTML = '<span class="chev">▶</span><span>' + esc(g.name) + '</span>' +
+                       '<span class="cnt">' + g.params.length + '</span>';
+      head.addEventListener('click', function () { box.classList.toggle('open'); });
+      box.appendChild(head);
+
+      var body = document.createElement('div');
+      body.className = 'pgroup-body';
+      g.params.forEach(function (d) { body.appendChild(rowFor(d)); });
+      box.appendChild(body);
+      host.appendChild(box);
+    });
+  }
+
+  function syncParamsUI() { buildParams(); }
+
+  /* ================= 模板 ================= */
+  function buildTemplateSelect() {
+    var sel = $('tplSelect');
+    sel.innerHTML = '';
+    SD.TEMPLATES.forEach(function (t) {
+      if (t.disabled) return;
+      var op = document.createElement('option');
+      op.value = t.id;
+      op.textContent = t.name;
+      sel.appendChild(op);
+    });
+    sel.value = STATE.templateId;
+    sel.addEventListener('change', function () {
+      STATE.templateId = sel.value;
+      var t = SD.templateById(sel.value);
+      Object.keys(t.defaults || {}).forEach(function (k) {
+        STATE.params[k] = t.defaults[k];
+      });
+      syncParamsUI();
+      var tbg = templateBg(t);
+      if (tbg) STATE.stage.bg = tbg;
+      applyStage();
+      refresh();
+      status('已切换到模板：' + t.name);
+    });
+  }
+
+  /* ================= 素材 ================= */
+  function renderMaterials() {
+    var items = STATE.materials.items || [];
+    var host = $('matList');
+    var stats = $('matStats');
+    host.innerHTML = '';
+
+    if (!items.length) {
+      host.innerHTML = '<div class="mat-empty">还没有素材<br>' +
+        '<span style="color:#5b6472">支持任意帧数，6 张也能用</span></div>';
+      stats.innerHTML = '';
+      $('stMat').textContent = '';
+      $('stFrame').textContent = '';
+      return;
+    }
+
+    var xs = [], ys = [];
+    items.forEach(function (it) { (it.axis === 'y' ? ys : xs).push(it); });
+
+    stats.innerHTML = '共 <b>' + items.length + '</b> 张 &nbsp;·&nbsp; 水平 <b>' + xs.length +
+      '</b> 张，垂直 <b>' + ys.length + '</b> 张' + frameHint(xs.length, ys.length);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'mat-items';
+    items.forEach(function (it) {
+      var isY = it.axis === 'y';
+      var gi = (isY ? ys : xs).indexOf(it) + 1;
+      var d = document.createElement('div');
+      d.className = 'mat-item' + (it.off ? ' is-off' : '');
+      d.title = (it.name || '') + '（' + (isY ? '垂直俯仰' : '水平旋转') + '帧，点击可启用 / 排除）';
+      d.innerHTML = '<img alt=""><span class="idx">' + (isY ? 'V' : 'H') + gi + '</span>';
+      var im = d.querySelector('img');
+      if (it.url) im.src = it.url;
+      d.addEventListener('click', function () {
+        it.off = !it.off;
+        renderMaterials();
+        refresh();
+      });
+      wrap.appendChild(d);
+    });
+    host.appendChild(wrap);
+
+    $('stMat').textContent = '素材 ' + items.length + ' 张';
+    $('stFrame').textContent = '水平 ' + countOn(xs) + ' / 垂直 ' + countOn(ys);
+  }
+
+  function countOn(list) {
+    return list.filter(function (x) { return !x.off; }).length;
+  }
+
+  function frameHint(nx, ny) {
+    if (ny > 0) return '<br>水平拖动转一圈，上下拖动看俯仰';
+    if (nx > 0 && nx < 8) return '<br>水平帧数偏少，旋转会略显跳跃；建议一圈 24 张以上';
+    return '';
+  }
+
+  function syncFrameCount() {
+    var xs = STATE.materials.items.filter(function (it) { return (it.axis || 'x') !== 'y'; });
+    var ys = STATE.materials.items.filter(function (it) { return it.axis === 'y'; });
+    if (xs.length) STATE.params.amountX = xs.length;
+    STATE.params.amountY = ys.length;
+  }
+
+  function addMaterials(files) {
+    if (!SERVER_OK) {
+      toast('err', '预览不可用', '请关闭本页，改用「启动工作台.bat」打开工作台', 9000);
+      return;
+    }
+    status('正在导入素材…');
+    SD.Materials.importFiles(files, AXIS, function (i, n, name) {
+      status('导入中 ' + i + ' / ' + n + '：' + name);
+    }).then(function (items) {
+      if (!items.length) { toast('warn', '没有可用图片', '支持 jpg / png / webp 等'); status('就绪'); return; }
+      STATE.materials.items = STATE.materials.items.concat(items);
+      syncFrameCount();
+      syncParamsUI();
+      renderMaterials();
+      refresh();
+      toast('ok', '已导入 ' + items.length + ' 张素材');
+      status('就绪 · 素材 ' + STATE.materials.items.length + ' 张');
+    }).catch(function (e) {
+      toast('err', '导入失败', (e && e.message) || '');
+      status('导入失败', 'err');
+    });
+  }
+
+  function loadDemo() {
+    if (!SERVER_OK) {
+      toast('err', '预览不可用', '请改用「启动工作台.bat」打开工作台', 9000);
+      return;
+    }
+    status('正在生成示例素材…');
+    SD.Materials.demoItems().then(function (items) {
+      STATE.materials.items = items;
+      syncFrameCount();
+      syncParamsUI();
+      renderMaterials();
+      refresh();
+      toast('ok', '已载入示例素材', '水平 4 帧（前/右/后/左）＋ 垂直 2 帧（上/下）');
+      status('就绪 · 示例素材 6 张');
+    });
+  }
+
+  function clearMaterials() {
+    STATE.materials.items = [];
+    STATE.params.amountX = 1;
+    STATE.params.amountY = 0;
+    SD.Materials.clearServer();
+    renderMaterials();
+    refresh();
+    status('素材已清空');
+  }
+
+  /* ================= 舞台 ================= */
+  /* 取出模板 CSS 里 body 的背景，用来近似还原成品页面的观感 */
+  function templateBg(tpl) {
+    var m = /body\s*\{([^}]*)\}/.exec(tpl.css || '');
+    if (!m) return '';
+    var bg = /background\s*:\s*([^;]+)/.exec(m[1]);
+    return bg ? bg[1].trim() : '';
+  }
+
+  function autoRatio() {
+    var it = SD.Codegen.activeItems(STATE)[0];
+    if (it && it.w && it.h) return it.w + ' / ' + it.h;
+    return '';
+  }
+
+  function applyStage() {
+    var f = $('stage-frame');
+    var bg = STATE.stage.bg;
+    f.className = 'checker' === bg ? 'checker' : '';
+    f.style.background = bg === 'checker' ? '' : bg;
+    f.style.width = STATE.stage.width + 'px';
+    var ratio = STATE.params.aspectRatio || autoRatio();
+    f.style.aspectRatio = ratio || '4 / 3';
+    $('stageW').value = STATE.stage.width;
+    $('stageMeta').textContent = ratio ? ('比例 ' + ratio) : '';
+  }
+
+  /* ================= 主刷新 ================= */
+  var codeTimer = null;
+
+  function refresh() {
+    applyStage();
+    var hc = $('hsCount');
+    if (hc) hc.textContent = SD.Hotspots ? SD.Hotspots.count() : 0;
+    SD.Preview.schedule(STATE);
+
+    if (codeTimer) clearTimeout(codeTimer);
+    codeTimer = setTimeout(function () {
+      codeTimer = null;
+      updateCode();
+    }, 220);
+  }
+
+  function updateCode() {
+    var html = SD.Codegen.buildHtml(STATE, { mode: 'files' });
+    $('codebox').value = html;
+    $('codeInfo').textContent = '约 ' + (new Blob([html]).size / 1024).toFixed(1) + ' KB';
+  }
+
+  SD.refresh = refresh;
+
+  /* ================= 导出 ================= */
+  function doExport() {
+    var items = SD.Codegen.activeItems(STATE);
+    if (!items.length) { toast('warn', '还没有素材', '先导入图片或载入示例'); return; }
+
+    if (!SD.Export.canPickDir()) {
+      SD.Export.exportHtmlOnly(STATE);
+      toast('warn', '当前浏览器不支持选择目录',
+        '已下载 index.html；请自行把 lib/、serve.ps1 与 images/ 放在同级目录', 9000);
+      return;
+    }
+
+    status('正在导出…');
+    SD.Export.exportToDirectory(STATE, function (i, n, label) {
+      status('导出中 ' + i + ' / ' + n + '：' + label);
+    }).then(function (r) {
+      if (r && r.cancelled) { status('已取消导出'); return; }
+      status('导出完成');
+      toast('ok', '导出完成', '共 ' + r.files + ' 个文件 → ' + r.dir +
+        '（双击其中的 启动.bat 即可预览）', 7000);
+    }).catch(function (e) {
+      toast('err', '导出失败', (e && e.message) || '');
+      status('导出失败', 'err');
+    });
+  }
+
+  /* ================= 工具 ================= */
+  function downloadFile(name, content, mime) {
+    try {
+      var blob = new Blob([content], { type: (mime || 'text/plain') + ';charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 400);
+      return true;
+    } catch (e) {
+      toast('err', '下载失败', (e && e.message) || '');
+      return false;
+    }
+  }
+  SD.downloadFile = downloadFile;
+
+  function showHelp() {
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = [
+      '<div class="modal">',
+      '  <div class="modal-head"><span>使用说明</span><span class="spacer"></span>',
+      '    <button class="btn ghost sm" data-close>关闭</button></div>',
+      '  <div class="modal-body">',
+      '    <h4>三步做出一个 360° 展示页</h4>',
+      '    <ol>',
+      '      <li><b>导入素材</b>：左侧拖入图片，或点「选择文件夹」。支持任意帧数，6 张也能用。</li>',
+      '      <li><b>调参数</b>：右侧分组面板，改动实时反映到中间预览。</li>',
+      '      <li><b>导出</b>：点右上「导出 HTML」，选一个空文件夹，'
+        + '工作台会把 <code>index.html</code>、<code>images/</code>、'
+        + '<code>lib/</code>、<code>serve.ps1</code>、<code>启动.bat</code> 全部写好。</li>',
+      '    </ol>',
+      '    <h4>为什么必须用「启动工作台.bat」</h4>',
+      '    <p>Cloudimage 360 View 会给每张图设置 <code>crossOrigin="anonymous"</code>，'
+        + '而且只认 HTTP 地址 —— 双击 HTML 用 <code>file://</code> 打开时，'
+        + '浏览器会拦掉图片请求，预览会是空白。'
+        + '<code>启动工作台.bat</code> 用 Windows 自带的 PowerShell 起一个本地服务，'
+        + '零安装、不需要管理员权限。</p>',
+      '    <h4>导出的成品怎么用</h4>',
+      '    <p>整个文件夹拷到任何 Win10 / Win11 电脑，双击里面的 <code>启动.bat</code> 即可；'
+        + '要上线就把整个文件夹上传到网站目录，直接访问 <code>index.html</code>。</p>',
+      '    <h4>少帧素材（比如瓷器 6 张）</h4>',
+      '    <p>帧数少于 8 时旋转会略显跳跃。建议：前面 4 张（前后左右）做水平环绕，'
+        + '「上 / 下」两张填进 <b>垂直</b> 那一组，用上下拖动查看俯仰视角。</p>',
+      '    <h4>常用参数</h4>',
+      '    <ul>',
+      '      <li><b>水平帧数</b>：一圈拍了几张，导入素材后会自动填好</li>',
+      '      <li><b>自动旋转</b> + <b>间隔</b>：进页面后自己转起来</li>',
+      '      <li><b>最大放大倍数</b>：手机端建议 2-3，桌面端 3-5</li>',
+      '      <li><b>点击后才加载</b>：一页放多个查看器时打开，省流量</li>',
+      '    </ul>',
+      '  </div>',
+      '  <div class="modal-foot"><button class="btn primary" data-close>知道了</button></div>',
+      '</div>'
+    ].join('\n');
+    document.body.appendChild(mask);
+    function close() { if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    mask.addEventListener('click', function (e) {
+      if (e.target === mask || e.target.hasAttribute('data-close')) close();
+    });
+  }
+
+  /* ================= 环境提示 ================= */
+  function showEnvWarning() {
+    status('文件模式（file://）下预览不可用，请用「启动工作台.bat」打开', 'warn');
+    var e = $('stage-empty');
+    if (e) {
+      e.innerHTML = '<div><span class="big">⚠</span>当前是文件模式，预览不可用<br>' +
+        '<span style="font-size:12px;color:#6b7686">' +
+        '请关闭本页，双击「启动工作台.bat」重新打开工作台</span></div>';
+      e.classList.remove('hide');
+    }
+    toast('err', '请用「启动工作台.bat」打开',
+      '360 库只接受 HTTP 地址，file:// 下图片会被浏览器拦掉。', 9000);
+  }
+
+  /* ================= 事件装配 ================= */
+  function bindEvents() {
+    $('btnPickFiles').addEventListener('click', function () { $('fileInput').click(); });
+    $('btnPickDir').addEventListener('click', function () { $('dirInput').click(); });
+    $('btnDemo').addEventListener('click', loadDemo);
+    $('fileInput').addEventListener('change', function (e) { addMaterials(e.target.files); e.target.value = ''; });
+    $('dirInput').addEventListener('change', function (e) { addMaterials(e.target.files); e.target.value = ''; });
+
+    var dz = $('dropzone');
+    dz.addEventListener('click', function () { $('fileInput').click(); });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('over'); });
+    });
+    dz.addEventListener('drop', function (e) {
+      if (e.dataTransfer && e.dataTransfer.files) addMaterials(e.dataTransfer.files);
+    });
+
+    $('btnSortName').addEventListener('click', function () {
+      STATE.materials.items.sort(function (a, b) {
+        return String(a.name).localeCompare(String(b.name), 'zh-Hans-CN',
+          { numeric: true, sensitivity: 'base' });
+      });
+      renderMaterials();
+      refresh();
+      toast('ok', '已按文件名重排');
+    });
+    $('btnClearMat').addEventListener('click', clearMaterials);
+
+    Array.prototype.forEach.call($('axisPick').querySelectorAll('button'), function (b) {
+      b.addEventListener('click', function () {
+        Array.prototype.forEach.call($('axisPick').querySelectorAll('button'),
+          function (o) { o.className = ''; });
+        b.className = 'on';
+        AXIS = b.getAttribute('data-axis');
+        status('后续导入的图片将作为' + (AXIS === 'y' ? '垂直俯仰' : '水平旋转') + '帧');
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.swatch'), function (s) {
+      s.addEventListener('click', function () {
+        Array.prototype.forEach.call(document.querySelectorAll('.swatch'), function (o) { o.classList.remove('on'); });
+        s.classList.add('on');
+        STATE.stage.bg = s.getAttribute('data-bg');
+        applyStage();
+      });
+    });
+    $('stageW').addEventListener('change', function () {
+      var v = parseInt($('stageW').value, 10);
+      if (isNaN(v)) v = 520;
+      STATE.stage.width = Math.max(120, Math.min(2400, v));
+      applyStage();
+    });
+    $('btnAutoRatio').addEventListener('click', function () {
+      var r = autoRatio();
+      if (!r) { toast('warn', '无法自动识别', '请先导入素材'); return; }
+      STATE.params.aspectRatio = r;
+      syncParamsUI();
+      applyStage();
+      toast('ok', '已按素材比例设置', r);
+    });
+
+    $('btnAddHotspot').addEventListener('click', function () {
+      if (!SD.Codegen.activeItems(STATE).length) {
+        toast('warn', '先导入素材', '热点要打在实际画面上');
+        return;
+      }
+      SD.Hotspots.startPicking();
+    });
+    $('btnHotspotList').addEventListener('click', function () { SD.Hotspots.showList(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') SD.Hotspots.stopPicking();
+    });
+
+    $('codepane-head').addEventListener('click', function (e) {
+      if (e.target.closest('button')) return;
+      $('codepane').classList.toggle('open');
+      if ($('codepane').classList.contains('open')) updateCode();
+    });
+    $('btnCopyCode').addEventListener('click', function () {
+      var ta = $('codebox');
+      ta.select();
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(ta.value)
+            .then(function () { toast('ok', '已复制到剪贴板'); },
+                  function () { document.execCommand('copy'); toast('ok', '已复制到剪贴板'); });
+        } else { document.execCommand('copy'); toast('ok', '已复制到剪贴板'); }
+      } catch (err) { toast('err', '复制失败', '请手动选中后 Ctrl+C'); }
+    });
+    $('btnDownloadCode').addEventListener('click', function () {
+      SD.Export.exportHtmlOnly(STATE);
+      toast('ok', '已下载 index.html',
+        '还需要同级放好 lib/、serve.ps1 与 images/（建议直接用「导出 HTML」）', 6000);
+    });
+    $('btnExport').addEventListener('click', doExport);
+
+    $('btnResetParams').addEventListener('click', function () {
+      STATE.params = SD.defaults();
+      syncFrameCount();
+      syncParamsUI();
+      refresh();
+      toast('ok', '参数已恢复默认');
+    });
+
+    $('btnHelp').addEventListener('click', showHelp);
+
+    $('btnExportCfg').addEventListener('click', function () {
+      var conf = {
+        app: '360-studio', version: 1,
+        templateId: STATE.templateId,
+        title: STATE.title,
+        params: STATE.params,
+        materials: {
+          count: STATE.materials.items.length,
+          names: STATE.materials.items.map(function (i) { return i.name; })
+        }
+      };
+      downloadFile('360-config.json', JSON.stringify(conf, null, 2), 'application/json');
+      toast('ok', '已导出配置', '（不含图片本身）');
+    });
+    $('btnImportCfg').addEventListener('click', function () {
+      toast('warn', '配置导入', '将随后续版本提供');
+    });
+  }
+
+  /* ================= 启动 ================= */
+  function boot() {
+    SD.Preview.mount($('stage-host'));
+    buildTemplateSelect();
+    buildParams();
+    bindEvents();
+    applyStage();
+    renderMaterials();
+    showEmpty(true);
+    updateCode();
+
+    var libOk = typeof window.CI360 !== 'undefined';
+    if (!libOk) {
+      status('360 库未加载（lib/360-view.min.js 是否在同级目录？）', 'err');
+      toast('err', '360 库未加载', '请确认 lib/360-view.min.js 与工作台在同一目录', 8000);
+    }
+
+    SD.Materials.ping().then(function (ok) {
+      SERVER_OK = ok;
+      if (!ok) {
+        showEnvWarning();
+        return;
+      }
+      status('就绪 · 本地服务已连接 · 360 库 ' + (libOk ? '已加载' : '未加载'));
+      if (/[?&]code/.test(location.search)) {
+        var pane = $('codepane');
+        pane.classList.add('open');
+        updateCode();
+      }
+      if (/[?&]demo/.test(location.search)) loadDemo();
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+</script>
+</body>
+</html>
