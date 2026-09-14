@@ -4251,7 +4251,28 @@ window.SD = window.SD || {};
     });
     $('btnAddLot').addEventListener('click', function () { SD.Lots.add(); });
     var btnAn = $('btnAddAnchor');
-    if (btnAn) btnAn.addEventListener('click', function () { SD.Book.startAnchorPick(); });
+    if (btnAn) btnAn.addEventListener('click', function () {
+      /* 即时反馈 + 异常兜底：让「有没有被点到」「哪一步失败」都看得见 */
+      status('正在打开锚点编辑器…');
+      try {
+        if (!SD.Book || typeof SD.Book.startAnchorPick !== 'function') {
+          toast('err', '锚点编辑器未加载', '请刷新工作台（Ctrl+F5）后重试', 6000);
+          return;
+        }
+        SD.Book.startAnchorPick();
+        var sheet = SD.Book.activeSheet();
+        if (sheet && sheet.kind !== 'page') {
+          toast('warn', '请先选中一张内容页', '左栏「书页」里点一下要打锚点的那一页', 5000);
+        } else if (sheet && sheet.page && !sheet.page.url) {
+          toast('warn', '本页还没有上传图片', '先点「上传本页图片」', 5000);
+        } else {
+          status('就绪 · 锚点编辑器已打开');
+        }
+      } catch (e) {
+        toast('err', '打开锚点编辑器出错', (e && e.message) || String(e), 9000);
+        throw e;
+      }
+    });
 
     $('btnAddHotspot').addEventListener('click', function () {
       if (!SD.Codegen.activeItems(STATE).length) {
