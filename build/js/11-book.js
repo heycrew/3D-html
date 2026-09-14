@@ -231,7 +231,25 @@ SD.Book = (function () {
     ].join('\n');
     document.body.appendChild(mask);
 
-    document.getElementById('anImg').src = sh.page.url;
+    /* 素材 URL 是本地服务临时发的，服务重启后就失效了 ——
+       这里检测加载失败并自动用原始 File 重传一次，避免「弹窗开着却看不到页面」 */
+    var anImg = document.getElementById('anImg');
+    anImg.onerror = function () {
+      if (sh.page && sh.page.file) {
+        SD.status('页面图已失效，正在重新载入…', 'warn');
+        SD.Materials.importFiles([sh.page.file], 'x', null).then(function (r) {
+          if (r && r.length) {
+            sh.page.url = r[0].url;
+            anImg.src = r[0].url;
+            SD.status('就绪');
+            SD.toast('ok', '页面图已重新载入');
+          } else { SD.toast('err', '页面图重新载入失败', '请重新上传本页图片'); }
+        }).catch(function () { SD.toast('err', '页面图重新载入失败', '请重新上传本页图片'); });
+      } else {
+        SD.toast('err', '页面图加载失败', '可能是本地服务重启过 —— 请刷新工作台（Ctrl+F5）后重试');
+      }
+    };
+    anImg.src = sh.page.url;
 
     function refreshList() {
       var list = anchorsOf(sh);
