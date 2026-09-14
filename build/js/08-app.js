@@ -360,6 +360,7 @@ window.SD = window.SD || {};
 
   function refresh() {
     applyStage();
+    if (SD.Store) SD.Store.autoSave();
     var hc = $('hsCount');
     if (hc) hc.textContent = SD.Hotspots ? SD.Hotspots.count() : 0;
     SD.Preview.schedule(STATE);
@@ -538,6 +539,95 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 工程自动保存 / 恢复 ================= */
+  async function restoreFromStore() {
+    var snap = await SD.Store.load();
+    if (!snap) return false;
+
+    STATE.pageType = snap.pageType || 'single';
+    STATE.title = snap.title || STATE.title;
+    STATE.customCss = snap.customCss || '';
+    if (snap.templateId) STATE.templateId = snap.templateId;
+    STATE.params = Object.assign(SD.defaults(), snap.params || {});
+    if (!STATE.book) STATE.book = {};
+    if (snap.book) {
+      STATE.book.w = snap.book.w || 900;
+      STATE.book.h = snap.book.h || 1200;
+      STATE.book.active = snap.book.active || 0;
+    }
+
+    async function uploadOne(rec) {
+      if (rec && rec.file) {
+        try {
+          var res = await SD.Materials.importFiles([rec.file], rec.axis || 'x', null);
+          if (res && res.length) {
+            res[0].off = !!rec.off;
+            return res[0];
+          }
+        } catch (e) { /* 文件失效就退化成占位 */ }
+      }
+      return { name: rec.name || '', w: rec.w, h: rec.h,
+               axis: rec.axis || 'x', off: !!rec.off };
+    }
+
+    /* 拍品素材 */
+    var lots = [];
+    for (var i = 0; i < (snap.lots || []).length; i++) {
+      var l = snap.lots[i];
+      var items = [];
+      for (var j = 0; j < (l.items || []).length; j++) {
+        items.push(await uploadOne(l.items[j]));
+      }
+      lots.push({ id: l.id, title: l.title || '', code: l.code || '', items: items });
+    }
+    STATE.lots = lots;
+    STATE.activeLot = Math.max(0, Math.min(snap.activeLot || 0, Math.max(0, lots.length - 1)));
+
+    /* 当前编辑的那一份 */
+    var editing = [];
+    for (var k = 0; k < (snap.editingItems || []).length; k++) {
+      editing.push(await uploadOne(snap.editingItems[k]));
+    }
+    if (editing.length) STATE.materials.items = editing;
+
+    /* 书页 */
+    if (snap.book) {
+      async function upSheet(rec) {
+        if (!rec || !rec.file) return null;
+        try {
+          var r = await SD.Materials.importFiles([rec.file], 'x', null);
+          if (r && r.length) return { url: r[0].url, file: rec.file, name: rec.name || '' };
+        } catch (e) {}
+        return null;
+      }
+      STATE.book.cover = await upSheet(snap.book.cover);
+      STATE.book.back = await upSheet(snap.book.back);
+      var pages = [];
+      for (var m = 0; m < ((snap.book.pages) || []).length; m++) {
+        var pg = snap.book.pages[m];
+        var o = await upSheet(pg);
+        pages.push({
+          url: o ? o.url : '',
+          file: o ? o.file : null,
+          name: (o && o.name) || pg.name || '',
+          anchors: pg.anchors || []
+        });
+      }
+      STATE.book.pages = pages;
+    }
+    return true;
+  }
+
+  async function applyRestored() {
+    if ($('pageType')) $('pageType').value = STATE.pageType;
+    if ($('btnAddAnchor')) $('btnAddAnchor').style.display = (STATE.pageType === 'book') ? '' : 'none';
+    syncParamsUI();
+    SD.Lots.render();
+    SD.Book.render();
+    renderMaterials();
+    refresh();
+  }
+
   /* ================= 环境提示 ================= */
   function showEnvWarning() {
     status('文件模式（file://）下预览不可用，请用「启动工作台.bat」打开', 'warn');
@@ -686,6 +776,19 @@ window.SD = window.SD || {};
 
     $('btnHelp').addEventListener('click', showHelp);
 
+    var btnWipe = $('btnWipeStore');
+    if (btnWipe) btnWipe.addEventListener('click', function () {
+      if (!confirm('确定清除本机保存的工程吗？\n\n' +
+                   '已上传的素材与参数都会消失，不可恢复。')) return;
+      SD.Store.clear().then(function () {
+        toast('ok', '已清除本地工程', '刷新后不会再恢复');
+      });
+    });
+    SD.onStoreSaved = function (ts) {
+      var el = $('stSaved');
+      if (el) el.textContent = '已自动保存 ' + new Date(ts).toLocaleTimeString();
+    };
+
     $('btnExportCfg').addEventListener('click', function () {
       var conf = {
         app: '360-studio', version: 1,
@@ -734,6 +837,39 @@ window.SD = window.SD || {};
         return;
       }
       status('就绪 · 本地服务已连接 · 360 库 ' + (libOk ? '已加载' : '未加载'));
+
+      /* 有调试参数时不打扰，直接按参数走 */
+      var hasDebug = /[?&](demo|lots|book)/.test(location.search);
+      if (!hasDebug && SD.Store) {
+        restoreFromStore().then(function (restored) {
+          if (!restored) return;
+          applyRestored();
+          toast('ok', '已恢复上次的工程',
+                '素材已重新载入，可直接继续', 5000);
+        }).catch(function () {});
+      }
+
+      if (/[?&]storetest/.test(location.search)) {
+        setTimeout(function () {
+          var snap = SD.Store.snapshot();
+          var withFile = 0, total = 0;
+          (snap.lots || []).forEach(function (l) {
+            (l.items || []).forEach(function (it) { total++; if (it.file) withFile++; });
+          });
+          (snap.book && snap.book.pages || []).forEach(function (p) { total++; if (p.file) withFile++; });
+          if (snap.book && snap.book.cover && snap.book.cover.file) { total++; withFile++; }
+          if (snap.book && snap.book.back && snap.book.back.file) { total++; withFile++; }
+          var box = document.createElement('pre');
+          box.style.cssText = 'position:fixed;left:6px;bottom:6px;background:#000;'
+            + 'color:#0f0;font:12px monospace;padding:8px;z-index:99999;max-width:92vw';
+          box.textContent = 'snapshot: lots=' + (snap.lots || []).length
+            + ' | editingItems=' + (snap.editingItems || []).length
+            + ' | bookPages=' + ((snap.book && snap.book.pages) || []).length
+            + ' | 带File的条目=' + withFile + '/' + total
+            + ' | params键数=' + Object.keys(snap.params || {}).length;
+          document.body.appendChild(box);
+        }, 5000);
+      }
       if (/[?&]code/.test(location.search)) {
         var pane = $('codepane');
         pane.classList.add('open');

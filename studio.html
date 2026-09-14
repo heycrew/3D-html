@@ -293,6 +293,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
   <select id="tplSelect" style="width:150px"></select>
   <div class="topbar-sep"></div>
   <button class="btn ghost sm" id="btnHelp">使用说明</button>
+  <button class="btn ghost sm" id="btnWipeStore" title="清除浏览器里自动保存的工程">清空本地工程</button>
   <div class="topbar-spacer"></div>
   <button class="btn sm" id="btnImportCfg">导入配置</button>
   <button class="btn sm" id="btnExportCfg">导出配置</button>
@@ -422,6 +423,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
 
 <footer id="statusbar">
   <span><span class="dot" id="stDot"></span><span id="stMsg">就绪</span></span>
+  <span id="stSaved" style="color:var(--sd-fg3)"></span>
   <span class="spacer"></span>
   <span id="stMat"></span>
   <span id="stFrame"></span>
@@ -913,9 +915,12 @@ SD.Materials = (function () {
 
           return new Promise(function (res) {
             cv.toBlob(function (blob) {
-              var meta = { name: 'frame-' + (i + 1) + '.png', w: 480, h: 360,
+              var nm = 'frame-' + (i + 1) + '.png';
+              var meta = { name: nm, w: 480, h: 360,
                            previewW: 480, previewH: 360, off: false,
-                           axis: i < 4 ? 'x' : 'y' };
+                           axis: i < 4 ? 'x' : 'y',
+                           /* 存一份 File，这样刷新后也能被自动恢复 */
+                           file: blob ? new File([blob], nm, { type: 'image/png' }) : null };
               if (!serverOk || !blob) { res(meta); return; }
               fetch('/@upload', {
                 method: 'POST',
@@ -3249,6 +3254,180 @@ SD.BookPage = (function () {
 })();
 
 /* =====================================================================
+ * 13-store.js —— 工程自动保存 / 恢复（IndexedDB）
+ *
+ * 为什么需要：素材只存在内存里，刷新页面就全没了 —— 用户辛苦传的
+ * 几十张图、打好的锚点会一并消失。这里把「参数 + 拍品素材 + 书页」
+ * 自动存进浏览器本地数据库，下次打开自动恢复。
+ *
+ * 关键点：预览用的 /@mat/... URL 是本地服务临时发的，重启即失效，
+ * 所以存的是**原始 File 对象**（IndexedDB 支持结构化克隆 File/Blob），
+ * 恢复时重新上传一遍换回新的 URL。
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.Store = (function () {
+  var DB_NAME = 'ci360-studio';
+  var STORE = 'project';
+  var KEY = 'current';
+  var VERSION = 1;
+
+  var dbPromise = null;
+  var saveTimer = null;
+  var lastSavedAt = 0;
+  var enabled = true;
+
+  function open() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise(function (resolve, reject) {
+      var req;
+      try { req = indexedDB.open(DB_NAME, VERSION); }
+      catch (e) { reject(e); return; }
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+    return dbPromise;
+  }
+
+  function tx(mode, fn) {
+    return open().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var t = db.transaction(STORE, mode);
+        var store = t.objectStore(STORE);
+        var out = fn(store);
+        t.oncomplete = function () { resolve(out && out.result !== undefined ? out.result : out); };
+        t.onerror = function () { reject(t.error); };
+        t.onabort = function () { reject(t.error); };
+      });
+    });
+  }
+
+  /* ---------- 快照：把当前工程压成可存的结构 ---------- */
+  function fileOf(o) {
+    if (!o) return null;
+    return { name: o.name || '', file: o.file || null };
+  }
+
+  function snapshot() {
+    var st = SD.STATE;
+    if (!st) return null;
+    var bk = st.book || {};
+    return {
+      v: VERSION,
+      savedAt: Date.now(),
+      pageType: st.pageType || 'single',
+      title: st.title || '',
+      customCss: st.customCss || '',
+      templateId: st.templateId || '',
+      params: JSON.parse(JSON.stringify(st.params || {})),
+      activeLot: st.activeLot || 0,
+
+      lots: (st.lots || []).map(function (lot) {
+        return {
+          id: lot.id, title: lot.title || '', code: lot.code || '',
+          items: ((lot.items) || []).map(function (it) {
+            return {
+              name: it.name || '', w: it.w, h: it.h,
+              axis: it.axis || 'x', off: !!it.off, file: it.file || null
+            };
+          })
+        };
+      }),
+
+      /* 当前正在编辑的那一份也要存（它可能还没被 saveCurrent 落库） */
+      editingItems: (st.materials && st.materials.items || []).map(function (it) {
+        return {
+          name: it.name || '', w: it.w, h: it.h,
+          axis: it.axis || 'x', off: !!it.off, file: it.file || null
+        };
+      }),
+
+      book: {
+        w: bk.w || 900, h: bk.h || 1200,
+        active: bk.active || 0,
+        cover: fileOf(bk.cover),
+        back: fileOf(bk.back),
+        pages: ((bk.pages) || []).map(function (p) {
+          return {
+            name: p.name || '', file: p.file || null,
+            anchors: JSON.parse(JSON.stringify(p.anchors || []))
+          };
+        })
+      }
+    };
+  }
+
+  /* ---------- 保存 ---------- */
+  function saveNow() {
+    if (!enabled) return Promise.resolve(false);
+    var snap;
+    try { snap = snapshot(); } catch (e) { return Promise.resolve(false); }
+    if (!snap) return Promise.resolve(false);
+    if (!hasWork(snap)) return Promise.resolve(false);
+    return tx('readwrite', function (store) { store.put(snap, KEY); })
+      .then(function () {
+        lastSavedAt = Date.now();
+        if (SD.onStoreSaved) SD.onStoreSaved(lastSavedAt);
+        return true;
+      })
+      .catch(function () { return false; });
+  }
+
+  /* 完全空的工程不必存 */
+  function hasWork(snap) {
+    if (snap.lots && snap.lots.some(function (l) { return (l.items || []).length; })) return true;
+    if (snap.editingItems && snap.editingItems.length) return true;
+    var b = snap.book || {};
+    if (b.cover && b.cover.file) return true;
+    if (b.back && b.back.file) return true;
+    if ((b.pages || []).some(function (p) { return p.file; })) return true;
+    return false;
+  }
+
+  /* 变更后延时保存，避免拖动参数时疯狂写库 */
+  function autoSave(delay) {
+    if (!enabled) return;
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      saveTimer = null;
+      saveNow();
+    }, delay === undefined ? 1500 : delay);
+  }
+
+  function load() {
+    return tx('readonly', function (store) { return store.get(KEY); })
+      .then(function (v) { return v || null; })
+      .catch(function () { return null; });
+  }
+
+  function clear() {
+    enabled = false;
+    return tx('readwrite', function (store) { store.delete(KEY); })
+      .then(function () { enabled = true; if (SD.onStoreCleared) SD.onStoreCleared(); return true; })
+      .catch(function () { enabled = true; return false; });
+  }
+
+  function lastSaved() { return lastSavedAt; }
+  function isEnabled() { return enabled; }
+  function setEnabled(v) { enabled = !!v; }
+
+  return {
+    snapshot: snapshot,
+    saveNow: saveNow,
+    autoSave: autoSave,
+    load: load,
+    clear: clear,
+    lastSaved: lastSaved,
+    isEnabled: isEnabled,
+    setEnabled: setEnabled
+  };
+})();
+
+/* =====================================================================
  * 08-app.js —— 状态、面板装配与主循环
  * ===================================================================== */
 window.SD = window.SD || {};
@@ -3610,6 +3789,7 @@ window.SD = window.SD || {};
 
   function refresh() {
     applyStage();
+    if (SD.Store) SD.Store.autoSave();
     var hc = $('hsCount');
     if (hc) hc.textContent = SD.Hotspots ? SD.Hotspots.count() : 0;
     SD.Preview.schedule(STATE);
@@ -3788,6 +3968,95 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 工程自动保存 / 恢复 ================= */
+  async function restoreFromStore() {
+    var snap = await SD.Store.load();
+    if (!snap) return false;
+
+    STATE.pageType = snap.pageType || 'single';
+    STATE.title = snap.title || STATE.title;
+    STATE.customCss = snap.customCss || '';
+    if (snap.templateId) STATE.templateId = snap.templateId;
+    STATE.params = Object.assign(SD.defaults(), snap.params || {});
+    if (!STATE.book) STATE.book = {};
+    if (snap.book) {
+      STATE.book.w = snap.book.w || 900;
+      STATE.book.h = snap.book.h || 1200;
+      STATE.book.active = snap.book.active || 0;
+    }
+
+    async function uploadOne(rec) {
+      if (rec && rec.file) {
+        try {
+          var res = await SD.Materials.importFiles([rec.file], rec.axis || 'x', null);
+          if (res && res.length) {
+            res[0].off = !!rec.off;
+            return res[0];
+          }
+        } catch (e) { /* 文件失效就退化成占位 */ }
+      }
+      return { name: rec.name || '', w: rec.w, h: rec.h,
+               axis: rec.axis || 'x', off: !!rec.off };
+    }
+
+    /* 拍品素材 */
+    var lots = [];
+    for (var i = 0; i < (snap.lots || []).length; i++) {
+      var l = snap.lots[i];
+      var items = [];
+      for (var j = 0; j < (l.items || []).length; j++) {
+        items.push(await uploadOne(l.items[j]));
+      }
+      lots.push({ id: l.id, title: l.title || '', code: l.code || '', items: items });
+    }
+    STATE.lots = lots;
+    STATE.activeLot = Math.max(0, Math.min(snap.activeLot || 0, Math.max(0, lots.length - 1)));
+
+    /* 当前编辑的那一份 */
+    var editing = [];
+    for (var k = 0; k < (snap.editingItems || []).length; k++) {
+      editing.push(await uploadOne(snap.editingItems[k]));
+    }
+    if (editing.length) STATE.materials.items = editing;
+
+    /* 书页 */
+    if (snap.book) {
+      async function upSheet(rec) {
+        if (!rec || !rec.file) return null;
+        try {
+          var r = await SD.Materials.importFiles([rec.file], 'x', null);
+          if (r && r.length) return { url: r[0].url, file: rec.file, name: rec.name || '' };
+        } catch (e) {}
+        return null;
+      }
+      STATE.book.cover = await upSheet(snap.book.cover);
+      STATE.book.back = await upSheet(snap.book.back);
+      var pages = [];
+      for (var m = 0; m < ((snap.book.pages) || []).length; m++) {
+        var pg = snap.book.pages[m];
+        var o = await upSheet(pg);
+        pages.push({
+          url: o ? o.url : '',
+          file: o ? o.file : null,
+          name: (o && o.name) || pg.name || '',
+          anchors: pg.anchors || []
+        });
+      }
+      STATE.book.pages = pages;
+    }
+    return true;
+  }
+
+  async function applyRestored() {
+    if ($('pageType')) $('pageType').value = STATE.pageType;
+    if ($('btnAddAnchor')) $('btnAddAnchor').style.display = (STATE.pageType === 'book') ? '' : 'none';
+    syncParamsUI();
+    SD.Lots.render();
+    SD.Book.render();
+    renderMaterials();
+    refresh();
+  }
+
   /* ================= 环境提示 ================= */
   function showEnvWarning() {
     status('文件模式（file://）下预览不可用，请用「启动工作台.bat」打开', 'warn');
@@ -3936,6 +4205,19 @@ window.SD = window.SD || {};
 
     $('btnHelp').addEventListener('click', showHelp);
 
+    var btnWipe = $('btnWipeStore');
+    if (btnWipe) btnWipe.addEventListener('click', function () {
+      if (!confirm('确定清除本机保存的工程吗？\n\n' +
+                   '已上传的素材与参数都会消失，不可恢复。')) return;
+      SD.Store.clear().then(function () {
+        toast('ok', '已清除本地工程', '刷新后不会再恢复');
+      });
+    });
+    SD.onStoreSaved = function (ts) {
+      var el = $('stSaved');
+      if (el) el.textContent = '已自动保存 ' + new Date(ts).toLocaleTimeString();
+    };
+
     $('btnExportCfg').addEventListener('click', function () {
       var conf = {
         app: '360-studio', version: 1,
@@ -3984,6 +4266,39 @@ window.SD = window.SD || {};
         return;
       }
       status('就绪 · 本地服务已连接 · 360 库 ' + (libOk ? '已加载' : '未加载'));
+
+      /* 有调试参数时不打扰，直接按参数走 */
+      var hasDebug = /[?&](demo|lots|book)/.test(location.search);
+      if (!hasDebug && SD.Store) {
+        restoreFromStore().then(function (restored) {
+          if (!restored) return;
+          applyRestored();
+          toast('ok', '已恢复上次的工程',
+                '素材已重新载入，可直接继续', 5000);
+        }).catch(function () {});
+      }
+
+      if (/[?&]storetest/.test(location.search)) {
+        setTimeout(function () {
+          var snap = SD.Store.snapshot();
+          var withFile = 0, total = 0;
+          (snap.lots || []).forEach(function (l) {
+            (l.items || []).forEach(function (it) { total++; if (it.file) withFile++; });
+          });
+          (snap.book && snap.book.pages || []).forEach(function (p) { total++; if (p.file) withFile++; });
+          if (snap.book && snap.book.cover && snap.book.cover.file) { total++; withFile++; }
+          if (snap.book && snap.book.back && snap.book.back.file) { total++; withFile++; }
+          var box = document.createElement('pre');
+          box.style.cssText = 'position:fixed;left:6px;bottom:6px;background:#000;'
+            + 'color:#0f0;font:12px monospace;padding:8px;z-index:99999;max-width:92vw';
+          box.textContent = 'snapshot: lots=' + (snap.lots || []).length
+            + ' | editingItems=' + (snap.editingItems || []).length
+            + ' | bookPages=' + ((snap.book && snap.book.pages) || []).length
+            + ' | 带File的条目=' + withFile + '/' + total
+            + ' | params键数=' + Object.keys(snap.params || {}).length;
+          document.body.appendChild(box);
+        }, 5000);
+      }
       if (/[?&]code/.test(location.search)) {
         var pane = $('codepane');
         pane.classList.add('open');

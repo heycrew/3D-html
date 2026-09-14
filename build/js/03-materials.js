@@ -139,9 +139,12 @@ SD.Materials = (function () {
 
           return new Promise(function (res) {
             cv.toBlob(function (blob) {
-              var meta = { name: 'frame-' + (i + 1) + '.png', w: 480, h: 360,
+              var nm = 'frame-' + (i + 1) + '.png';
+              var meta = { name: nm, w: 480, h: 360,
                            previewW: 480, previewH: 360, off: false,
-                           axis: i < 4 ? 'x' : 'y' };
+                           axis: i < 4 ? 'x' : 'y',
+                           /* 存一份 File，这样刷新后也能被自动恢复 */
+                           file: blob ? new File([blob], nm, { type: 'image/png' }) : null };
               if (!serverOk || !blob) { res(meta); return; }
               fetch('/@upload', {
                 method: 'POST',
