@@ -1850,6 +1850,19 @@ SD.Bogu = (function () {
   /* 导出文件名：frame-1.jpg / vframe-1.jpg（垂直轴单独计数）。
      注意：在「生成页面时」现算，不依赖外部预先赋值 ——
      否则一旦调用顺序不对，页面里的路径就会变成 undefined。 */
+  function gcdNum(a, b) {
+    a = Math.abs(a); b = Math.abs(b);
+    while (b) { var t = a % b; a = b; b = t; }
+    return a || 1;
+  }
+
+  /* 素材宽高比 → "1/1" / "4/3" 这样的字符串 */
+  function ratioOf(it) {
+    if (!it || !it.w || !it.h) return '';
+    var g = gcdNum(it.w, it.h);
+    return (it.w / g) + '/' + (it.h / g);
+  }
+
   function extOfName(name) {
     var m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
     return m ? '.' + m[1].toLowerCase() : '.jpg';
@@ -1934,7 +1947,8 @@ SD.Bogu = (function () {
       '@keyframes lotFade{from{opacity:0}to{opacity:1}}',
       '.lot-stage{width:min(92vw,1040px);height:min(82vh,780px);',
       '  display:grid;place-items:center;position:relative;}',
-      '.lot-stage .cloudimage-360{width:100%;height:100%;}',
+      '/* 只定高度、宽度交给 aspect-ratio 自适应；两个维度都定死会让 1:1 的 canvas 被拉伸 */',
+      '.lot-stage .cloudimage-360{height:100%;width:auto;max-width:100%;}',
       '.lot-stage .lot-title{position:absolute;top:-6px;left:0;color:#fff;font-size:15px;',
       '  letter-spacing:2px;opacity:.9;pointer-events:none;}',
       '.lot-close{position:absolute;top:22px;right:26px;width:40px;height:40px;border:0;',
@@ -2008,9 +2022,11 @@ SD.Bogu = (function () {
     var lots = state.lots || [];
     var data = lots.map(function (lot, i) {
       var im = lotImages(lot, i, mode);
+      var first = onItems(lot)[0] || null;
       return {
         title: lot.title || '', code: lot.code || '',
-        x: im.x, y: im.y
+        x: im.x, y: im.y,
+        ratio: ratioOf(first)
       };
     });
 
@@ -2053,7 +2069,7 @@ SD.Bogu = (function () {
       '  for (var k in BASE) cfg[k] = BASE[k];',
       '  if (lot.x && lot.x.length) { cfg.imageListX = lot.x; cfg.amountX = lot.x.length; }',
       '  if (lot.y && lot.y.length) { cfg.imageListY = lot.y; cfg.amountY = lot.y.length; }',
-      '  if (!cfg.aspectRatio) cfg.aspectRatio = "1/1";',
+      '  if (!cfg.aspectRatio) cfg.aspectRatio = lot.ratio || "1/1";',
       '',
       '  var el = document.createElement("div");',
       '  el.className = "cloudimage-360";',
@@ -2074,7 +2090,11 @@ SD.Bogu = (function () {
       '});',
       'document.getElementById("lotClose").addEventListener("click", closeLot);',
       'modal.addEventListener("click", function (e) { if (e.target === modal) closeLot(); });',
-      'document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeLot(); });'
+      'document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeLot(); });',
+      '',
+      '/* ?lot=N 直接打开第 N 个拍品 */',
+      'var _m = /[?&]lot=(\\d+)/.exec(location.search);',
+      'if (_m) setTimeout(function () { openLot(parseInt(_m[1], 10) - 1); }, 300);'
     ].join('\n');
   }
 
