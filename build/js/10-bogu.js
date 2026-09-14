@@ -152,7 +152,7 @@ SD.Bogu = (function () {
       '.lot-stage .cloudimage-360{height:100%;width:auto;max-width:100%;}',
       '.lot-stage .lot-title{position:absolute;top:-6px;left:0;color:#fff;font-size:15px;',
       '  letter-spacing:2px;opacity:.9;pointer-events:none;}',
-      '.lot-close{position:absolute;top:22px;right:26px;width:40px;height:40px;border:0;',
+      '.lot-close{position:absolute;top:22px;right:26px;z-index:5;width:40px;height:40px;border:0;',
       '  border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:20px;',
       '  cursor:pointer;transition:background .15s;}',
       '.lot-close:hover{background:rgba(255,255,255,.28);}',
