@@ -1196,8 +1196,22 @@ window.SD = window.SD || {};
       s.addEventListener('click', function () {
         Array.prototype.forEach.call(document.querySelectorAll('.swatch'), function (o) { o.classList.remove('on'); });
         s.classList.add('on');
-        STATE.stage.bg = s.getAttribute('data-bg');
+        var bgv = s.getAttribute('data-bg');
+        STATE.stage.bg = bgv;
         applyStage();
+        /* 书模式下整页预览是 iframe，会把舞台背景整个盖住 ——
+           所以这里的色块同时要改「书的桌面背景」，否则点了看不出任何变化。 */
+        if (STATE.pageType === 'book' && bgv && bgv !== 'checker') {
+          STATE.params.bookBg = bgv;
+          var doc = previewDoc();
+          if (doc) {
+            doc.documentElement.style.background = bgv;
+            if (doc.body) doc.body.style.background = bgv;
+          } else {
+            refresh();
+          }
+          status('已应用 · 桌面背景 ' + bgv);
+        }
       });
     });
     $('stageW').addEventListener('change', function () {
