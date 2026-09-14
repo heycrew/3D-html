@@ -245,6 +245,14 @@ window.SD = window.SD || {};
       d.title = (it.name || '') + '（' + (isY ? '垂直俯仰' : '水平旋转') + '帧，点击可启用 / 排除）';
       d.innerHTML = '<img alt=""><span class="idx">' + (isY ? 'V' : 'H') + gi + '</span>';
       var im = d.querySelector('img');
+      /* 图片 404 时用原始 File 重传一次（服务重启后的旧 URL 已失效） */
+      im.addEventListener('error', function () {
+        if (!it.file || it._healing) return;
+        it._healing = true;
+        SD.Materials.importFiles([it.file], it.axis || 'x', null)
+          .then(function (r) { if (r && r.length) { it.url = r[0].url; im.src = it.url; } it._healing = false; })
+          .catch(function () { it._healing = false; });
+      });
       if (it.url) im.src = it.url;
       d.addEventListener('click', function () {
         it.off = !it.off;
@@ -790,6 +798,41 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 服务重启自愈 =================
+     素材存在本地服务的内存里，一旦服务重启（双击 启动.bat），
+     页面里所有 /@mat/... URL 都会 404 —— 表现就是「缩略图空白、预览出不来」。
+     这里通过 /@ping 的启动标识发现重启，然后用原始 File 全量重传。 */
+  function healAfterRestart() {
+    if (!SERVER_OK || !SD.Materials.checkRestart) return Promise.resolve(false);
+    return SD.Materials.checkRestart().then(function (changed) {
+      if (!changed) return false;
+
+      var jobs = [];
+      function reupload(holder) {
+        if (!holder || !holder.file) return;
+        jobs.push(SD.Materials.importFiles([holder.file], holder.axis || 'x', null)
+          .then(function (r) { if (r && r.length) holder.url = r[0].url; })
+          .catch(function () {}));
+      }
+      (STATE.materials.items || []).forEach(reupload);
+      (STATE.lots || []).forEach(function (l) { (l.items || []).forEach(reupload); });
+      var bk = STATE.book || {};
+      reupload(bk.cover);
+      reupload(bk.back);
+      (bk.pages || []).forEach(reupload);
+
+      if (!jobs.length) return false;
+      status('检测到本地服务重启，正在重新载入素材…', 'warn');
+      return Promise.all(jobs).then(function () {
+        renderMaterials();
+        refresh();
+        status('就绪 · 素材已随服务重启自动重新载入');
+        toast('ok', '素材已自动重新载入', '本地服务重启过，图片地址已刷新', 5000);
+        return true;
+      });
+    }).catch(function () { return false; });
+  }
+
   /* ================= 环境提示 ================= */
   function showEnvWarning() {
     status('文件模式（file://）下预览不可用，请用「启动工作台.bat」打开', 'warn');
@@ -1029,6 +1072,8 @@ window.SD = window.SD || {};
         return;
       }
       status('就绪 · 本地服务已连接 · 360 库 ' + (libOk ? '已加载' : '未加载'));
+      healAfterRestart();
+      window.addEventListener('focus', function () { healAfterRestart(); });
 
       /* 有调试参数时不打扰，直接按参数走 */
       var hasDebug = /[?&](demo|lots|book)/.test(location.search);

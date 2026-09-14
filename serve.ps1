@@ -61,6 +61,10 @@ $mime = @{
 $materials = @{}
 $uploadSeq = 0
 
+# 本次启动的唯一标识：素材存在内存里，服务一重启就全没了，
+# 前端拿它来判断「是否需要把素材重新传一遍」。
+$bootId = (Get-Date -Format "yyyyMMddHHmmss") + "-" + (Get-Random -Maximum 999999)
+
 # ---------- pick a free port ----------
 $listener = $null
 $startPort = $Port
@@ -180,7 +184,7 @@ while ($true) {
         }
 
         if ($urlPath -eq "/@ping") {
-            Send-Text $stream "200 OK" ('{"ok":true,"app":"360-studio","materials":' + $materials.Count + '}') "application/json; charset=utf-8"
+            Send-Text $stream "200 OK" ('{"ok":true,"app":"360-studio","boot":"' + $bootId + '","materials":' + $materials.Count + '}') "application/json; charset=utf-8"
             $client.Close(); continue
         }
 

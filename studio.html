@@ -794,12 +794,33 @@ SD.Materials = (function () {
   var checked = false;
 
   /* ---------- 探测本地服务 ---------- */
+  var bootId = null;
+
   function ping() {
     if (checked) return Promise.resolve(serverOk);
     return fetch('/@ping', { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { checked = true; serverOk = !!(j && j.ok); return serverOk; })
+      .then(function (j) {
+        checked = true;
+        serverOk = !!(j && j.ok);
+        if (serverOk) bootId = j.boot || 'unknown';
+        return serverOk;
+      })
       .catch(function () { checked = true; serverOk = false; return false; });
+  }
+
+  /* 服务是否重启过（重启后内存里的素材全丢，URL 会 404） */
+  function checkRestart() {
+    return fetch('/@ping', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.ok) return false;
+        var now = j.boot || 'unknown';
+        var changed = (bootId !== null && now !== bootId);
+        bootId = now;
+        return changed;
+      })
+      .catch(function () { return false; });
   }
 
   function isServer() { return serverOk; }
@@ -944,6 +965,7 @@ SD.Materials = (function () {
 
   return {
     ping: ping,
+    checkRestart: checkRestart,
     isServer: isServer,
     isFileMode: isFileMode,
     clearServer: clearServer,
@@ -3084,18 +3106,38 @@ SD.BookPage = (function () {
       'function paint() {',
       '  if (_flipDone) return;',
       '  ctx.clearRect(0, 0, W, H);',
-      '  cv.classList.remove("on");',
       '  dotsLayer.classList.remove("hide");',
       '  var sh = SHEETS[cur];',
       '  var has = !!(sh && sh.src);',
-      '  if (has) {',
-      '    sheetA.src = sh.src;',
-      '    sheetA.classList.remove("hide");',
-      '    phBox.classList.add("hide");',
-      '  } else {',
+      '  /* 撤掉卷边画布（露出真正的页面）——',
+      '     换 src 后浏览器要重新解码，若这一瞬间就撤画布，回翻到上一页时会露白闪一下。',
+      '     所以等新图解码完成再撤；不加 onload 而用 addEventListener，',
+      '     是为了兼容「图片已在缓存、load 事件可能不同步触发」的情况。 */',
+      '  var reveal = function () {',
+      '    cv.classList.remove("on");',
+      '    if (has) {',
+      '      sheetA.classList.remove("hide");',
+      '      phBox.classList.add("hide");',
+      '    } else {',
+      '      sheetA.classList.add("hide");',
+      '      phBox.classList.remove("hide");',
+      '    }',
+      '  };',
+      '  if (!has) {',
       '    sheetA.removeAttribute("src");',
-      '    sheetA.classList.add("hide");',
-      '    phBox.classList.remove("hide");',
+      '    reveal();',
+      '  } else if (sheetA.getAttribute("src") === sh.src) {',
+      '    reveal();',
+      '  } else {',
+      '    var _once = function () {',
+      '      sheetA.removeEventListener("load", _once);',
+      '      sheetA.removeEventListener("error", _once);',
+      '      reveal();',
+      '    };',
+      '    sheetA.addEventListener("load", _once);',
+      '    sheetA.addEventListener("error", _once);',
+      '    sheetA.src = sh.src;',
+      '    if (sheetA.complete && sheetA.naturalWidth) { _once(); }',
       '  }',
       '  dotsLayer.innerHTML = (sh && sh.dots) ? sh.dots : "";',
       '  if (navText) navText.textContent = (cur + 1) + " / " + total;',
@@ -3862,6 +3904,14 @@ window.SD = window.SD || {};
       d.title = (it.name || '') + '（' + (isY ? '垂直俯仰' : '水平旋转') + '帧，点击可启用 / 排除）';
       d.innerHTML = '<img alt=""><span class="idx">' + (isY ? 'V' : 'H') + gi + '</span>';
       var im = d.querySelector('img');
+      /* 图片 404 时用原始 File 重传一次（服务重启后的旧 URL 已失效） */
+      im.addEventListener('error', function () {
+        if (!it.file || it._healing) return;
+        it._healing = true;
+        SD.Materials.importFiles([it.file], it.axis || 'x', null)
+          .then(function (r) { if (r && r.length) { it.url = r[0].url; im.src = it.url; } it._healing = false; })
+          .catch(function () { it._healing = false; });
+      });
       if (it.url) im.src = it.url;
       d.addEventListener('click', function () {
         it.off = !it.off;
@@ -4407,6 +4457,41 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 服务重启自愈 =================
+     素材存在本地服务的内存里，一旦服务重启（双击 启动.bat），
+     页面里所有 /@mat/... URL 都会 404 —— 表现就是「缩略图空白、预览出不来」。
+     这里通过 /@ping 的启动标识发现重启，然后用原始 File 全量重传。 */
+  function healAfterRestart() {
+    if (!SERVER_OK || !SD.Materials.checkRestart) return Promise.resolve(false);
+    return SD.Materials.checkRestart().then(function (changed) {
+      if (!changed) return false;
+
+      var jobs = [];
+      function reupload(holder) {
+        if (!holder || !holder.file) return;
+        jobs.push(SD.Materials.importFiles([holder.file], holder.axis || 'x', null)
+          .then(function (r) { if (r && r.length) holder.url = r[0].url; })
+          .catch(function () {}));
+      }
+      (STATE.materials.items || []).forEach(reupload);
+      (STATE.lots || []).forEach(function (l) { (l.items || []).forEach(reupload); });
+      var bk = STATE.book || {};
+      reupload(bk.cover);
+      reupload(bk.back);
+      (bk.pages || []).forEach(reupload);
+
+      if (!jobs.length) return false;
+      status('检测到本地服务重启，正在重新载入素材…', 'warn');
+      return Promise.all(jobs).then(function () {
+        renderMaterials();
+        refresh();
+        status('就绪 · 素材已随服务重启自动重新载入');
+        toast('ok', '素材已自动重新载入', '本地服务重启过，图片地址已刷新', 5000);
+        return true;
+      });
+    }).catch(function () { return false; });
+  }
+
   /* ================= 环境提示 ================= */
   function showEnvWarning() {
     status('文件模式（file://）下预览不可用，请用「启动工作台.bat」打开', 'warn');
@@ -4646,6 +4731,8 @@ window.SD = window.SD || {};
         return;
       }
       status('就绪 · 本地服务已连接 · 360 库 ' + (libOk ? '已加载' : '未加载'));
+      healAfterRestart();
+      window.addEventListener('focus', function () { healAfterRestart(); });
 
       /* 有调试参数时不打扰，直接按参数走 */
       var hasDebug = /[?&](demo|lots|book)/.test(location.search);

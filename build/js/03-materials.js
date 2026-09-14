@@ -14,12 +14,33 @@ SD.Materials = (function () {
   var checked = false;
 
   /* ---------- 探测本地服务 ---------- */
+  var bootId = null;
+
   function ping() {
     if (checked) return Promise.resolve(serverOk);
     return fetch('/@ping', { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { checked = true; serverOk = !!(j && j.ok); return serverOk; })
+      .then(function (j) {
+        checked = true;
+        serverOk = !!(j && j.ok);
+        if (serverOk) bootId = j.boot || 'unknown';
+        return serverOk;
+      })
       .catch(function () { checked = true; serverOk = false; return false; });
+  }
+
+  /* 服务是否重启过（重启后内存里的素材全丢，URL 会 404） */
+  function checkRestart() {
+    return fetch('/@ping', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.ok) return false;
+        var now = j.boot || 'unknown';
+        var changed = (bootId !== null && now !== bootId);
+        bootId = now;
+        return changed;
+      })
+      .catch(function () { return false; });
   }
 
   function isServer() { return serverOk; }
@@ -164,6 +185,7 @@ SD.Materials = (function () {
 
   return {
     ping: ping,
+    checkRestart: checkRestart,
     isServer: isServer,
     isFileMode: isFileMode,
     clearServer: clearServer,
