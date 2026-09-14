@@ -330,6 +330,8 @@ SD.Bogu = (function () {
       '</head>',
       '<body>',
       '',
+      SD.Codegen.fileWarn(),
+      '',
       buildBody(state, mode),
       '',
       tail,

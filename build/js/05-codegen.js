@@ -39,6 +39,36 @@ SD.Codegen = (function () {
     return (m.items || []).filter(function (it) { return !it.off; });
   }
 
+  /* ---------- 打开方式守卫 ----------
+     双击 index.html 会以 file:// 打开，而 CI360 给每张图设了
+     crossOrigin="anonymous"，file:// 下请求会被浏览器拦掉 ——
+     画面退化成一个低分辨率版本且拖不动。这里直接拦下来讲清楚。 */
+  function fileWarn() {
+    return [
+      '<div id="fileWarn" class="file-warn">',
+      '  <div>',
+      '    <h3>\u26a0 \u6253\u5f00\u65b9\u5f0f\u4e0d\u5bf9</h3>',
+      '    <p>\u4f60\u6b63\u5728\u7528\u300c\u53cc\u51fb index.html\u300d\u7684\u65b9\u5f0f\u6253\u5f00\u9875\u9762\uff08<code>file://</code> \u534f\u8bae\uff09\u3002</p>',
+      '    <p>360\u00b0 \u67e5\u770b\u5668\u5728\u8fd9\u79cd\u6a21\u5f0f\u4e0b<strong>\u65e0\u6cd5\u52a0\u8f7d\u56fe\u7247</strong>\uff0c\u753b\u9762\u4f1a\u6a21\u7cca\u3001\u4e5f\u4e0d\u80fd\u62d6\u52a8\u3002</p>',
+      '    <p>\u8bf7<strong>\u5173\u95ed\u672c\u9875</strong>\uff0c\u6539\u4e3a\u53cc\u51fb\u540c\u76ee\u5f55\u4e0b\u7684 <code>\u542f\u52a8.bat</code>\u3002</p>',
+      '  </div>',
+      '</div>',
+      '<style>',
+      '.file-warn{position:fixed;inset:0;z-index:999999;display:none;place-items:center;',
+      '  background:rgba(24,18,12,.94);padding:24px;text-align:center;',
+      '  font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;color:#fff;}',
+      '.file-warn>div{max-width:540px;background:#2b2118;border:1px solid #5a4632;',
+      '  border-radius:12px;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,.6);}',
+      '.file-warn h3{margin:0 0 14px;font-size:19px;color:#ffcf70;}',
+      '.file-warn p{margin:0 0 10px;line-height:1.85;font-size:14px;color:#e8dccb;}',
+      '.file-warn code{background:#1a130d;padding:1px 6px;border-radius:4px;color:#ffcf70;}',
+      '.file-warn strong{color:#fff;}',
+      '</style>',
+      '<script>(function(){ if (location.protocol === "file:") {',
+      '  var w = document.getElementById("fileWarn"); if (w) { w.style.display = "grid"; } }})();<\/script>'
+    ].join('\n');
+  }
+
   var IMAGE_KEYS = ['folder', 'filenameX', 'amountX', 'indexZeroBase',
                     'filenameY', 'amountY', 'filenameGrid',
                     'imageListX', 'imageListY', 'imageListGrid'];
@@ -166,6 +196,8 @@ SD.Codegen = (function () {
       '</head>',
       '<body>',
       '',
+      fileWarn(),
+      '',
       tpl.body,
       '',
       '<!-- Cloudimage 360 View 4.10.0 (MIT License) -->',
@@ -197,6 +229,7 @@ SD.Codegen = (function () {
 
   return {
     esc: esc,
+    fileWarn: fileWarn,
     safeJson: safeJson,
     parseList: parseList,
     activeItems: activeItems,
