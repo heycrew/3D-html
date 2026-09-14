@@ -1515,7 +1515,9 @@ SD.Export = (function () {
       throw new Error('还没有素材，先导入图片或载入示例');
     }
 
-    var names = isLots ? [] : planNames(items);
+    var names = isLots
+      ? (state.lots || []).map(function (l, i) { return (l.title || ('拍品' + (i + 1))); })
+      : planNames(items);
     var dir;
     try {
       dir = await window.showDirectoryPicker({ mode: 'readwrite', id: 'ci360-export' });
@@ -1532,6 +1534,20 @@ SD.Export = (function () {
     function tick(label) {
       step++;
       if (onProgress) onProgress(step, total, label);
+    }
+
+    /* 0) 先把导出文件名算好 —— Bogu.buildHtml 生成页面时会引用它，
+          必须赶在 buildHtml 之前完成，否则页面里的图片路径会变成 undefined */
+    if (isLots) {
+      (state.lots || []).forEach(function (lot) {
+        var lotItems = SD.Bogu.onItems(lot);
+        var ci = 0, cy = 0;
+        lotItems.forEach(function (it) {
+          var ex = extOf(it.name);
+          if (it.axis === 'y') { cy++; it.exportName = 'vframe-' + cy + ex; }
+          else { ci++; it.exportName = 'frame-' + ci + ex; }
+        });
+      });
     }
 
     /* 1) index.html —— 指向 ./images/ 与 ./lib/ */
@@ -1589,9 +1605,9 @@ SD.Export = (function () {
 
     /* 5) 启动.bat + 使用说明 */
     await writeIn(dir, '启动.bat', batContent('index.html', 8790));
-    await writeIn(dir, '使用说明.txt', readmeText(state, items.length, names));
+    await writeIn(dir, '使用说明.txt', readmeText(state, nImgs, names));
 
-    return { ok: true, dir: dir.name, files: items.length + 5, names: names };
+    return { ok: true, dir: dir.name, files: nImgs + 5, names: names };
   }
 
   /* ---------- 降级：只下载 index.html ---------- */
@@ -1831,15 +1847,26 @@ SD.Bogu = (function () {
   /* ---------- 每个拍品的图片地址 ---------- */
   /* mode='files'   → images/lot-N/frame-1.jpg（导出）
      mode='preview' → 上传后的 /@mat/... 真实 URL（工作台预览） */
+  /* 导出文件名：frame-1.jpg / vframe-1.jpg（垂直轴单独计数）。
+     注意：在「生成页面时」现算，不依赖外部预先赋值 ——
+     否则一旦调用顺序不对，页面里的路径就会变成 undefined。 */
+  function extOfName(name) {
+    var m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
+    return m ? '.' + m[1].toLowerCase() : '.jpg';
+  }
+
   function lotImages(lot, idx, mode) {
     var items = onItems(lot);
     var xs = [], ys = [];
+    var xi = 0, yi = 0;
     items.forEach(function (it) {
       var src;
       if (mode === 'preview') {
         src = it.url || '';
+      } else if (it.axis === 'y') {
+        yi++; src = 'images/lot-' + (idx + 1) + '/vframe-' + yi + extOfName(it.name);
       } else {
-        src = 'images/lot-' + (idx + 1) + '/' + it.exportName;
+        xi++; src = 'images/lot-' + (idx + 1) + '/frame-' + xi + extOfName(it.name);
       }
       if (!src) return;
       (it.axis === 'y' ? ys : xs).push(src);
@@ -1945,14 +1972,11 @@ SD.Bogu = (function () {
       var style = '';
       if (sp[0] > 1) style += 'grid-column:span ' + sp[0] + ';';
       if (sp[1] > 1) style += 'grid-row:span ' + sp[1] + ';';
-      var cov = coverOf(lot);
-      var img = '';
-      if (cov) {
-        var src = mode === 'preview' ? (cov.url || '') : ('images/lot-' + (i + 1) + '/' + cov.exportName);
-        img = src ? '<img src="' + SD.Codegen.esc(src) + '" alt="">' : '<div class="empty">无图</div>';
-      } else {
-        img = '<div class="empty">待添加</div>';
-      }
+      var im = lotImages(lot, i, mode);
+      var coverSrc = im.x[0] || im.y[0] || '';
+      var img = coverSrc
+        ? '<img src="' + SD.Codegen.esc(coverSrc) + '" alt="">'
+        : '<div class="empty">待添加</div>';
       var cap = '';
       if (p.boguShowCap || p.boguShowCode) {
         cap = '<div class="cap">' +
@@ -2782,6 +2806,20 @@ window.SD = window.SD || {};
         var pt = $('pageType');
         pt.value = 'lots';
         pt.dispatchEvent(new Event('change'));
+      }
+      if (/[?&]dump/.test(location.search)) {
+        setTimeout(function () {
+          var full = SD.Codegen.buildHtml(STATE, { mode: 'files' });
+          var keep = full.split('\n').filter(function (l) {
+            return l.indexOf('<img') >= 0 || l.indexOf('imageList') >= 0
+                || l.indexOf('filenameX') >= 0 || l.indexOf('images/lot') >= 0;
+          });
+          var box = document.createElement('pre');
+          box.style.cssText = 'position:fixed;left:8px;bottom:60px;z-index:99999;background:#000;'
+            + 'color:#0f0;font:11px monospace;padding:8px;max-width:94vw;max-height:46vh;overflow:auto';
+          box.textContent = keep.length ? keep.join('\n') : '(未找到 img / filename 行)';
+          document.body.appendChild(box);
+        }, 3500);
       }
       if (/[?&]demo/.test(location.search)) loadDemo();
     });

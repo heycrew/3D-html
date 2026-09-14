@@ -674,6 +674,20 @@ window.SD = window.SD || {};
         pt.value = 'lots';
         pt.dispatchEvent(new Event('change'));
       }
+      if (/[?&]dump/.test(location.search)) {
+        setTimeout(function () {
+          var full = SD.Codegen.buildHtml(STATE, { mode: 'files' });
+          var keep = full.split('\n').filter(function (l) {
+            return l.indexOf('<img') >= 0 || l.indexOf('imageList') >= 0
+                || l.indexOf('filenameX') >= 0 || l.indexOf('images/lot') >= 0;
+          });
+          var box = document.createElement('pre');
+          box.style.cssText = 'position:fixed;left:8px;bottom:60px;z-index:99999;background:#000;'
+            + 'color:#0f0;font:11px monospace;padding:8px;max-width:94vw;max-height:46vh;overflow:auto';
+          box.textContent = keep.length ? keep.join('\n') : '(未找到 img / filename 行)';
+          document.body.appendChild(box);
+        }, 3500);
+      }
       if (/[?&]demo/.test(location.search)) loadDemo();
     });
   }

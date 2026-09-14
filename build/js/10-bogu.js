@@ -48,15 +48,26 @@ SD.Bogu = (function () {
   /* ---------- 每个拍品的图片地址 ---------- */
   /* mode='files'   → images/lot-N/frame-1.jpg（导出）
      mode='preview' → 上传后的 /@mat/... 真实 URL（工作台预览） */
+  /* 导出文件名：frame-1.jpg / vframe-1.jpg（垂直轴单独计数）。
+     注意：在「生成页面时」现算，不依赖外部预先赋值 ——
+     否则一旦调用顺序不对，页面里的路径就会变成 undefined。 */
+  function extOfName(name) {
+    var m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
+    return m ? '.' + m[1].toLowerCase() : '.jpg';
+  }
+
   function lotImages(lot, idx, mode) {
     var items = onItems(lot);
     var xs = [], ys = [];
+    var xi = 0, yi = 0;
     items.forEach(function (it) {
       var src;
       if (mode === 'preview') {
         src = it.url || '';
+      } else if (it.axis === 'y') {
+        yi++; src = 'images/lot-' + (idx + 1) + '/vframe-' + yi + extOfName(it.name);
       } else {
-        src = 'images/lot-' + (idx + 1) + '/' + it.exportName;
+        xi++; src = 'images/lot-' + (idx + 1) + '/frame-' + xi + extOfName(it.name);
       }
       if (!src) return;
       (it.axis === 'y' ? ys : xs).push(src);
@@ -162,14 +173,11 @@ SD.Bogu = (function () {
       var style = '';
       if (sp[0] > 1) style += 'grid-column:span ' + sp[0] + ';';
       if (sp[1] > 1) style += 'grid-row:span ' + sp[1] + ';';
-      var cov = coverOf(lot);
-      var img = '';
-      if (cov) {
-        var src = mode === 'preview' ? (cov.url || '') : ('images/lot-' + (i + 1) + '/' + cov.exportName);
-        img = src ? '<img src="' + SD.Codegen.esc(src) + '" alt="">' : '<div class="empty">无图</div>';
-      } else {
-        img = '<div class="empty">待添加</div>';
-      }
+      var im = lotImages(lot, i, mode);
+      var coverSrc = im.x[0] || im.y[0] || '';
+      var img = coverSrc
+        ? '<img src="' + SD.Codegen.esc(coverSrc) + '" alt="">'
+        : '<div class="empty">待添加</div>';
       var cap = '';
       if (p.boguShowCap || p.boguShowCode) {
         cap = '<div class="cap">' +

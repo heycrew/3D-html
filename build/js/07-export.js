@@ -118,7 +118,9 @@ SD.Export = (function () {
       throw new Error('还没有素材，先导入图片或载入示例');
     }
 
-    var names = isLots ? [] : planNames(items);
+    var names = isLots
+      ? (state.lots || []).map(function (l, i) { return (l.title || ('拍品' + (i + 1))); })
+      : planNames(items);
     var dir;
     try {
       dir = await window.showDirectoryPicker({ mode: 'readwrite', id: 'ci360-export' });
@@ -135,6 +137,20 @@ SD.Export = (function () {
     function tick(label) {
       step++;
       if (onProgress) onProgress(step, total, label);
+    }
+
+    /* 0) 先把导出文件名算好 —— Bogu.buildHtml 生成页面时会引用它，
+          必须赶在 buildHtml 之前完成，否则页面里的图片路径会变成 undefined */
+    if (isLots) {
+      (state.lots || []).forEach(function (lot) {
+        var lotItems = SD.Bogu.onItems(lot);
+        var ci = 0, cy = 0;
+        lotItems.forEach(function (it) {
+          var ex = extOf(it.name);
+          if (it.axis === 'y') { cy++; it.exportName = 'vframe-' + cy + ex; }
+          else { ci++; it.exportName = 'frame-' + ci + ex; }
+        });
+      });
     }
 
     /* 1) index.html —— 指向 ./images/ 与 ./lib/ */
@@ -192,9 +208,9 @@ SD.Export = (function () {
 
     /* 5) 启动.bat + 使用说明 */
     await writeIn(dir, '启动.bat', batContent('index.html', 8790));
-    await writeIn(dir, '使用说明.txt', readmeText(state, items.length, names));
+    await writeIn(dir, '使用说明.txt', readmeText(state, nImgs, names));
 
-    return { ok: true, dir: dir.name, files: items.length + 5, names: names };
+    return { ok: true, dir: dir.name, files: nImgs + 5, names: names };
   }
 
   /* ---------- 降级：只下载 index.html ---------- */
