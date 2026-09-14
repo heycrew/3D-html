@@ -518,7 +518,20 @@ window.SD = window.SD || {};
         SD.Book.book().cover = { url: it.url, file: it.file, name: it.name };
         SD.Book.render();
         refresh();
-        toast('ok', '封面已上传');
+        /* 记下封面真实像素尺寸：书页画布默认按它的比例适配，避免留空白 */
+        var im = new Image();
+        im.onload = function () {
+          var bk = SD.Book.book();
+          if (bk.cover && bk.cover.url === it.url) {
+            bk.cover.w = im.naturalWidth;
+            bk.cover.h = im.naturalHeight;
+            SD.Book.render();
+            refresh();
+            toast('ok', '封面已上传',
+              '画布比例已按封面 ' + im.naturalWidth + '×' + im.naturalHeight + ' 适配', 5000);
+          }
+        };
+        im.src = it.url;
       });
     });
 

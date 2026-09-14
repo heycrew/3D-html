@@ -104,6 +104,9 @@ SD.SCHEMA = [
     params: [
       { key: 'bookW', label: '书宽', type: 'num', def: 900, min: 200, max: 3000, unit: 'px' },
       { key: 'bookH', label: '书高', type: 'num', def: 1200, min: 200, max: 3000, unit: 'px' },
+      { key: 'bookFit', label: '尺寸适配', type: 'select', def: 'cover',
+        options: [['cover', '跟随封面图（推荐）'], ['manual', '手动指定尺寸']],
+        desc: '跟随封面时，画布比例自动等于封面图，不留空白' },
       { key: 'bookBend', label: '纸张弯曲程度', type: 'num', def: 1.4, min: 0.6, max: 3, step: 0.1,
         desc: '1 = 均匀圆弧；越大越向书脊集中弯折' },
       { key: 'bookSlices', label: '切片数', type: 'num', def: 90, min: 24, max: 200,

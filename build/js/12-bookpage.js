@@ -74,7 +74,13 @@ SD.BookPage = (function () {
   /* ---------- CSS ---------- */
   function buildCss(state) {
     var p = state.params || {};
-    var W = p.bookW || 900, H = p.bookH || 1200;
+    /* 尺寸适配：跟随封面图时，把「书高」按封面的真实宽高比换算，
+       这样封面、内页都能铺满画布，四周不留空白。 */
+    var _p = state.params || {};
+    var _cov = (state.book && state.book.cover) || null;
+    var _fit = (_p.bookFit !== 'manual') && _cov && _cov.w && _cov.h;
+    var W = _p.bookW || 900, H = _p.bookH || 1200;
+    if (_fit) { H = Math.max(1, Math.round(W * _cov.h / _cov.w)); }
     var bg = p.bookBg || '#2a2118';
     var dot = p.bookDotSize || 16;
     var dotColor = p.bookDotColor || '#ffb340';
@@ -252,7 +258,12 @@ SD.BookPage = (function () {
       'var SHEETS = ' + SD.Codegen.safeJson(pages, false) + ';',
       'var LOTS = ' + SD.Codegen.safeJson(data, false) + ';',
       'var BASE = ' + SD.Codegen.safeJson(keep, false) + ';',
-      'var BOOK_RATIO = ' + JSON.stringify(String(p.bookW || 900) + '/' + String(p.bookH || 1200)) + ';',
+      'var BOOK_RATIO = ' + JSON.stringify(
+        (function () {
+          var cov = (state.book && state.book.cover) || null;
+          if (p.bookFit !== 'manual' && cov && cov.w && cov.h) return String(cov.w) + '/' + String(cov.h);
+          return String(p.bookW || 900) + '/' + String(p.bookH || 1200);
+        })()) + ';',
       'var INTERP = ' + (p.interp || 0) + ';',
       'var TURN = ' + (p.bookTurn || 700) + ';',
       'var SLICES = ' + (p.bookSlices || 90) + ';',
