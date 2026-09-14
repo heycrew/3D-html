@@ -4177,12 +4177,23 @@ window.SD = window.SD || {};
   }
 
   function autoRatio() {
+    /* 书模式：比例来自封面（与成品里书页画布保持一致） */
+    if (STATE.pageType === 'book') {
+      var cov = (STATE.book && STATE.book.cover) || null;
+      if (cov && cov.w && cov.h) return cov.w + ' / ' + cov.h;
+      return '';
+    }
     var it = SD.Codegen.activeItems(STATE)[0];
     if (it && it.w && it.h) return it.w + ' / ' + it.h;
     return '';
   }
 
   function applyStage() {
+    /* 热点只对「单品 360」的整张画面有意义；书/拍品列表用它反而添乱 */
+    var hsBtn = $('btnAddHotspot'), hsList = $('btnHotspotList');
+    var hsShow = (STATE.pageType === 'single') ? '' : 'none';
+    if (hsBtn) hsBtn.style.display = hsShow;
+    if (hsList) hsList.style.display = hsShow;
     /* 书模式下素材直接挂在内容页上，这里的全局上传区用不到 → 收起，界面更清爽 */
     var mp = $('matPanel');
     if (mp) mp.style.display = (STATE.pageType === 'book') ? 'none' : '';
@@ -4233,8 +4244,28 @@ window.SD = window.SD || {};
 
   /* ================= 导出 ================= */
   function doExport() {
-    var items = SD.Codegen.activeItems(STATE);
-    if (!items.length) { toast('warn', '还没有素材', '先导入图片或载入示例'); return; }
+    /* 前置检查要分页面类型：
+       书把素材挂在各个内容页上、博古架挂在各个拍品上，
+       只有「单品」才用全局素材 —— 一律检查全局素材会误报「还没有素材」。 */
+    if (STATE.pageType === 'book') {
+      var bk0 = STATE.book || {};
+      var nImg = ((bk0.pages || []).filter(function (p) { return p && p.url; }).length) +
+                 ((bk0.cover && bk0.cover.url) ? 1 : 0) +
+                 ((bk0.back && bk0.back.url) ? 1 : 0);
+      if (!nImg) {
+        toast('warn', '书里还没有内容', '先在左栏「书页」上传封面或内容页图片');
+        return;
+      }
+    } else if (STATE.pageType === 'lots') {
+      SD.Lots.saveCurrent();
+      var tot = (STATE.lots || []).reduce(function (n, l) {
+        return n + SD.Bogu.onItems(l).length;
+      }, 0);
+      if (!tot) { toast('warn', '还没有拍品素材', '先给拍品导入图片'); return; }
+    } else {
+      var items = SD.Codegen.activeItems(STATE);
+      if (!items.length) { toast('warn', '还没有素材', '先导入图片或载入示例'); return; }
+    }
 
     if (!SD.Export.canPickDir()) {
       SD.Export.exportHtmlOnly(STATE);
