@@ -10,6 +10,7 @@ SD.Preview = (function () {
   var host = null;
   var timer = null;
   var mounted = false;
+  var blobUrl = null;      /* 整页预览用的 blob URL，替换时要回收 */
 
   function mount(el) {
     host = el;
@@ -22,6 +23,7 @@ SD.Preview = (function () {
       if (ci && ci.destroyAll) ci.destroyAll();
     } catch (e) { /* 尚未初始化过，忽略 */ }
     if (host) host.innerHTML = '';
+    if (blobUrl) { try { URL.revokeObjectURL(blobUrl); } catch (e) {} blobUrl = null; }
   }
 
   function render(state) {
@@ -33,10 +35,25 @@ SD.Preview = (function () {
         (SD.Bogu || SD.BookPage)) {
       var gen = (state.pageType === 'book') ? SD.BookPage : SD.Bogu;
       if (gen) {
+      /* 必须用 blob URL 而不是 srcdoc：
+         srcdoc 文档的 origin 是 about:srcdoc，CI360 强制 crossOrigin="anonymous"，
+         图片与查看器在那样的文档里都不会渲染（表现为预览一片空白）。
+         blob: 地址带真实 origin，与页面同源，图片和库都能正常加载。 */
+      var html = gen.buildHtml(state, {
+        mode: 'preview',
+        libHref: location.origin + '/lib/360-view.min.js'
+      });
+      /* 相对路径（./lib/...）在 blob 文档里会解析错，补一个 base 指向服务根 */
+      var baseHref = location.href.replace(/[?#].*$/, '').replace(/[^/]*$/, '');
+      if (html.indexOf('<head>') >= 0) {
+        html = html.replace('<head>', '<head><base href="' + baseHref + '">');
+      }
+      var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      blobUrl = URL.createObjectURL(blob);
       var box = document.createElement('iframe');
       box.setAttribute('title', '预览');
       box.style.cssText = 'width:100%;height:100%;border:0;display:block;background:#f5f2ec';
-      box.srcdoc = gen.buildHtml(state, { mode: 'preview' });
+      box.src = blobUrl;
       host.appendChild(box);
       if (SD.ShowEmpty) SD.ShowEmpty(false);
       return;

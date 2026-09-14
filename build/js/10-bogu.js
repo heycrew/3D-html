@@ -350,17 +350,18 @@ SD.Bogu = (function () {
     var mode = opts.mode || 'files';
     var title = state.title || '拍品总览';
 
-    /* 预览只展示布局：srcdoc 里 CI360 初始化不生效，弹层没有意义 */
-    var tail = (mode === 'preview')
-      ? ['<div style="text-align:center;padding:6px 10px 18px;font-size:12px;color:#9a8d78">',
-         '预览仅展示博古架布局；点击查看 360° 请在导出后操作</div>'].join('\n')
-      : ['',
-         '<script src="./lib/360-view.min.js"><\/script>',
-         '<script>',
-         '(function () {',
-         buildInit(state, mode),
-         '})();',
-         '<\/script>'].join('\n');
+    /* 预览也真正跑起来：预览走 blob URL（有真实 origin、同源），
+       CI360 能正常初始化，点拍品即可试看 360°，无需先导出。 */
+    var libSrc = opts.libHref || './lib/360-view.min.js';
+    var tail = [
+      '',
+      '<script src="' + libSrc + '"><\/script>',
+      '<script>',
+      '(function () {',
+      buildInit(state, mode),
+      '})();',
+      '<\/script>'
+    ].join('\n');
 
     return [
       '<!DOCTYPE html>',

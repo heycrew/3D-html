@@ -336,10 +336,14 @@ SD.BookPage = (function () {
       '     两端倾角为 0、中途最大，所以静止时仍是端正的一页。 */',
       '  var tilt = SKEW * Math.sin(Math.PI * tt);',
       '  ctx.save();',
-      '  var grow = 1 + Math.abs(tilt) * 0.006;',
+      '  var rad = tilt * Math.PI / 180;',
+      '  var ca = Math.abs(Math.cos(rad)), sa = Math.abs(Math.sin(rad));',
+      '  /* 绕中心旋转后，四角会缩进去露出底下的页面（表现为左上角漏出下一页）。',
+      '     按几何精确放大：宽要乘 ca + (H/W)*sa，高要乘 ca + (W/H)*sa，',
+      '     这样旋转后的整页仍然完全盖住画布。 */',
       '  ctx.translate(W / 2, H / 2);',
-      '  ctx.rotate(tilt * Math.PI / 180);',
-      '  ctx.scale(grow, grow);',
+      '  ctx.rotate(rad);',
+      '  ctx.scale(ca + (H / W) * sa, ca + (W / H) * sa);',
       '  ctx.translate(-W / 2, -H / 2);',
       '',
       '  /* 卷边推进模型：',
@@ -428,7 +432,6 @@ SD.BookPage = (function () {
       '     所以等新图解码完成再撤；不加 onload 而用 addEventListener，',
       '     是为了兼容「图片已在缓存、load 事件可能不同步触发」的情况。 */',
       '  var reveal = function () {',
-      '    cv.classList.remove("on");',
       '    if (has) {',
       '      sheetA.classList.remove("hide");',
       '      phBox.classList.add("hide");',
@@ -436,6 +439,11 @@ SD.BookPage = (function () {
       '      sheetA.classList.add("hide");',
       '      phBox.classList.remove("hide");',
       '    }',
+      '    /* 先把底层页面显示出来，隔两帧再撤画布 ——',
+      '       同一帧内「底层出画 + 画布消失」会丢一帧，回翻时表现为闪一下白。 */',
+      '    requestAnimationFrame(function () {',
+      '      requestAnimationFrame(function () { cv.classList.remove("on"); });',
+      '    });',
       '  };',
       '  if (!has) {',
       '    sheetA.removeAttribute("src");',
@@ -752,17 +760,25 @@ SD.BookPage = (function () {
     var mode = opts.mode || 'files';
     var title = state.title || '电子图录';
 
-    var tail = (mode === 'preview')
-      ? ['<div style="position:fixed;left:0;right:0;bottom:0;text-align:center;padding:4px;',
-         'font-size:12px;color:#c9bda9;background:rgba(0,0,0,.4)">',
-         '预览：拖动翻页（纸张弯曲）、点锚点查看拍品</div>'].join('')
-      : ['',
-         '<script src="./lib/360-view.min.js"><\/script>',
-         '<script>',
-         '(function () {',
-         buildInit(state, mode),
-         '})();',
-         '<\/script>'].join('\n');
+    /* 预览也要真正跑起来（不只是摆个空壳）：
+       之前用 srcdoc 时 CI360 不渲染，于是干脆连脚本都不发了 ——
+       现在预览走 blob URL（有真实 origin、与页面同源），逻辑可以正常运行。
+       libHref 允许外面传绝对地址，避免 blob 文档里相对路径解析出错。 */
+    var libSrc = opts.libHref || './lib/360-view.min.js';
+    var tail = [
+      '',
+      '<script src="' + libSrc + '"><\/script>',
+      '<script>',
+      '(function () {',
+      buildInit(state, mode),
+      '})();',
+      '<\/script>',
+      (mode === 'preview'
+        ? ['<div style="position:fixed;left:0;right:0;bottom:0;text-align:center;padding:4px;',
+           'font-size:12px;color:#c9bda9;background:rgba(0,0,0,.4);pointer-events:none">',
+           '预览：拖动翻页（纸张弯曲）、点锚点查看拍品</div>'].join('')
+        : '')
+    ].join('\n');
 
     return [
       '<!DOCTYPE html>',
