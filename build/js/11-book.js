@@ -201,6 +201,12 @@ SD.Book = (function () {
     if (!sh.page || !sh.page.url) { SD.toast('warn', '本页还没上传图片'); return; }
 
     var arr = (SD.Lots && SD.Lots.lots()) || [];
+    /* 锚点必须绑定拍品；一个都没有时自动补一个，避免下拉空着没法操作 */
+    if (!arr.length) {
+      SD.Lots.add();
+      arr = SD.Lots.lots() || [];
+      SD.toast('warn', '已自动新建「拍品 1」', '记得给它上传 360 素材，否则锚点在成品页面上会置灰', 7000);
+    }
     var opts = arr.map(function (l) {
       var has = countOnLot(l) > 0;
       return '<option value="' + l.id + '"' + (has ? '' : ' data-nomedia="1"') + '>' +
@@ -277,7 +283,11 @@ SD.Book = (function () {
       var x = Math.max(0, Math.min(100, +(((e.clientX - r.left) / r.width) * 100).toFixed(2)));
       var y = Math.max(0, Math.min(100, +(((e.clientY - r.top) / r.height) * 100).toFixed(2)));
       var sel = document.getElementById('anLot');
-      if (!sel.value) { SD.toast('warn', '请先选择关联拍品'); return; }
+      if (!sel || !sel.options.length) {
+        SD.toast('err', '没有可关联的拍品', '请先在左栏「拍品」区点「＋ 新增」并上传 360 素材', 8000);
+        return;
+      }
+      if (!sel.value) { SD.toast('warn', '请先在上方选择关联拍品'); return; }
       addAnchor(sh, x, y, sel.value);
       refreshList();
     });

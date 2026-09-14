@@ -653,6 +653,8 @@ window.SD = window.SD || {};
   async function applyRestored() {
     if ($('pageType')) $('pageType').value = STATE.pageType;
     if ($('btnAddAnchor')) $('btnAddAnchor').style.display = (STATE.pageType === 'book') ? '' : 'none';
+    /* 快照里可能一个拍品都没有，而锚点必须绑到拍品上 —— 补一个 */
+    SD.Lots.ensureInit();
     syncParamsUI();
     SD.Lots.render();
     SD.Book.render();
