@@ -244,6 +244,8 @@ SD.Bogu = (function () {
     return [
       'var LOTS = ' + SD.Codegen.safeJson(data, true) + ';',
       'var BASE = ' + SD.Codegen.safeJson(keep, true) + ';',
+      'var SIMPLE_UI = (("ontouchstart" in window) || (navigator.maxTouchPoints > 0))',
+      '             || (window.innerWidth < 820);',
       'var cur = null;',
       'var modal = document.getElementById("lotModal");',
       'var stage = document.getElementById("lotStage");',
@@ -271,6 +273,9 @@ SD.Bogu = (function () {
       '  if (lot.x && lot.x.length) { cfg.imageListX = lot.x; cfg.amountX = lot.x.length; }',
       '  if (lot.y && lot.y.length) { cfg.imageListY = lot.y; cfg.amountY = lot.y.length; }',
       '  if (!cfg.aspectRatio) cfg.aspectRatio = lot.ratio || "1/1";',
+      '  if (SIMPLE_UI) {',
+      '    cfg.hints = false; cfg.scrollHint = false; cfg.zoomControls = false;',
+      '  }',
       '',
       '  var el = document.createElement("div");',
       '  el.className = "cloudimage-360";',

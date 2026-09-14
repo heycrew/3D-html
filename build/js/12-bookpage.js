@@ -78,8 +78,10 @@ SD.BookPage = (function () {
     var bg = p.bookBg || '#2a2118';
     var dot = p.bookDotSize || 16;
     var dotColor = p.bookDotColor || '#ffb340';
-    var size = 'width:min(' + W + 'px, calc((100vh - 120px) * ' + (W / H).toFixed(4) + '));' +
-               'height:min(' + H + 'px, calc(100vh - 120px));';
+    var R = (W / H).toFixed(4);
+    /* 宽高都同时受屏幕限制：否则手机上按高度算出来的宽度会超出屏幕 */
+    var size = 'width:min(' + W + 'px, calc(100vw - 24px), calc((100vh - 120px) * ' + R + '));' +
+               'height:min(' + H + 'px, calc((100vw - 24px) / ' + R + '), calc(100vh - 120px));';
 
     return [
       'html,body{margin:0;padding:0;height:100%;overflow:hidden;background:' + bg + ';',
@@ -164,8 +166,13 @@ SD.BookPage = (function () {
       '  color:rgba(255,255,255,.6);font-size:12px;letter-spacing:1px;z-index:9999;}',
 
       '@media (max-width:820px){',
-      '  .book{width:min(' + W + 'px, calc((100vh - 100px) * ' + (W / H).toFixed(4) + '));}',
-      '  .book-nav{bottom:12px;font-size:13px;padding:6px 12px;}',
+      '  /* 手机上靠手势操作 —— 隐藏所有按钮与文字提示 */',
+      '  .book-nav button{display:none;}',
+      '  .lot-hint{display:none !important;}',
+      '  .lot-close{width:34px;height:34px;font-size:17px;top:14px;right:14px;}',
+      '  .book-nav{bottom:12px;font-size:13px;padding:6px 14px;}',
+      '  .corner{display:none;}         /* 也去掉左右点击热区，避免误触 */',
+      '  .lot-hint{font-size:11px;}',
       '}'
     ].join('\n');
   }
@@ -487,6 +494,17 @@ SD.BookPage = (function () {
       '    if (!dragDir) { dragging = false; return; }   /* 竖向滑动不翻页 */',
       '    var src0 = dragDir > 0 ? cache[cur] : cache[cur - 1];',
       '    if (!src0) { dragging = false; return; }',
+      '    /* 向后翻：底层必须换成下一页 ——',
+      '       否则卷起的是第 N 页、露出来的还是第 N 页，看不出在翻书；',
+      '       向前翻时底层保持当前页（翻回来的是上一页，会盖在上面）。 */',
+      '    if (dragDir > 0) {',
+      '      var nx0 = SHEETS[cur + 1];',
+      '      if (nx0 && nx0.src) {',
+      '        sheetA.src = nx0.src;',
+      '        sheetA.classList.remove("hide");',
+      '        phBox.classList.add("hide");',
+      '      }',
+      '    }',
       '    cv.classList.add("on");',
       '    dotsLayer.classList.add("hide");',
       '  }',
@@ -579,6 +597,11 @@ SD.BookPage = (function () {
       '  if (lot.x && lot.x.length) { cfg.imageListX = lot.x; cfg.amountX = lot.x.length; }',
       '  if (lot.y && lot.y.length) { cfg.imageListY = lot.y; cfg.amountY = lot.y.length; }',
       '  if (!cfg.aspectRatio) cfg.aspectRatio = BOOK_RATIO;',
+      '  if (SIMPLE_UI) {',
+      '    cfg.hints = false;          /* 不显示拖拽/双击提示 */',
+      '    cfg.scrollHint = false;     /* 不显示 Ctrl+滚轮提示 */',
+      '    cfg.zoomControls = false;   /* 不显示缩放按钮组 */',
+      '  }',
       '',
       '  var el = document.createElement("div");',
       '  el.className = "cloudimage-360";',
@@ -600,6 +623,11 @@ SD.BookPage = (function () {
       '',
       '/* ?flip=0.4 直接把翻页画面停在指定进度，',
       '   方便截图对照效果（不依赖真实拖拽）*/',
+      '/* 触屏或窄屏时：关掉 360 查看器的文字提示与操作按钮，纯手势操作 */',
+      'var IS_TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);',
+      'var IS_NARROW = window.innerWidth < 820;',
+      'var SIMPLE_UI = IS_TOUCH || IS_NARROW;',
+      '',
       'var _fm = /[?&]flip=([0-9.]+)/.exec(location.search);',
       'if (_fm) {',
       '' ,
