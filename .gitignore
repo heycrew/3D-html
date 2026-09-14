@@ -8,6 +8,7 @@ output/
 
 # ===== 验证 / 临时产物 =====
 build/.verify/
+build/.syntax-check/
 chrome-profile*/
 _patch*.py
 _test*.*

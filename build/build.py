@@ -14,6 +14,7 @@ build.py —— 把 build/ 下的源文件组装成工作台交付目录
 """
 import os
 import shutil
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -110,6 +111,37 @@ def main():
     # 使用说明
     with open(os.path.join(DEST, '使用说明.txt'), 'w', encoding='utf-8') as f:
         f.write(README_TEXT)
+
+    # 语法自检：buildInit 拼出来的 JS 容易漏逗号 / 多括号，
+    # 这类错误构建时不报、要等导出后浏览器执行才炸，症状还很难定位。
+    # 这里把它拼成完整脚本，交给 node --check 拦一道。
+    if shutil.which('node') and os.path.exists(os.path.join(ROOT, 'check.js')):
+        r = subprocess.run(['node', 'check.js'], cwd=ROOT,
+                           capture_output=True, text=True,
+                           encoding='utf-8', errors='replace')
+        if r.returncode != 0:
+            sys.stderr.write('生成待校验脚本失败：\n' + (r.stdout or '') + (r.stderr or ''))
+            return 1
+        tmpdir = os.path.join(ROOT, '.syntax-check')
+        bad = []
+        names = []
+        if os.path.isdir(tmpdir):
+            for fn in sorted(os.listdir(tmpdir)):
+                if not fn.endswith('.js'):
+                    continue
+                names.append(fn)
+                rr = subprocess.run(['node', '--check', os.path.join(tmpdir, fn)],
+                                    capture_output=True, text=True,
+                                    encoding='utf-8', errors='replace')
+                if rr.returncode != 0:
+                    bad.append((fn, (rr.stderr or rr.stdout or '')[:800]))
+        if bad:
+            for fn, err in bad:
+                sys.stderr.write('\n✗ %s 语法错误：\n%s\n' % (fn, err))
+            return 1
+        print('  语法自检    : 通过（%d 份）' % len(names))
+    else:
+        print('  语法自检    : 跳过（未找到 node）')
 
     # 清掉历史命名
     old = os.path.join(DEST, '工作台.html')
