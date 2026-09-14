@@ -349,6 +349,11 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
         </div>
         <div id="lotList"></div>
       </div>
+      <!-- 书模式下整块收起（素材直接挂在内容页上）；单品/博古架时照旧 -->
+      <div id="matPanel">
+        <div style="padding:8px 12px 4px;font-size:12px;color:var(--sd-fg3)">
+          素材（当前页面 / 当前拍品的 360 图）
+        </div>
       <div id="dropzone">
         <span class="big">🖼</span>
         <div>拖拽图片到此处</div>
@@ -370,6 +375,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
       <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
       <div id="matStats"></div>
       <div id="matList"></div>
+      </div><!-- /#matPanel -->
     </div>
   </aside>
 
@@ -3206,11 +3212,21 @@ SD.BookPage = (function () {
       '      sheetA.classList.add("hide");',
       '      phBox.classList.remove("hide");',
       '    }',
-      '    /* 先把底层页面显示出来，隔两帧再撤画布 ——',
-      '       同一帧内「底层出画 + 画布消失」会丢一帧，回翻时表现为闪一下白。 */',
-      '    requestAnimationFrame(function () {',
-      '      requestAnimationFrame(function () { cv.classList.remove("on"); });',
-      '    });',
+      '    /* 撤画布前必须确认「这张图已经能被画出来」。',
+      '       complete 只说明下载完了，并不保证解码完成 ——',
+      '       撤早了就会看到：画布消失、页面图还没上屏，闪那一下。',
+      '       用 img.decode() 拿到「可绘制」的承诺，再隔两帧撤画布。 */',
+      '    var finish = function () {',
+      '      requestAnimationFrame(function () {',
+      '        requestAnimationFrame(function () { cv.classList.remove("on"); });',
+      '      });',
+      '    };',
+      '    if (has && sheetA.decode && !sheetA._ready) {',
+      '      sheetA.decode().then(function () { sheetA._ready = true; finish(); })',
+      '        .catch(function () { finish(); });',
+      '    } else {',
+      '      finish();',
+      '    }',
       '  };',
       '  if (!has) {',
       '    sheetA.removeAttribute("src");',
@@ -3225,6 +3241,7 @@ SD.BookPage = (function () {
       '    };',
       '    sheetA.addEventListener("load", _once);',
       '    sheetA.addEventListener("error", _once);',
+      '    sheetA._ready = false;            /* 换了 src → 需要重新解码 */',
       '    sheetA.src = sh.src;',
       '    if (sheetA.complete && sheetA.naturalWidth) { _once(); }',
       '  }',
@@ -3826,8 +3843,50 @@ window.SD = window.SD || {};
   SD.ShowEmpty = showEmpty;
 
   /* ================= 参数面板 ================= */
+  /* 纯外观类参数：直接改预览文档里的样式即可，
+     没必要重建整个预览 —— 重建 iframe 要重新加载 360 库和全部图片，
+     这正是「改了背景色半天没反应」的原因。 */
+  var LIVE_STYLE = {
+    bookBg: function (doc, v) {
+      doc.documentElement.style.background = v;
+      if (doc.body) doc.body.style.background = v;
+    },
+    bookDotColor: function (doc, v) {
+      var st = doc.getElementById('sd-live-dot');
+      if (!st) {
+        st = doc.createElement('style');
+        st.id = 'sd-live-dot';
+        (doc.head || doc.documentElement).appendChild(st);
+      }
+      st.textContent = '.dot{background:' + v + ' !important;}';
+    }
+  };
+
+  function previewDoc() {
+    /* 预览 iframe 挂在 stage-host 下；书/博古架模式里是 blob 文档 */
+    var f = document.querySelector('#stage-host iframe') ||
+            document.querySelector('.pv iframe') ||
+            document.querySelector('iframe');
+    if (!f) return null;
+    try { return f.contentDocument || null; } catch (e) { return null; }
+  }
+
+  function liveStyle(key, val) {
+    var fn = LIVE_STYLE[key];
+    if (!fn) return false;
+    var doc = previewDoc();
+    if (!doc) return false;
+    try { fn(doc, val); return true; } catch (e) { return false; }
+  }
+
   function setParam(key, val) {
     STATE.params[key] = val;
+    if (liveStyle(key, val)) {
+      /* 外观已经即时生效；工程照常存盘，但不重建预览 */
+      if (SD.Store) SD.Store.autoSave();
+      status('已应用 · ' + key);
+      return;
+    }
     refresh();
   }
 
@@ -4124,6 +4183,9 @@ window.SD = window.SD || {};
   }
 
   function applyStage() {
+    /* 书模式下素材直接挂在内容页上，这里的全局上传区用不到 → 收起，界面更清爽 */
+    var mp = $('matPanel');
+    if (mp) mp.style.display = (STATE.pageType === 'book') ? 'none' : '';
     var f = $('stage-frame');
     var bg = STATE.stage.bg;
     f.className = 'checker' === bg ? 'checker' : '';

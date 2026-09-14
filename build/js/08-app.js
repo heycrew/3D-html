@@ -54,8 +54,50 @@ window.SD = window.SD || {};
   SD.ShowEmpty = showEmpty;
 
   /* ================= 参数面板 ================= */
+  /* 纯外观类参数：直接改预览文档里的样式即可，
+     没必要重建整个预览 —— 重建 iframe 要重新加载 360 库和全部图片，
+     这正是「改了背景色半天没反应」的原因。 */
+  var LIVE_STYLE = {
+    bookBg: function (doc, v) {
+      doc.documentElement.style.background = v;
+      if (doc.body) doc.body.style.background = v;
+    },
+    bookDotColor: function (doc, v) {
+      var st = doc.getElementById('sd-live-dot');
+      if (!st) {
+        st = doc.createElement('style');
+        st.id = 'sd-live-dot';
+        (doc.head || doc.documentElement).appendChild(st);
+      }
+      st.textContent = '.dot{background:' + v + ' !important;}';
+    }
+  };
+
+  function previewDoc() {
+    /* 预览 iframe 挂在 stage-host 下；书/博古架模式里是 blob 文档 */
+    var f = document.querySelector('#stage-host iframe') ||
+            document.querySelector('.pv iframe') ||
+            document.querySelector('iframe');
+    if (!f) return null;
+    try { return f.contentDocument || null; } catch (e) { return null; }
+  }
+
+  function liveStyle(key, val) {
+    var fn = LIVE_STYLE[key];
+    if (!fn) return false;
+    var doc = previewDoc();
+    if (!doc) return false;
+    try { fn(doc, val); return true; } catch (e) { return false; }
+  }
+
   function setParam(key, val) {
     STATE.params[key] = val;
+    if (liveStyle(key, val)) {
+      /* 外观已经即时生效；工程照常存盘，但不重建预览 */
+      if (SD.Store) SD.Store.autoSave();
+      status('已应用 · ' + key);
+      return;
+    }
     refresh();
   }
 
@@ -352,6 +394,9 @@ window.SD = window.SD || {};
   }
 
   function applyStage() {
+    /* 书模式下素材直接挂在内容页上，这里的全局上传区用不到 → 收起，界面更清爽 */
+    var mp = $('matPanel');
+    if (mp) mp.style.display = (STATE.pageType === 'book') ? 'none' : '';
     var f = $('stage-frame');
     var bg = STATE.stage.bg;
     f.className = 'checker' === bg ? 'checker' : '';
