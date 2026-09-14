@@ -100,9 +100,13 @@ SD.BookPage = (function () {
     var dot = p.bookDotSize || 16;
     var dotColor = p.bookDotColor || '#ffb340';
     var R = (W / H).toFixed(4);
-    /* 宽高都同时受屏幕限制：否则手机上按高度算出来的宽度会超出屏幕 */
-    var size = 'width:min(' + W + 'px, calc(100vw - 24px), calc((100vh - 120px) * ' + R + '));' +
-               'height:min(' + H + 'px, calc((100vw - 24px) / ' + R + '), calc(100vh - 120px));';
+    /* 按屏幕宽高等比铺满：两轴同时受 100vw / 100vh 约束，
+       取更小的那个 → 整本书永远完整可见（不裁切、不变形）。
+       适配后多出来的位置就是背景色（html/body 已铺 bg）。
+       原先还扣了 120px 给底部导航，导致下面空出一大条 —— 已去掉，
+       导航改为半透明浮层，压在书上而不占版面。 */
+    var size = 'width:min(100vw, calc(100vh * ' + R + '));' +
+               'height:min(100vh, calc(100vw / ' + R + '));';
 
     return [
       'html,body{margin:0;padding:0;height:100%;overflow:hidden;background:' + bg + ';',
@@ -355,15 +359,12 @@ SD.BookPage = (function () {
       '     两端倾角为 0、中途最大，所以静止时仍是端正的一页。 */',
       '  var tilt = SKEW * Math.sin(Math.PI * tt);',
       '  ctx.save();',
-      '  var rad = tilt * Math.PI / 180;',
-      '  var ca = Math.abs(Math.cos(rad)), sa = Math.abs(Math.sin(rad));',
-      '  /* 绕中心旋转后，四角会缩进去露出底下的页面（表现为左上角漏出下一页）。',
-      '     按几何精确放大：宽要乘 ca + (H/W)*sa，高要乘 ca + (W/H)*sa，',
-      '     这样旋转后的整页仍然完全盖住画布。 */',
-      '  ctx.translate(W / 2, H / 2);',
-      '  ctx.rotate(rad);',
-      '  ctx.scale(ca + (H / W) * sa, ca + (W / H) * sa);',
-      '  ctx.translate(-W / 2, -H / 2);',
+      '  /* 立体感不能再靠「整体旋转」：旋转会把画面四角转出去，',
+      '     而右侧「已翻走」的区域本来就是空的，一转就转到左上角，',
+      '     于是左上角漏出底下的下一页。',
+      '     改成逐列斜切：左端（书脊侧）完全不动，越往右倾斜越大，',
+      '     这样左上角永远是当前页，倾斜的立体感也还在。 */',
+      '  var _tan = Math.tan(tilt * Math.PI / 180);',
       '',
       '  /* 卷边推进模型：',
       '     左侧是还在平放的纸，右端固定一小段向前卷起的纸边；',
@@ -413,7 +414,10 @@ SD.BookPage = (function () {
       '    var sx = i * colW;',
       '    /* 卷起越高，整列越向下偏移一点 —— 纸角是斜着翘起来的 */',
       '    var lift = zp * SKEWY * (H / W);',
-      '    var dy = lift;',
+      '    /* 斜切只作用在「正在卷起」的那一段：平放区的列一律不偏移，',
+      '       这样左上角（书脊一侧）永远是当前页的内容，绝不露出下一页。 */',
+      '    var shear = (px > x0) ? (px - x0) * _tan * 0.45 : 0;',
+      '    var dy = lift + shear;',
       '    var dh = H - lift * 0.55;',
       '    if (facing >= 0) {',
       '      ctx.drawImage(src, sx, 0, colW, src.height, bx, dy, aw, dh);',
@@ -463,9 +467,15 @@ SD.BookPage = (function () {
       '       撤早了就会看到：画布消失、页面图还没上屏，闪那一下。',
       '       用 img.decode() 拿到「可绘制」的承诺，再隔两帧撤画布。 */',
       '    var finish = function () {',
-      '      requestAnimationFrame(function () {',
-      '        requestAnimationFrame(function () { cv.classList.remove("on"); });',
-      '      });',
+      '      /* 不硬切：先让画布淡出（约 120ms），底下那页同时显示。',
+      '         即便解码/合成差一帧，淡出也把它盖过去了，看不到闪。 */',
+      '      cv.style.transition = "opacity .12s linear";',
+      '      cv.style.opacity = "0";',
+      '      setTimeout(function () {',
+      '        cv.classList.remove("on");',
+      '        cv.style.transition = "";',
+      '        cv.style.opacity = "";',
+      '      }, 130);',
       '    };',
       '    if (has && sheetA.decode && !sheetA._ready) {',
       '      sheetA.decode().then(function () { sheetA._ready = true; finish(); })',
