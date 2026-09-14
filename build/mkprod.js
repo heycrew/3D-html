@@ -46,7 +46,7 @@ const state = {
   params: {
     bookW: 900, bookH: 1200, bookTurn: 700, bookSlices: 90, bookBend: 1.57,
     bookShade: .55, bookCamDist: 3, bookBackTone: '#f3efe6', boguMask2: .72,
-    bookSkew: 2.6, bookSkewY: .16, bookShowNav: true,
+    bookSkew: 2.6, bookSkewY: .16, bookShowNav: true, interp: 2,
     draggable: true, autoplay: false
   },
   book: {

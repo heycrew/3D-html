@@ -17,6 +17,8 @@ SD.SCHEMA = [
         desc: '{index} 会替换为序号' },
       { key: 'amountX', label: '水平帧数', type: 'num', def: 36, min: 1, max: 240,
         desc: '一圈拍了多少张' },
+      { key: 'interp', label: '帧插值平滑', type: 'num', def: 0, min: 0, max: 4,
+        desc: '在相邻帧之间插几张过渡帧。0=关闭；帧数少时调到 2~3 会顺滑很多' },
       { key: 'indexZeroBase', label: '序号补零位数', type: 'num', def: 0, min: 0, max: 6,
         desc: '3 表示 001、002…' },
       { key: 'imageListX', label: '水平图片列表（可选）', type: 'list', def: '',
