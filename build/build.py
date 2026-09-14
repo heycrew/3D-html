@@ -29,6 +29,8 @@ JS_ORDER = [
     '07-export.js',
     '09-lots.js',
     '10-bogu.js',
+    '11-book.js',
+    '12-bookpage.js',
     '08-app.js',
 ]
 

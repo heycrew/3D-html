@@ -22,7 +22,7 @@ SD.Export = (function () {
 
   function extOf(name) {
     var m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
-    return m ? '.' + m[1].toLowerCase() : '.jpg';
+    return m ? '.' + m[1].toLowerCase() : '.png';   /* 与 12-bookpage 的 extOfName 保持一致 */
   }
 
   /* 导出时统一重命名，保证 {index} 模板与排序都可靠 */
@@ -108,7 +108,14 @@ SD.Export = (function () {
   async function exportToDirectory(state, onProgress) {
     var items = SD.Codegen.activeItems(state);
     var isLots = state.pageType === 'lots';
-    if (isLots) {
+    var isBook = state.pageType === 'book';
+    if (isBook) {
+      var bk0 = state.book || {};
+      var nPage0 = (bk0.pages || []).filter(function (x) { return x && x.url; }).length;
+      if (!(bk0.cover && bk0.cover.url) && !nPage0) {
+        throw new Error('书里还没有内容：请先上传封面或内容页图片');
+      }
+    } else if (isLots) {
       SD.Lots.saveCurrent();
       var lotTotal = (state.lots || []).reduce(function (n, l) {
         return n + SD.Bogu.onItems(l).length;
@@ -131,7 +138,13 @@ SD.Export = (function () {
 
     var nImgs = isLots
       ? (state.lots || []).reduce(function (n, l) { return n + SD.Bogu.onItems(l).length; }, 0)
-      : items.length;
+      : (isBook ? (function () {
+          var bk1 = state.book || {};
+          var n = (bk1.cover && bk1.cover.url) ? 1 : 0;
+          n += (bk1.pages || []).filter(function (x) { return x && x.url; }).length;
+          n += (bk1.back && bk1.back.url) ? 1 : 0;
+          return n;
+        })() : items.length);
     var total = nImgs + 4;
     var step = 0;
     function tick(label) {
@@ -187,12 +200,46 @@ SD.Export = (function () {
           tick('lot-' + (li + 1) + '/' + nm);
         }
       }
+    } else if (isBook) {
+      /* 翻书图录：书本相关图放 book/ 下，命名与页面引用保持一致 */
+      var bk = state.book || {};
+      var put = async function (item, rel) {
+        if (!item || !item.url) return;
+        var blob = item.file || await (await fetch(item.url)).blob();
+        await writeIn(dir, rel, blob);
+        tick(rel);
+      };
+      if (bk.cover && bk.cover.url) await put(bk.cover, 'book/cover' + extOf(bk.cover.name));
+      for (var pi = 0; pi < (bk.pages || []).length; pi++) {
+        var pg = bk.pages[pi];
+        if (pg && pg.url) await put(pg, 'book/page-' + (pi + 1) + extOf(pg.name));
+      }
+      if (bk.back && bk.back.url) await put(bk.back, 'book/back' + extOf(bk.back.name));
     } else {
       for (var i = 0; i < items.length; i++) {
         var f = items[i].file;
         var blob = f || await (await fetch(items[i].url)).blob();
         await writeIn(dir, 'images/' + names[i], blob);
         tick(names[i]);
+      }
+    }
+
+    /* 2b) 翻书模式：拍品的 360 素材同样要导出（锚点指向它们） */
+    if (isBook) {
+      for (var bi = 0; bi < (state.lots || []).length; bi++) {
+        var bits = SD.Bogu.onItems(state.lots[bi]);
+        var bxi = 0, byi = 0;
+        for (var bk2 = 0; bk2 < bits.length; bk2++) {
+          var bit = bits[bk2];
+          var bex = extOf(bit.name);
+          var bnm;
+          if (bit.axis === 'y') { byi++; bnm = 'vframe-' + byi + bex; }
+          else { bxi++; bnm = 'frame-' + bxi + bex; }
+          bit.exportName = bnm;
+          var bblob = bit.file || await (await fetch(bit.url)).blob();
+          await writeIn(dir, 'images/lot-' + (bi + 1) + '/' + bnm, bblob);
+          tick('lot-' + (bi + 1) + '/' + bnm);
+        }
       }
     }
 

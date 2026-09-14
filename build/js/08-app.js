@@ -478,6 +478,66 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 翻书图录 ================= */
+  function pickOneImage(cb) {
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      status('正在上传图片…');
+      SD.Materials.importFiles([f], 'x', null).then(function (items) {
+        if (!items.length) { status('就绪'); return; }
+        cb(items[0]);
+        status('就绪');
+      }).catch(function (e) {
+        toast('err', '上传失败', (e && e.message) || '');
+        status('上传失败', 'err');
+      });
+    });
+    inp.click();
+  }
+
+  function bindBookEvents() {
+    var addPage = $('btnAddPage');
+    if (addPage) addPage.addEventListener('click', function () { SD.Book.addPage(); });
+
+    var upCover = $('btnUpCover');
+    if (upCover) upCover.addEventListener('click', function () {
+      pickOneImage(function (it) {
+        SD.Book.book().cover = { url: it.url, file: it.file, name: it.name };
+        SD.Book.render();
+        refresh();
+        toast('ok', '封面已上传');
+      });
+    });
+
+    var upBack = $('btnUpBack');
+    if (upBack) upBack.addEventListener('click', function () {
+      pickOneImage(function (it) {
+        SD.Book.book().back = { url: it.url, file: it.file, name: it.name };
+        SD.Book.render();
+        refresh();
+        toast('ok', '封底已上传');
+      });
+    });
+
+    var upPage = $('btnUpPage');
+    if (upPage) upPage.addEventListener('click', function () {
+      var sh = SD.Book.activeSheet();
+      if (sh.kind !== 'page') { toast('warn', '请先在左侧选中一张内容页'); return; }
+      pickOneImage(function (it) {
+        sh.page.url = it.url;
+        sh.page.file = it.file;
+        sh.page.name = it.name;
+        SD.Book.render();
+        refresh();
+        toast('ok', '本页图片已上传');
+      });
+    });
+  }
+
   /* ================= 环境提示 ================= */
   function showEnvWarning() {
     status('文件模式（file://）下预览不可用，请用「启动工作台.bat」打开', 'warn');
@@ -559,7 +619,13 @@ window.SD = window.SD || {};
     $('pageType').addEventListener('change', function () {
       var t = $('pageType').value;
       STATE.pageType = t;
-      if (t === 'lots') {
+      var ab = $('btnAddAnchor');
+      if (ab) ab.style.display = (t === 'book') ? '' : 'none';
+      if (t === 'book') {
+        SD.Book.book();
+        SD.Book.render();
+        status('已切到翻书图录：左侧可管理封面 / 内容页 / 封底');
+      } else if (t === 'lots') {
         SD.Lots.ensureInit();
         SD.Lots.render();
         status('已切到拍品列表模式：左侧可管理多个拍品');
@@ -572,6 +638,8 @@ window.SD = window.SD || {};
       refresh();
     });
     $('btnAddLot').addEventListener('click', function () { SD.Lots.add(); });
+    var btnAn = $('btnAddAnchor');
+    if (btnAn) btnAn.addEventListener('click', function () { SD.Book.startAnchorPick(); });
 
     $('btnAddHotspot').addEventListener('click', function () {
       if (!SD.Codegen.activeItems(STATE).length) {
@@ -656,6 +724,8 @@ window.SD = window.SD || {};
 
     SD.Lots.ensureInit();
     SD.Lots.render();
+    SD.Book.render();
+    bindBookEvents();
 
     SD.Materials.ping().then(function (ok) {
       SERVER_OK = ok;
@@ -673,6 +743,33 @@ window.SD = window.SD || {};
         var pt = $('pageType');
         pt.value = 'lots';
         pt.dispatchEvent(new Event('change'));
+      }
+      if (/[?&]book/.test(location.search)) {
+        var ptb = $('pageType');
+        ptb.value = 'book';
+        ptb.dispatchEvent(new Event('change'));
+        setTimeout(function () {
+          var bk = SD.Book.book();
+          var its = STATE.materials.items || [];
+          if (bk.pages.length || its.length < 4) return;
+          function snap(k, nm) {
+            var it = its[k];
+            return it ? { url: it.url, file: it.file, name: nm } : null;
+          }
+          bk.cover = snap(0, 'cover.png');
+          bk.back = snap(3, 'back.png');
+          bk.pages = [
+            { url: (snap(1, 'page-1.png') || {}).url, file: (snap(1, 'page-1.png') || {}).file,
+              name: 'page-1.png', anchors: [] },
+            { url: (snap(2, 'page-2.png') || {}).url, file: (snap(2, 'page-2.png') || {}).file,
+              name: 'page-2.png', anchors: [] }
+          ];
+          if (SD.Lots.lots().length) {
+            bk.pages[0].anchors.push({ id: 'an-t1', x: 42, y: 38, lotId: SD.Lots.lots()[0].id });
+          }
+          SD.Book.render();
+          if (SD.refresh) SD.refresh();
+        }, 2500);
       }
       if (/[?&]dump/.test(location.search)) {
         setTimeout(function () {

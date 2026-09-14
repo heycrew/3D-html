@@ -29,14 +29,18 @@ SD.Preview = (function () {
     destroy();
 
     /* 拍品列表（博古架）：整页交给 iframe，布局所见即所得 */
-    if (state.pageType === 'lots' && SD.Bogu) {
+    if ((state.pageType === 'lots' || state.pageType === 'book') &&
+        (SD.Bogu || SD.BookPage)) {
+      var gen = (state.pageType === 'book') ? SD.BookPage : SD.Bogu;
+      if (gen) {
       var box = document.createElement('iframe');
       box.setAttribute('title', '预览');
       box.style.cssText = 'width:100%;height:100%;border:0;display:block;background:#f5f2ec';
-      box.srcdoc = SD.Bogu.buildHtml(state, { mode: 'preview' });
+      box.srcdoc = gen.buildHtml(state, { mode: 'preview' });
       host.appendChild(box);
       if (SD.ShowEmpty) SD.ShowEmpty(false);
       return;
+      }
     }
 
     var cfg;

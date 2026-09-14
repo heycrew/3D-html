@@ -97,6 +97,22 @@ SD.SCHEMA = [
     ]
   },
   {
+    id: 'book', name: '书籍（翻书图录）', open: false,
+    desc: '仅「翻书图录」页面类型生效',
+    params: [
+      { key: 'bookW', label: '书宽', type: 'num', def: 900, min: 200, max: 3000, unit: 'px' },
+      { key: 'bookH', label: '书高', type: 'num', def: 1200, min: 200, max: 3000, unit: 'px' },
+      { key: 'bookMaxH', label: '屏幕占高上限', type: 'num', def: 88, min: 40, max: 100,
+        unit: '%', desc: '书在屏幕里最高占多少' },
+      { key: 'bookTurn', label: '翻页时长', type: 'num', def: 700, min: 150, max: 2000, unit: 'ms' },
+      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#2a2118' },
+      { key: 'bookDotSize', label: '锚点大小', type: 'num', def: 16, min: 8, max: 40, unit: 'px' },
+      { key: 'bookDotColor', label: '锚点颜色', type: 'color', def: '#ffb340' },
+      { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
+      { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.88, min: 0.3, max: 0.98, step: 0.02 }
+    ]
+  },
+  {
     id: 'bogu', name: '博古架布局', open: false,
     desc: '仅「拍品列表」页面类型生效',
     params: [

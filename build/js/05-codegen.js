@@ -175,6 +175,11 @@ SD.Codegen = (function () {
       return SD.Bogu.buildHtml(state, opts);
     }
 
+    /* 翻书图录走独立生成器 */
+    if (state.pageType === 'book' && SD.BookPage) {
+      return SD.BookPage.buildHtml(state, opts);
+    }
+
     var tpl = SD.templateById(state.templateId);
     var cfg = buildConfig(state, { mode: mode });
     var title = state.title || '360° 产品展示';

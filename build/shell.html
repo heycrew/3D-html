@@ -286,6 +286,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
   <select id="pageType" style="width:132px">
     <option value="single">单品 360 展示</option>
     <option value="lots">拍品列表（博古架）</option>
+    <option value="book">翻书图录（电子图册）</option>
   </select>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面模板</label>
@@ -309,6 +310,22 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
       <button class="btn ghost sm" id="btnClearMat" title="清空素材">清空</button>
     </div>
     <div class="col-body">
+      <div id="bookBar" style="display:none">
+        <div class="lot-bar-head">
+          <span>书页</span>
+          <span class="spacer"></span>
+          <button class="btn ghost sm" id="btnAddPage">＋ 加页</button>
+        </div>
+        <div id="bookList"></div>
+        <div style="display:flex;gap:6px;padding:0 12px 10px">
+          <button class="btn sm" id="btnUpCover" style="flex:1;justify-content:center">上传封面</button>
+          <button class="btn sm" id="btnUpBack" style="flex:1;justify-content:center">上传封底</button>
+        </div>
+        <div style="padding:0 12px 10px">
+          <button class="btn sm" id="btnUpPage" style="width:100%;justify-content:center">上传本页图片</button>
+        </div>
+        <div class="mini-note" id="bookHint"></div>
+      </div>
       <div id="lotBar" style="display:none">
         <div class="lot-bar-head">
           <span>拍品</span>
@@ -360,6 +377,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
       <div class="topbar-sep"></div>
       <button class="btn ghost sm" id="btnAddHotspot" title="在预览图上点选位置添加热点">＋ 添加热点</button>
       <button class="btn ghost sm" id="btnHotspotList" title="查看 / 删除热点">热点 <span id="hsCount">0</span></button>
+      <button class="btn ghost sm" id="btnAddAnchor" title="在当前页面上打锚点" style="display:none">＋ 加锚点</button>
       <span class="spacer"></span>
       <span id="stageMeta" style="color:var(--sd-fg3);font-size:11px"></span>
     </div>

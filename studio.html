@@ -286,6 +286,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
   <select id="pageType" style="width:132px">
     <option value="single">单品 360 展示</option>
     <option value="lots">拍品列表（博古架）</option>
+    <option value="book">翻书图录（电子图册）</option>
   </select>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面模板</label>
@@ -309,6 +310,22 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
       <button class="btn ghost sm" id="btnClearMat" title="清空素材">清空</button>
     </div>
     <div class="col-body">
+      <div id="bookBar" style="display:none">
+        <div class="lot-bar-head">
+          <span>书页</span>
+          <span class="spacer"></span>
+          <button class="btn ghost sm" id="btnAddPage">＋ 加页</button>
+        </div>
+        <div id="bookList"></div>
+        <div style="display:flex;gap:6px;padding:0 12px 10px">
+          <button class="btn sm" id="btnUpCover" style="flex:1;justify-content:center">上传封面</button>
+          <button class="btn sm" id="btnUpBack" style="flex:1;justify-content:center">上传封底</button>
+        </div>
+        <div style="padding:0 12px 10px">
+          <button class="btn sm" id="btnUpPage" style="width:100%;justify-content:center">上传本页图片</button>
+        </div>
+        <div class="mini-note" id="bookHint"></div>
+      </div>
       <div id="lotBar" style="display:none">
         <div class="lot-bar-head">
           <span>拍品</span>
@@ -360,6 +377,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
       <div class="topbar-sep"></div>
       <button class="btn ghost sm" id="btnAddHotspot" title="在预览图上点选位置添加热点">＋ 添加热点</button>
       <button class="btn ghost sm" id="btnHotspotList" title="查看 / 删除热点">热点 <span id="hsCount">0</span></button>
+      <button class="btn ghost sm" id="btnAddAnchor" title="在当前页面上打锚点" style="display:none">＋ 加锚点</button>
       <span class="spacer"></span>
       <span id="stageMeta" style="color:var(--sd-fg3);font-size:11px"></span>
     </div>
@@ -512,6 +530,22 @@ SD.SCHEMA = [
       { key: 'markerTheme', label: '标记样式', type: 'select', def: '',
         options: [['', '默认'], ['default', 'default'], ['inverted', 'inverted'], ['brand', 'brand（品牌色）']] },
       { key: 'brandColor', label: '品牌色', type: 'color', def: '#ff6600' }
+    ]
+  },
+  {
+    id: 'book', name: '书籍（翻书图录）', open: false,
+    desc: '仅「翻书图录」页面类型生效',
+    params: [
+      { key: 'bookW', label: '书宽', type: 'num', def: 900, min: 200, max: 3000, unit: 'px' },
+      { key: 'bookH', label: '书高', type: 'num', def: 1200, min: 200, max: 3000, unit: 'px' },
+      { key: 'bookMaxH', label: '屏幕占高上限', type: 'num', def: 88, min: 40, max: 100,
+        unit: '%', desc: '书在屏幕里最高占多少' },
+      { key: 'bookTurn', label: '翻页时长', type: 'num', def: 700, min: 150, max: 2000, unit: 'ms' },
+      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#2a2118' },
+      { key: 'bookDotSize', label: '锚点大小', type: 'num', def: 16, min: 8, max: 40, unit: 'px' },
+      { key: 'bookDotColor', label: '锚点颜色', type: 'color', def: '#ffb340' },
+      { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
+      { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.88, min: 0.3, max: 0.98, step: 0.02 }
     ]
   },
   {
@@ -926,14 +960,18 @@ SD.Preview = (function () {
     destroy();
 
     /* 拍品列表（博古架）：整页交给 iframe，布局所见即所得 */
-    if (state.pageType === 'lots' && SD.Bogu) {
+    if ((state.pageType === 'lots' || state.pageType === 'book') &&
+        (SD.Bogu || SD.BookPage)) {
+      var gen = (state.pageType === 'book') ? SD.BookPage : SD.Bogu;
+      if (gen) {
       var box = document.createElement('iframe');
       box.setAttribute('title', '预览');
       box.style.cssText = 'width:100%;height:100%;border:0;display:block;background:#f5f2ec';
-      box.srcdoc = SD.Bogu.buildHtml(state, { mode: 'preview' });
+      box.srcdoc = gen.buildHtml(state, { mode: 'preview' });
       host.appendChild(box);
       if (SD.ShowEmpty) SD.ShowEmpty(false);
       return;
+      }
     }
 
     var cfg;
@@ -1151,6 +1189,11 @@ SD.Codegen = (function () {
     /* 拍品列表（博古架）走独立生成器 */
     if (state.pageType === 'lots' && SD.Bogu) {
       return SD.Bogu.buildHtml(state, opts);
+    }
+
+    /* 翻书图录走独立生成器 */
+    if (state.pageType === 'book' && SD.BookPage) {
+      return SD.BookPage.buildHtml(state, opts);
     }
 
     var tpl = SD.templateById(state.templateId);
@@ -1452,7 +1495,7 @@ SD.Export = (function () {
 
   function extOf(name) {
     var m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
-    return m ? '.' + m[1].toLowerCase() : '.jpg';
+    return m ? '.' + m[1].toLowerCase() : '.png';   /* 与 12-bookpage 的 extOfName 保持一致 */
   }
 
   /* 导出时统一重命名，保证 {index} 模板与排序都可靠 */
@@ -1538,7 +1581,14 @@ SD.Export = (function () {
   async function exportToDirectory(state, onProgress) {
     var items = SD.Codegen.activeItems(state);
     var isLots = state.pageType === 'lots';
-    if (isLots) {
+    var isBook = state.pageType === 'book';
+    if (isBook) {
+      var bk0 = state.book || {};
+      var nPage0 = (bk0.pages || []).filter(function (x) { return x && x.url; }).length;
+      if (!(bk0.cover && bk0.cover.url) && !nPage0) {
+        throw new Error('书里还没有内容：请先上传封面或内容页图片');
+      }
+    } else if (isLots) {
       SD.Lots.saveCurrent();
       var lotTotal = (state.lots || []).reduce(function (n, l) {
         return n + SD.Bogu.onItems(l).length;
@@ -1561,7 +1611,13 @@ SD.Export = (function () {
 
     var nImgs = isLots
       ? (state.lots || []).reduce(function (n, l) { return n + SD.Bogu.onItems(l).length; }, 0)
-      : items.length;
+      : (isBook ? (function () {
+          var bk1 = state.book || {};
+          var n = (bk1.cover && bk1.cover.url) ? 1 : 0;
+          n += (bk1.pages || []).filter(function (x) { return x && x.url; }).length;
+          n += (bk1.back && bk1.back.url) ? 1 : 0;
+          return n;
+        })() : items.length);
     var total = nImgs + 4;
     var step = 0;
     function tick(label) {
@@ -1617,12 +1673,46 @@ SD.Export = (function () {
           tick('lot-' + (li + 1) + '/' + nm);
         }
       }
+    } else if (isBook) {
+      /* 翻书图录：书本相关图放 book/ 下，命名与页面引用保持一致 */
+      var bk = state.book || {};
+      var put = async function (item, rel) {
+        if (!item || !item.url) return;
+        var blob = item.file || await (await fetch(item.url)).blob();
+        await writeIn(dir, rel, blob);
+        tick(rel);
+      };
+      if (bk.cover && bk.cover.url) await put(bk.cover, 'book/cover' + extOf(bk.cover.name));
+      for (var pi = 0; pi < (bk.pages || []).length; pi++) {
+        var pg = bk.pages[pi];
+        if (pg && pg.url) await put(pg, 'book/page-' + (pi + 1) + extOf(pg.name));
+      }
+      if (bk.back && bk.back.url) await put(bk.back, 'book/back' + extOf(bk.back.name));
     } else {
       for (var i = 0; i < items.length; i++) {
         var f = items[i].file;
         var blob = f || await (await fetch(items[i].url)).blob();
         await writeIn(dir, 'images/' + names[i], blob);
         tick(names[i]);
+      }
+    }
+
+    /* 2b) 翻书模式：拍品的 360 素材同样要导出（锚点指向它们） */
+    if (isBook) {
+      for (var bi = 0; bi < (state.lots || []).length; bi++) {
+        var bits = SD.Bogu.onItems(state.lots[bi]);
+        var bxi = 0, byi = 0;
+        for (var bk2 = 0; bk2 < bits.length; bk2++) {
+          var bit = bits[bk2];
+          var bex = extOf(bit.name);
+          var bnm;
+          if (bit.axis === 'y') { byi++; bnm = 'vframe-' + byi + bex; }
+          else { bxi++; bnm = 'frame-' + bxi + bex; }
+          bit.exportName = bnm;
+          var bblob = bit.file || await (await fetch(bit.url)).blob();
+          await writeIn(dir, 'images/lot-' + (bi + 1) + '/' + bnm, bblob);
+          tick('lot-' + (bi + 1) + '/' + bnm);
+        }
       }
     }
 
@@ -2187,6 +2277,733 @@ SD.Bogu = (function () {
 })();
 
 /* =====================================================================
+ * 11-book.js —— 翻书图录：书籍数据模型与页管理
+ *
+ * 一本书 = 封面 + N 张内容页 + 封底，全部按统一尺寸显示。
+ * 内容页上可以打锚点，锚点绑定到某个拍品（复用 STATE.lots），
+ * 点击锚点弹出该拍品的 360 —— 没传 360 素材的拍品则不可点。
+ *
+ * 「页」在界面上是一条虚拟序列：[封面, 页1, 页2 … 页N, 封底]，
+ * 用 active 索引表示当前正在编辑的是哪一张。
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.Book = (function () {
+
+  function st() { return SD.STATE; }
+
+  function book() {
+    var s = st();
+    if (!s.book) {
+      s.book = {
+        w: 900, h: 1200,          /* 整本书的统一尺寸，可自定义 */
+        cover: null,              /* { url, file, name } */
+        back: null,
+        pages: [],                /* { url, file, name, anchors: [{x,y,lotId}] } */
+        active: 0                 /* 当前编辑的纸张索引 */
+      };
+    }
+    if (!s.book.pages) s.book.pages = [];
+    return s.book;
+  }
+
+  /* ---------- 虚拟页序列 ---------- */
+  function lastIndex() { return book().pages.length + 1; }
+
+  function sheetAt(i) {
+    var b = book();
+    if (i <= 0) return { kind: 'cover', index: 0, label: '封面' };
+    if (i >= lastIndex()) return { kind: 'back', index: lastIndex(), label: '封底' };
+    return { kind: 'page', index: i, page: b.pages[i - 1], label: '第 ' + i + ' 页' };
+  }
+
+  function activeIndex() { return book().active || 0; }
+  function activeSheet() { return sheetAt(activeIndex()); }
+
+  function setActive(i) {
+    var b = book();
+    b.active = Math.max(0, Math.min(lastIndex(), i));
+  }
+
+  function imageOfSheet(sh) {
+    var b = book();
+    if (sh.kind === 'cover') return b.cover;
+    if (sh.kind === 'back') return b.back;
+    return sh.page || null;
+  }
+
+  /* ---------- 页操作 ---------- */
+  function addPage() {
+    var b = book();
+    b.pages.push({ url: '', file: null, name: '', anchors: [] });
+    setActive(b.pages.length);
+    afterChange('已新增一页');
+  }
+
+  function removePage(i) {
+    var b = book();
+    if (i < 0 || i >= b.pages.length) return;
+    b.pages.splice(i, 1);
+    setActive(Math.min(activeIndex(), lastIndex()));
+    afterChange('已删除该页');
+  }
+
+  function movePage(i, dir) {
+    var b = book();
+    var j = i + dir;
+    if (i < 0 || i >= b.pages.length || j < 0 || j >= b.pages.length) return;
+    var t = b.pages[i]; b.pages[i] = b.pages[j]; b.pages[j] = t;
+    setActive(j + 1);
+    afterChange();
+  }
+
+  /* ---------- 锚点 ---------- */
+  function anchorsOf(sh) {
+    if (sh.kind !== 'page' || !sh.page) return [];
+    if (!sh.page.anchors) sh.page.anchors = [];
+    return sh.page.anchors;
+  }
+
+  function addAnchor(sh, x, y, lotId) {
+    var list = anchorsOf(sh);
+    list.push({ id: 'an-' + Date.now().toString(36), x: x, y: y, lotId: lotId || '' });
+    afterChange('已添加锚点');
+  }
+
+  function removeAnchor(sh, id) {
+    var list = anchorsOf(sh);
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === id) { list.splice(i, 1); break; }
+    }
+    afterChange('已删除锚点');
+  }
+
+  function anchorCount() {
+    return book().pages.reduce(function (n, p) {
+      return n + ((p && p.anchors) ? p.anchors.length : 0);
+    }, 0);
+  }
+
+  /* ---------- 拍品是否有 360 素材（决定锚点能不能点） ---------- */
+  function lotHasMedia(lotId) {
+    if (!lotId || !SD.Lots) return false;
+    var arr = SD.Lots.lots() || [];
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i].id === lotId) return SD.Lots.countOn(arr[i]) > 0;
+    }
+    return false;
+  }
+
+  function lotTitle(lotId) {
+    if (!lotId || !SD.Lots) return '';
+    var arr = SD.Lots.lots() || [];
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i].id === lotId) return arr[i].title || '';
+    }
+    return '';
+  }
+
+  function afterChange(msg) {
+    render();
+    if (SD.refresh) SD.refresh();
+    if (msg) SD.toast('ok', msg);
+  }
+
+  /* ---------- 左栏渲染 ---------- */
+  function render() {
+    var host = document.getElementById('bookList');
+    var bar = document.getElementById('bookBar');
+    if (!host || !bar) return;
+
+    var isBook = st().pageType === 'book';
+    bar.style.display = isBook ? '' : 'none';
+    if (!isBook) return;
+
+    var b = book();
+    host.innerHTML = '';
+
+    var rows = [];
+    rows.push({ i: 0, label: '封面', sub: b.cover ? '已上传' : '未上传', img: b.cover, kind: 'cover' });
+    b.pages.forEach(function (p, k) {
+      rows.push({
+        i: k + 1,
+        label: '第 ' + (k + 1) + ' 页',
+        sub: (p.anchors ? p.anchors.length : 0) + ' 个锚点',
+        img: p, kind: 'page', pi: k
+      });
+    });
+    rows.push({ i: lastIndex(), label: '封底', sub: b.back ? '已上传' : '未上传', img: b.back, kind: 'back' });
+
+    rows.forEach(function (r) {
+      var row = document.createElement('div');
+      row.className = 'lot-row' + (r.i === activeIndex() ? ' on' : '');
+      row.innerHTML =
+        '<div class="lot-cover">' + (r.img && r.img.url ? '<img alt="">' : '<span>空</span>') + '</div>' +
+        '<div class="lot-meta"><b></b><i></i></div>' +
+        ((r.kind === 'page')
+          ? '<div class="lot-ops">' +
+            '<button class="btn ghost sm" data-up title="上移">↑</button>' +
+            '<button class="btn ghost sm" data-down title="下移">↓</button>' +
+            '<button class="btn ghost sm" data-del title="删除">✕</button>' +
+            '</div>'
+          : '');
+      if (r.img && r.img.url) row.querySelector('.lot-cover img').src = r.img.url;
+      row.querySelector('.lot-meta b').textContent = r.label;
+      row.querySelector('.lot-meta i').textContent = r.sub;
+
+      row.addEventListener('click', function (e) {
+        if (e.target.closest('button')) return;
+        setActive(r.i);
+        render();
+        if (SD.refresh) SD.refresh();
+      });
+      if (r.kind === 'page') {
+        row.querySelector('[data-up]').addEventListener('click', function (e) {
+          e.stopPropagation(); movePage(r.pi, -1);
+        });
+        row.querySelector('[data-down]').addEventListener('click', function (e) {
+          e.stopPropagation(); movePage(r.pi, 1);
+        });
+        row.querySelector('[data-del]').addEventListener('click', function (e) {
+          e.stopPropagation(); removePage(r.pi);
+        });
+      }
+      host.appendChild(row);
+    });
+  }
+
+  /* ---------- 锚点选点：先在下方选拍品，再在页图上点位置 ---------- */
+  function startAnchorPick() {
+    var sh = activeSheet();
+    if (sh.kind !== 'page') { SD.toast('warn', '请先在左侧选中一张内容页'); return; }
+    if (!sh.page || !sh.page.url) { SD.toast('warn', '本页还没上传图片'); return; }
+
+    var arr = (SD.Lots && SD.Lots.lots()) || [];
+    var opts = arr.map(function (l) {
+      var has = countOnLot(l) > 0;
+      return '<option value="' + l.id + '"' + (has ? '' : ' data-nomedia="1"') + '>' +
+             SD.Codegen.esc(l.title || l.id) + (has ? '' : '（无 360 素材）') + '</option>';
+    }).join('');
+
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = [
+      '<div class="modal" style="width:min(680px,94vw)">',
+      '  <div class="modal-head"><span>在页面上点选锚点</span>',
+      '    <span class="spacer"></span><button class="btn ghost sm" data-close>完成</button></div>',
+      '  <div class="modal-body">',
+      '    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">',
+      '      <span style="font-size:12px;color:var(--sd-fg2)">关联拍品</span>',
+      '      <select id="anLot" style="flex:1">' + opts + '</select>',
+      '    </div>',
+      '    <p style="margin:0 0 8px;color:var(--sd-fg3);font-size:12px">',
+      '      先选好拍品，再在下面的页面上点位置（可连续点多个）。',
+      '      标注为「无 360 素材」的拍品，成品页面上会置灰且不可点。</p>',
+      '    <div id="anStage" style="position:relative;width:100%;max-width:560px;margin:0 auto;',
+      '      border:1px solid var(--sd-line2);border-radius:6px;overflow:hidden;cursor:crosshair">',
+      '      <img id="anImg" style="width:100%;display:block" alt="">',
+      '    </div>',
+      '    <div id="anList" style="margin-top:12px"></div>',
+      '  </div>',
+      '</div>'
+    ].join('\n');
+    document.body.appendChild(mask);
+
+    document.getElementById('anImg').src = sh.page.url;
+
+    function refreshList() {
+      var list = anchorsOf(sh);
+      var host = document.getElementById('anList');
+      if (!list.length) { host.innerHTML = '<p style="color:var(--sd-fg3);font-size:12px">还没有锚点</p>'; return; }
+      host.innerHTML = '';
+      list.forEach(function (a) {
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:5px 0;' +
+                            'border-bottom:1px solid var(--sd-line);font-size:12px';
+        row.innerHTML = '<span style="flex:1">' + SD.Codegen.esc(lotTitle(a.lotId) || '未绑定') +
+          '<span style="color:var(--sd-fg3)"> · ' + a.x + '%, ' + a.y + '%</span></span>' +
+          '<button class="btn ghost sm" data-del="' + a.id + '">删除</button>';
+        row.querySelector('[data-del]').addEventListener('click', function () {
+          removeAnchor(sh, a.id);
+          refreshList();
+        });
+        host.appendChild(row);
+      });
+    }
+    refreshList();
+
+    document.getElementById('anStage').addEventListener('click', function (e) {
+      var r = e.currentTarget.getBoundingClientRect();
+      var x = Math.max(0, Math.min(100, +(((e.clientX - r.left) / r.width) * 100).toFixed(2)));
+      var y = Math.max(0, Math.min(100, +(((e.clientY - r.top) / r.height) * 100).toFixed(2)));
+      var sel = document.getElementById('anLot');
+      if (!sel.value) { SD.toast('warn', '请先选择关联拍品'); return; }
+      addAnchor(sh, x, y, sel.value);
+      refreshList();
+    });
+
+    mask.addEventListener('click', function (e) {
+      if (e.target === mask || e.target.hasAttribute('data-close')) {
+        if (mask.parentNode) mask.parentNode.removeChild(mask);
+        if (SD.refresh) SD.refresh();
+      }
+    });
+  }
+
+  function countOnLot(l) {
+    return ((l && l.items) || []).filter(function (x) { return !x.off; }).length;
+  }
+
+  return {
+    startAnchorPick: startAnchorPick,
+    book: book,
+    lastIndex: lastIndex,
+    sheetAt: sheetAt,
+    activeIndex: activeIndex,
+    activeSheet: activeSheet,
+    setActive: setActive,
+    imageOfSheet: imageOfSheet,
+    addPage: addPage,
+    removePage: removePage,
+    movePage: movePage,
+    anchorsOf: anchorsOf,
+    addAnchor: addAnchor,
+    removeAnchor: removeAnchor,
+    anchorCount: anchorCount,
+    lotHasMedia: lotHasMedia,
+    lotTitle: lotTitle,
+    render: render
+  };
+})();
+
+/* =====================================================================
+ * 12-bookpage.js —— 翻书图录页面生成
+ *
+ * 一本书 = 封面 + N 张内容页 + 封底，统一尺寸。
+ * 书上叠着「叶(leaf)」，第 i 叶绕左侧书脊旋转 180° 表示已翻过。
+ * 内容页上的锚点绑定拍品（复用 STATE.lots），点击弹出该拍品的 360；
+ * 没传 360 素材的拍品锚点会置灰且不可点。
+ *
+ * 交互：拖动 / 滑动翻页；也支持左右半区点击、← → 键、页码按钮。
+ * ===================================================================== */
+window.SD = window.SD || {};
+
+SD.BookPage = (function () {
+
+  function extOfName(name) {
+    var m = /\.([a-z0-9]+)$/i.exec(String(name || ''));
+    return m ? '.' + m[1].toLowerCase() : '.png';
+  }
+
+  /* ---------- 页序列（含封面封底） ---------- */
+  function sheetList(state, mode) {
+    var b = state.book || {};
+    var out = [];
+
+    function srcOf(item, fallbackName) {
+      if (!item) return '';
+      return (mode === 'preview') ? (item.url || '') : ('book/' + fallbackName);
+    }
+
+    out.push({
+      kind: 'cover',
+      src: srcOf(b.cover, 'cover' + extOfName(b.cover && b.cover.name)),
+      anchors: []
+    });
+
+    (b.pages || []).forEach(function (p, i) {
+      out.push({
+        kind: 'page',
+        src: srcOf(p, 'page-' + (i + 1) + extOfName(p && p.name)),
+        anchors: (p && p.anchors) ? p.anchors : []
+      });
+    });
+
+    out.push({
+      kind: 'back',
+      src: srcOf(b.back, 'back' + extOfName(b.back && b.back.name)),
+      anchors: []
+    });
+
+    return out;
+  }
+
+  /* ---------- CSS ---------- */
+  function buildCss(state) {
+    var p = state.params || {};
+    var W = p.bookW || 900, H = p.bookH || 1200;
+    var turn = p.bookTurn || 700;
+    var bg = p.bookBg || '#2a2118';
+    var dot = p.bookDotSize || 16;
+    var dotColor = p.bookDotColor || '#ffb340';
+
+    return [
+      'html,body{margin:0;padding:0;height:100%;overflow:hidden;background:' + bg + ';',
+      '  font-family:-apple-system,"Microsoft YaHei","PingFang SC",sans-serif;}',
+      'body{display:grid;place-items:center;}',
+
+      '/* 书桌背景 */',
+      '.desk{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 42%,',
+      '  rgba(255,255,255,.09) 0%, rgba(0,0,0,.55) 78%), ' + bg + ';}',
+
+      '/* 书本 */',
+      '.book-wrap{position:relative;z-index:2;display:grid;place-items:center;}',
+      '.book{position:relative;',
+      '  width:min(' + W + 'px, calc((100vh - 120px) * ' + (W / H).toFixed(4) + '));',
+      '  height:min(' + H + 'px, calc(100vh - 120px));',
+      '  perspective:2400px;}',
+      '.book::after{ /* 书脊投影 */',
+      '  content:"";position:absolute;left:0;top:0;bottom:0;width:26px;z-index:50;',
+      '  background:linear-gradient(to right, rgba(0,0,0,.42), rgba(0,0,0,0));',
+      '  pointer-events:none;border-radius:2px 0 0 2px;}',
+
+      '/* 每一叶 */',
+      '.leaf{position:absolute;inset:0;transform-origin:left center;',
+      '  transition:transform ' + turn + 'ms cubic-bezier(.3,.05,.25,1);',
+      '  backface-visibility:hidden;-webkit-backface-visibility:hidden;',
+      '  background:#fff;border-radius:2px;overflow:hidden;',
+      '  box-shadow:0 18px 44px rgba(0,0,0,.45);}',
+      '.leaf.dragging{transition:none;}',
+      '.leaf img{width:100%;height:100%;object-fit:contain;display:block;',
+      '  user-select:none;-webkit-user-drag:none;pointer-events:none;background:#fff;}',
+      '.leaf .ph{width:100%;height:100%;display:grid;place-items:center;',
+      '  color:#b9ae9c;background:#f7f4ee;font-size:15px;letter-spacing:1px;}',
+      '.leaf.flipped{transform:rotateY(-180deg);}',
+
+      '/* 锚点：圆点 + 脉冲 */',
+      '.dot{position:absolute;width:' + dot + 'px;height:' + dot + 'px;border-radius:50%;',
+      '  background:' + dotColor + ';border:2px solid #fff;cursor:pointer;z-index:20;',
+      '  transform:translate(-50%,-50%);box-shadow:0 0 0 0 ' + dotColor + 'cc,',
+      '  0 2px 6px rgba(0,0,0,.35);animation:dotPulse 2s infinite;}',
+      '@keyframes dotPulse{',
+      '  0%{box-shadow:0 0 0 0 ' + dotColor + 'cc, 0 2px 6px rgba(0,0,0,.35);}',
+      '  70%{box-shadow:0 0 0 ' + Math.round(dot * 0.9) + 'px rgba(0,0,0,0), 0 2px 6px rgba(0,0,0,.35);}',
+      '  100%{box-shadow:0 0 0 0 rgba(0,0,0,0), 0 2px 6px rgba(0,0,0,.35);}}',
+      '.dot:hover{transform:translate(-50%,-50%) scale(1.25);}',
+      '.dot.off{background:#8d8478;cursor:not-allowed;animation:none;opacity:.5;}',
+      '.dot .tip{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);',
+      '  background:rgba(24,18,12,.92);color:#fff;font-size:12px;padding:4px 10px;',
+      '  border-radius:6px;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none;}',
+      '.dot:hover .tip{opacity:1;}',
+      '.dot.off .tip::after{content:" （未上传 360）";color:#c9bda9;}',
+
+      '/* 右下角翻页热区提示 */',
+      '.corner{position:absolute;bottom:0;width:22%;height:26%;z-index:40;cursor:pointer;}',
+      '.corner.prev{left:0;}',
+      '.corner.next{right:0;}',
+
+      '/* 页码导航 */',
+      '.book-nav{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;',
+      '  display:flex;align-items:center;gap:14px;color:#e8dccb;font-size:14px;',
+      '  background:rgba(0,0,0,.42);padding:8px 16px;border-radius:999px;',
+      '  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}',
+      '.book-nav button{border:0;background:rgba(255,255,255,.14);color:#fff;width:32px;',
+      '  height:32px;border-radius:50%;cursor:pointer;font-size:16px;line-height:1;}',
+      '.book-nav button:hover{background:rgba(255,255,255,.3);}',
+      '.book-nav button:disabled{opacity:.3;cursor:not-allowed;}',
+
+      '/* 360 弹层 */',
+      '.lot-modal{position:fixed;inset:0;z-index:9998;display:none;',
+      '  background:rgba(0,0,0,' + (p.boguMask2 || .88) + ');}',
+      '.lot-modal.on{display:grid;place-items:center;animation:lotFade .2s ease;}',
+      '@keyframes lotFade{from{opacity:0}to{opacity:1}}',
+      '.lot-stage{width:min(92vw,1040px);height:min(82vh,780px);display:grid;',
+      '  place-items:center;position:relative;}',
+      '/* 只定高度、宽度交给 aspect-ratio 自适应，否则画面会被拉伸 */',
+      '.lot-stage .cloudimage-360{height:100%;width:auto;max-width:100%;}',
+      '.lot-stage .lot-title{position:absolute;top:-4px;left:0;color:#fff;font-size:15px;',
+      '  letter-spacing:2px;opacity:.9;pointer-events:none;}',
+      '.lot-close{position:absolute;top:22px;right:26px;width:40px;height:40px;border:0;',
+      '  border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:20px;',
+      '  cursor:pointer;}',
+      '.lot-close:hover{background:rgba(255,255,255,.28);}',
+      '.lot-hint{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);',
+      '  color:rgba(255,255,255,.6);font-size:12px;letter-spacing:1px;z-index:9999;}',
+
+      '@media (max-width:820px){',
+      '  .book{width:min(' + W + 'px, calc((100vh - 100px) * ' + (W / H).toFixed(4) + '));}',
+      '  .book-nav{bottom:12px;font-size:13px;padding:6px 12px;}',
+      '}'
+    ].join('\n');
+  }
+
+  /* ---------- 主体 ---------- */
+  function buildBody(state, mode) {
+    var sheets = sheetList(state, mode);
+    var out = [];
+
+    out.push('<div class="desk"></div>');
+    out.push('<div class="book-wrap">');
+    out.push('  <div class="book" id="book">');
+
+    sheets.forEach(function (sh, i) {
+      var inner = sh.src
+        ? '<img src="' + SD.Codegen.esc(sh.src) + '" alt="">'
+        : '<div class="ph">' + (sh.kind === 'page' ? '本页未上传图片' : '未上传') + '</div>';
+      var dots = '';
+      (sh.anchors || []).forEach(function (a) {
+        var has = SD.Book ? SD.Book.lotHasMedia(a.lotId) : false;
+        var title = SD.Book ? SD.Book.lotTitle(a.lotId) : '';
+        dots += '<span class="dot' + (has ? '' : ' off') + '" data-lot="' +
+                SD.Codegen.esc(a.lotId || '') + '"' +
+                (has ? '' : ' data-off="1"') +
+                ' style="left:' + a.x + '%;top:' + a.y + '%">' +
+                '<span class="tip">' + SD.Codegen.esc(title || '未绑定拍品') + '</span></span>';
+      });
+      out.push('    <div class="leaf" data-i="' + i + '" data-kind="' + sh.kind + '">' +
+               inner + dots + '</div>');
+    });
+
+    out.push('  </div>');
+    out.push('</div>');
+
+    out.push('<div class="corner prev" id="cPrev"></div>');
+    out.push('<div class="corner next" id="cNext"></div>');
+
+    if ((state.params || {}).bookShowNav !== false) {
+      out.push('<div class="book-nav">');
+      out.push('  <button id="navPrev" title="上一页">‹</button>');
+      out.push('  <span id="navText">1 / ' + sheets.length + '</span>');
+      out.push('  <button id="navNext" title="下一页">›</button>');
+      out.push('</div>');
+    }
+
+    out.push('<div class="lot-modal" id="lotModal">');
+    out.push('  <button class="lot-close" id="lotClose" title="关闭（Esc）">×</button>');
+    out.push('  <div class="lot-stage" id="lotStage">');
+    out.push('    <div class="lot-title" id="lotTitle"></div>');
+    out.push('  </div>');
+    out.push('</div>');
+    out.push('<div class="lot-hint" id="lotHint" style="display:none">左右拖动旋转 · 上下拖动俯仰 · Esc 关闭</div>');
+
+    return out.join('\n');
+  }
+
+  /* ---------- 脚本 ---------- */
+  function buildInit(state, mode) {
+    var p = state.params || {};
+    var lots = state.lots || [];
+    /* 每个拍品的图片地址（与博古架同一套规则） */
+    var data = lots.map(function (lot, i) {
+      var im = SD.Bogu ? SD.Bogu.lotImages(lot, i, mode) : { x: [], y: [] };
+      var first = (lot.items || []).filter(function (x) { return !x.off; })[0] || null;
+      var ratio = '';
+      if (first && first.w && first.h) {
+        var a = Math.abs(first.w), b = Math.abs(first.h);
+        while (b) { var t = a % b; a = b; b = t; }
+        ratio = (first.w / a) + '/' + (first.h / a);
+      }
+      return { id: lot.id, title: lot.title || '', code: lot.code || '',
+               x: im.x, y: im.y, ratio: ratio };
+    });
+
+    var keep = {};
+    Object.keys(p).forEach(function (k) {
+      if (k.indexOf('book') !== 0 && k.indexOf('bogu') !== 0) keep[k] = p[k];
+    });
+    ['folder', 'filenameX', 'amountX', 'indexZeroBase', 'filenameY', 'amountY',
+     'filenameGrid', 'imageListX', 'imageListY', 'imageListGrid'].forEach(function (k) {
+      delete keep[k];
+    });
+
+    return [
+      'var LOTS = ' + SD.Codegen.safeJson(data, true) + ';',
+      'var BASE = ' + SD.Codegen.safeJson(keep, true) + ';',
+      'var TURN = ' + (p.bookTurn || 700) + ';',
+      'var leaves = Array.prototype.slice.call(document.querySelectorAll(".leaf"));',
+      'var total = leaves.length;',
+      'var cur = 0;',
+      'var closeTimer = null;',
+      '',
+      '/* ---------- 翻页 ---------- */',
+      'function paint() {',
+      '  for (var i = 0; i < total; i++) {',
+      '    var el = leaves[i];',
+      '    var flipped = i < cur;',
+      '    el.classList.toggle("flipped", flipped);',
+      '    el.style.zIndex = flipped ? String(i + 1) : String(total - i + 1);',
+      '    el.style.pointerEvents = (i === cur) ? "auto" : "none";',
+      '  }',
+      '  var t = document.getElementById("navText");',
+      '  if (t) t.textContent = (cur + 1) + " / " + total;',
+      '  var pv = document.getElementById("navPrev"), nx = document.getElementById("navNext");',
+      '  if (pv) pv.disabled = (cur === 0);',
+      '  if (nx) nx.disabled = (cur === total - 1);',
+      '}',
+      '',
+      'function goTo(n) {',
+      '  cur = Math.max(0, Math.min(total - 1, n));',
+      '  paint();',
+      '}',
+      '',
+      '/* ---------- 拖动 / 滑动翻页 ---------- */',
+      'var dragging = false, startX = 0, startY = 0, dx = 0, leafEl = null;',
+      '',
+      'function onDown(e) {',
+      '  var t = e.touches ? e.touches[0] : e;',
+      '  if (e.target.closest && e.target.closest(".dot")) return;',
+      '  dragging = true; dx = 0; startX = t.clientX; startY = t.clientY;',
+      '  leafEl = leaves[cur];',
+      '  if (leafEl) leafEl.classList.add("dragging");',
+      '}',
+      '',
+      'function onMove(e) {',
+      '  if (!dragging) return;',
+      '  var t = e.touches ? e.touches[0] : e;',
+      '  dx = t.clientX - startX;',
+      '  var dy = t.clientY - startY;',
+      '  if (Math.abs(dx) < Math.abs(dy) && Math.abs(dx) < 8) return;   /* 竖向滑动不翻页 */',
+      '  if (e.cancelable) e.preventDefault();',
+      '  var w = leafEl ? leafEl.offsetWidth : 600;',
+      '  var deg = Math.max(-180, Math.min(0, (dx / w) * 180));',
+      '  if (leafEl) leafEl.style.transform = "rotateY(" + deg + "deg)";',
+      '}',
+      '',
+      'function onUp() {',
+      '  if (!dragging) return;',
+      '  dragging = false;',
+      '  if (!leafEl) return;',
+      '  leafEl.classList.remove("dragging");',
+      '  leafEl.style.transform = "";',
+      '  var w = leafEl.offsetWidth || 600;',
+      '  if (dx < -w * 0.18 && cur < total - 1) { goTo(cur + 1); }',
+      '  else if (dx > w * 0.18 && cur > 0) { goTo(cur - 1); }',
+      '  else { paint(); }',
+      '  leafEl = null;',
+      '}',
+      '',
+      'var bookEl = document.getElementById("book");',
+      'bookEl.addEventListener("mousedown", onDown);',
+      'bookEl.addEventListener("touchstart", onDown, { passive: true });',
+      'document.addEventListener("mousemove", onMove);',
+      'document.addEventListener("touchmove", onMove, { passive: false });',
+      'document.addEventListener("mouseup", onUp);',
+      'document.addEventListener("touchend", onUp);',
+      '',
+      '/* 左右半区点击 / 键盘 / 页码按钮 */',
+      'var cp = document.getElementById("cPrev"), cn = document.getElementById("cNext");',
+      'if (cp) cp.addEventListener("click", function () { goTo(cur - 1); });',
+      'if (cn) cn.addEventListener("click", function () { goTo(cur + 1); });',
+      'var np = document.getElementById("navPrev"), nn = document.getElementById("navNext");',
+      'if (np) np.addEventListener("click", function () { goTo(cur - 1); });',
+      'if (nn) nn.addEventListener("click", function () { goTo(cur + 1); });',
+      'document.addEventListener("keydown", function (e) {',
+      '  if (e.key === "ArrowRight") goTo(cur + 1);',
+      '  if (e.key === "ArrowLeft") goTo(cur - 1);',
+      '  if (e.key === "Escape") closeLot();',
+      '});',
+      '',
+      '/* ---------- 360 弹层 ---------- */',
+      'var modal = document.getElementById("lotModal");',
+      'var stage = document.getElementById("lotStage");',
+      'var titleEl = document.getElementById("lotTitle");',
+      'var hintEl = document.getElementById("lotHint");',
+      '',
+      'function destroyViewer() {',
+      '  try {',
+      '    var ci = (typeof window.CI360 === "function") ? new window.CI360() : window.CI360;',
+      '    if (ci && ci.destroyAll) ci.destroyAll();',
+      '  } catch (e) {}',
+      '  var olds = stage.querySelectorAll(".cloudimage-360");',
+      '  for (var i = 0; i < olds.length; i++) olds[i].parentNode.removeChild(olds[i]);',
+      '}',
+      '',
+      'function closeLot() {',
+      '  modal.classList.remove("on");',
+      '  if (hintEl) hintEl.style.display = "none";',
+      '  destroyViewer();',
+      '}',
+      '',
+      'function openLot(lotId) {',
+      '  var lot = null;',
+      '  for (var i = 0; i < LOTS.length; i++) { if (LOTS[i].id === lotId) { lot = LOTS[i]; break; } }',
+      '  if (!lot) return;',
+      '  if (!(lot.x && lot.x.length) && !(lot.y && lot.y.length)) return;   /* 没素材 → 不响应 */',
+      '  destroyViewer();',
+      '  titleEl.textContent = lot.title + (lot.code ? "  " + lot.code : "");',
+      '  modal.classList.add("on");',
+      '  if (hintEl) hintEl.style.display = "";',
+      '',
+      '  var cfg = {};',
+      '  for (var k in BASE) cfg[k] = BASE[k];',
+      '  if (lot.x && lot.x.length) { cfg.imageListX = lot.x; cfg.amountX = lot.x.length; }',
+      '  if (lot.y && lot.y.length) { cfg.imageListY = lot.y; cfg.amountY = lot.y.length; }',
+      '  if (!cfg.aspectRatio) cfg.aspectRatio = lot.ratio || "1/1";',
+      '',
+      '  var el = document.createElement("div");',
+      '  el.className = "cloudimage-360";',
+      '  el.id = "lotViewer";',
+      '  stage.appendChild(el);',
+      '  var ci = (typeof window.CI360 === "function") ? new window.CI360() : window.CI360;',
+      '  try { ci.init(el, cfg); } catch (e) { titleEl.textContent = "加载失败：" + e.message; }',
+      '}',
+      '',
+      'bookEl.addEventListener("click", function (e) {',
+      '  var d = e.target.closest ? e.target.closest(".dot") : null;',
+      '  if (!d) return;',
+      '  if (d.getAttribute("data-off")) return;   /* 没上传 360 → 点击无效 */',
+      '  e.stopPropagation();',
+      '  openLot(d.getAttribute("data-lot"));',
+      '});',
+      'document.getElementById("lotClose").addEventListener("click", closeLot);',
+      'modal.addEventListener("click", function (e) { if (e.target === modal) closeLot(); });',
+      '',
+      'paint();'
+    ].join('\n');
+  }
+
+  /* ---------- 完整页面 ---------- */
+  function buildHtml(state, opts) {
+    opts = opts || {};
+    var mode = opts.mode || 'files';
+    var title = state.title || '电子图录';
+
+    var tail = (mode === 'preview')
+      ? ['<div style="position:fixed;left:0;right:0;bottom:0;text-align:center;padding:4px;',
+         'font-size:12px;color:#c9bda9;background:rgba(0,0,0,.4)">',
+         '预览：可拖动翻页、点锚点查看拍品</div>'].join('')
+      : ['',
+         '<script src="./lib/360-view.min.js"><\/script>',
+         '<script>',
+         '(function () {',
+         buildInit(state, mode),
+         '})();',
+         '<\/script>'].join('\n');
+
+    return [
+      '<!DOCTYPE html>',
+      '<html lang="zh-CN">',
+      '<head>',
+      '<meta charset="utf-8">',
+      '<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">',
+      '<title>' + SD.Codegen.esc(title) + '</title>',
+      '<style>',
+      buildCss(state),
+      '</style>',
+      '</head>',
+      '<body>',
+      '',
+      SD.Codegen.fileWarn(),
+      '',
+      buildBody(state, mode),
+      '',
+      tail,
+      '</body>',
+      '</html>',
+      ''
+    ].join('\n');
+  }
+
+  return {
+    buildHtml: buildHtml,
+    buildCss: buildCss,
+    buildBody: buildBody,
+    buildInit: buildInit,
+    sheetList: sheetList
+  };
+})();
+
+/* =====================================================================
  * 08-app.js —— 状态、面板装配与主循环
  * ===================================================================== */
 window.SD = window.SD || {};
@@ -2666,6 +3483,66 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 翻书图录 ================= */
+  function pickOneImage(cb) {
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      if (!f) return;
+      status('正在上传图片…');
+      SD.Materials.importFiles([f], 'x', null).then(function (items) {
+        if (!items.length) { status('就绪'); return; }
+        cb(items[0]);
+        status('就绪');
+      }).catch(function (e) {
+        toast('err', '上传失败', (e && e.message) || '');
+        status('上传失败', 'err');
+      });
+    });
+    inp.click();
+  }
+
+  function bindBookEvents() {
+    var addPage = $('btnAddPage');
+    if (addPage) addPage.addEventListener('click', function () { SD.Book.addPage(); });
+
+    var upCover = $('btnUpCover');
+    if (upCover) upCover.addEventListener('click', function () {
+      pickOneImage(function (it) {
+        SD.Book.book().cover = { url: it.url, file: it.file, name: it.name };
+        SD.Book.render();
+        refresh();
+        toast('ok', '封面已上传');
+      });
+    });
+
+    var upBack = $('btnUpBack');
+    if (upBack) upBack.addEventListener('click', function () {
+      pickOneImage(function (it) {
+        SD.Book.book().back = { url: it.url, file: it.file, name: it.name };
+        SD.Book.render();
+        refresh();
+        toast('ok', '封底已上传');
+      });
+    });
+
+    var upPage = $('btnUpPage');
+    if (upPage) upPage.addEventListener('click', function () {
+      var sh = SD.Book.activeSheet();
+      if (sh.kind !== 'page') { toast('warn', '请先在左侧选中一张内容页'); return; }
+      pickOneImage(function (it) {
+        sh.page.url = it.url;
+        sh.page.file = it.file;
+        sh.page.name = it.name;
+        SD.Book.render();
+        refresh();
+        toast('ok', '本页图片已上传');
+      });
+    });
+  }
+
   /* ================= 环境提示 ================= */
   function showEnvWarning() {
     status('文件模式（file://）下预览不可用，请用「启动工作台.bat」打开', 'warn');
@@ -2747,7 +3624,13 @@ window.SD = window.SD || {};
     $('pageType').addEventListener('change', function () {
       var t = $('pageType').value;
       STATE.pageType = t;
-      if (t === 'lots') {
+      var ab = $('btnAddAnchor');
+      if (ab) ab.style.display = (t === 'book') ? '' : 'none';
+      if (t === 'book') {
+        SD.Book.book();
+        SD.Book.render();
+        status('已切到翻书图录：左侧可管理封面 / 内容页 / 封底');
+      } else if (t === 'lots') {
         SD.Lots.ensureInit();
         SD.Lots.render();
         status('已切到拍品列表模式：左侧可管理多个拍品');
@@ -2760,6 +3643,8 @@ window.SD = window.SD || {};
       refresh();
     });
     $('btnAddLot').addEventListener('click', function () { SD.Lots.add(); });
+    var btnAn = $('btnAddAnchor');
+    if (btnAn) btnAn.addEventListener('click', function () { SD.Book.startAnchorPick(); });
 
     $('btnAddHotspot').addEventListener('click', function () {
       if (!SD.Codegen.activeItems(STATE).length) {
@@ -2844,6 +3729,8 @@ window.SD = window.SD || {};
 
     SD.Lots.ensureInit();
     SD.Lots.render();
+    SD.Book.render();
+    bindBookEvents();
 
     SD.Materials.ping().then(function (ok) {
       SERVER_OK = ok;
@@ -2861,6 +3748,33 @@ window.SD = window.SD || {};
         var pt = $('pageType');
         pt.value = 'lots';
         pt.dispatchEvent(new Event('change'));
+      }
+      if (/[?&]book/.test(location.search)) {
+        var ptb = $('pageType');
+        ptb.value = 'book';
+        ptb.dispatchEvent(new Event('change'));
+        setTimeout(function () {
+          var bk = SD.Book.book();
+          var its = STATE.materials.items || [];
+          if (bk.pages.length || its.length < 4) return;
+          function snap(k, nm) {
+            var it = its[k];
+            return it ? { url: it.url, file: it.file, name: nm } : null;
+          }
+          bk.cover = snap(0, 'cover.png');
+          bk.back = snap(3, 'back.png');
+          bk.pages = [
+            { url: (snap(1, 'page-1.png') || {}).url, file: (snap(1, 'page-1.png') || {}).file,
+              name: 'page-1.png', anchors: [] },
+            { url: (snap(2, 'page-2.png') || {}).url, file: (snap(2, 'page-2.png') || {}).file,
+              name: 'page-2.png', anchors: [] }
+          ];
+          if (SD.Lots.lots().length) {
+            bk.pages[0].anchors.push({ id: 'an-t1', x: 42, y: 38, lotId: SD.Lots.lots()[0].id });
+          }
+          SD.Book.render();
+          if (SD.refresh) SD.refresh();
+        }, 2500);
       }
       if (/[?&]dump/.test(location.search)) {
         setTimeout(function () {
