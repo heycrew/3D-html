@@ -752,6 +752,8 @@ window.SD = window.SD || {};
     if ($('btnAddAnchor')) $('btnAddAnchor').style.display = (STATE.pageType === 'book') ? '' : 'none';
     /* 快照里可能一个拍品都没有，而锚点必须绑到拍品上 —— 补一个 */
     SD.Lots.ensureInit();
+    /* 旧工程的封面可能没记尺寸，补读，保证画布比例跟着封面 */
+    ensureCoverSize();
     syncParamsUI();
     SD.Lots.render();
     SD.Book.render();
@@ -884,6 +886,32 @@ window.SD = window.SD || {};
       refresh();
       toast('ok', '已套用预设', pr.name, 4000);
       sel.value = '';
+    });
+  }
+
+  /* ================= 封面尺寸 =================
+     书的画布比例要严格等于封面图的比例，否则图片 contain 之后两旁会留白。
+     旧工程里 cover 可能只有 url、没有 w/h，这里补读一次。 */
+  function ensureCoverSize() {
+    var bk = STATE.book || {};
+    var c = bk.cover;
+    if (!c || !c.url || (c.w && c.h)) return Promise.resolve(false);
+    return new Promise(function (res) {
+      var im = new Image();
+      im.onload = function () {
+        c.w = im.naturalWidth;
+        c.h = im.naturalHeight;
+        res(true);
+      };
+      im.onerror = function () { res(false); };
+      im.src = c.url;
+    }).then(function (changed) {
+      if (changed) {
+        if (SD.Book && SD.Book.render) SD.Book.render();
+        refresh();
+        status('已按封面 ' + c.w + '×' + c.h + ' 校准画布比例');
+      }
+      return changed;
     });
   }
 

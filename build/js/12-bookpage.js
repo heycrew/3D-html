@@ -120,7 +120,7 @@ SD.BookPage = (function () {
       '/* 书本 */',
       '.book-wrap{position:relative;z-index:2;display:grid;place-items:center;}',
       '.book{position:relative;' + size + 'border-radius:2px;',
-      '  box-shadow:0 18px 46px rgba(0,0,0,.5);background:#fff;}',
+      '  box-shadow:0 18px 46px rgba(0,0,0,.5);background:' + bg + ';}',
       '.book::after{ /* 书脊投影 */',
       '  content:"";position:absolute;left:0;top:0;bottom:0;width:26px;z-index:60;',
       '  background:linear-gradient(to right, rgba(0,0,0,.40), rgba(0,0,0,0));',
@@ -128,7 +128,7 @@ SD.BookPage = (function () {
 
       '/* 静止页 */',
       '.sheet{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;',
-      '  display:block;user-select:none;-webkit-user-drag:none;background:#fff;}',
+      '  display:block;user-select:none;-webkit-user-drag:none;background:' + bg + ';}',
       '.sheet.hide{visibility:hidden;}',
       '.ph{position:absolute;inset:0;display:grid;place-items:center;',
       '  color:#b9ae9c;background:#f7f4ee;font-size:15px;letter-spacing:1px;}',

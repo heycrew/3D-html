@@ -281,7 +281,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-14 15:24</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-14 15:34</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -2876,7 +2876,7 @@ SD.BookPage = (function () {
       '/* 书本 */',
       '.book-wrap{position:relative;z-index:2;display:grid;place-items:center;}',
       '.book{position:relative;' + size + 'border-radius:2px;',
-      '  box-shadow:0 18px 46px rgba(0,0,0,.5);background:#fff;}',
+      '  box-shadow:0 18px 46px rgba(0,0,0,.5);background:' + bg + ';}',
       '.book::after{ /* 书脊投影 */',
       '  content:"";position:absolute;left:0;top:0;bottom:0;width:26px;z-index:60;',
       '  background:linear-gradient(to right, rgba(0,0,0,.40), rgba(0,0,0,0));',
@@ -2884,7 +2884,7 @@ SD.BookPage = (function () {
 
       '/* 静止页 */',
       '.sheet{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;',
-      '  display:block;user-select:none;-webkit-user-drag:none;background:#fff;}',
+      '  display:block;user-select:none;-webkit-user-drag:none;background:' + bg + ';}',
       '.sheet.hide{visibility:hidden;}',
       '.ph{position:absolute;inset:0;display:grid;place-items:center;',
       '  color:#b9ae9c;background:#f7f4ee;font-size:15px;letter-spacing:1px;}',
@@ -4550,6 +4550,8 @@ window.SD = window.SD || {};
     if ($('btnAddAnchor')) $('btnAddAnchor').style.display = (STATE.pageType === 'book') ? '' : 'none';
     /* 快照里可能一个拍品都没有，而锚点必须绑到拍品上 —— 补一个 */
     SD.Lots.ensureInit();
+    /* 旧工程的封面可能没记尺寸，补读，保证画布比例跟着封面 */
+    ensureCoverSize();
     syncParamsUI();
     SD.Lots.render();
     SD.Book.render();
@@ -4682,6 +4684,32 @@ window.SD = window.SD || {};
       refresh();
       toast('ok', '已套用预设', pr.name, 4000);
       sel.value = '';
+    });
+  }
+
+  /* ================= 封面尺寸 =================
+     书的画布比例要严格等于封面图的比例，否则图片 contain 之后两旁会留白。
+     旧工程里 cover 可能只有 url、没有 w/h，这里补读一次。 */
+  function ensureCoverSize() {
+    var bk = STATE.book || {};
+    var c = bk.cover;
+    if (!c || !c.url || (c.w && c.h)) return Promise.resolve(false);
+    return new Promise(function (res) {
+      var im = new Image();
+      im.onload = function () {
+        c.w = im.naturalWidth;
+        c.h = im.naturalHeight;
+        res(true);
+      };
+      im.onerror = function () { res(false); };
+      im.src = c.url;
+    }).then(function (changed) {
+      if (changed) {
+        if (SD.Book && SD.Book.render) SD.Book.render();
+        refresh();
+        status('已按封面 ' + c.w + '×' + c.h + ' 校准画布比例');
+      }
+      return changed;
     });
   }
 
