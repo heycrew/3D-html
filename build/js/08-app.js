@@ -539,6 +539,38 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 全局错误横幅 =================
+     把未捕获的 JS 报错直接显示在页面顶部，便于用户截图反馈，
+     也避免「点了没反应却看不到任何线索」。 */
+  function installErrorBar() {
+    function show(text) {
+      var box = document.getElementById('errBar');
+      if (!box) {
+        box = document.createElement('div');
+        box.id = 'errBar';
+        box.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;'
+          + 'background:#7a1f1f;color:#fff;font:12px/1.6 Consolas,monospace;'
+          + 'padding:8px 12px;white-space:pre-wrap;max-height:40vh;overflow:auto';
+        var tip = document.createElement('div');
+        tip.style.cssText = 'font-weight:700;margin-bottom:4px';
+        tip.textContent = '页面出错了（请把这段截图发给开发者）';
+        box.appendChild(tip);
+        document.body.appendChild(box);
+      }
+      var line = document.createElement('div');
+      line.textContent = text;
+      box.appendChild(line);
+    }
+    window.addEventListener('error', function (e) {
+      var f = (e.filename || '').split('/').pop();
+      show((e.message || '未知错误') + '  @' + f + ':' + (e.lineno || '?'));
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var r = e.reason;
+      show('Promise 未处理：' + ((r && r.message) || r));
+    });
+  }
+
   /* ================= 工程自动保存 / 恢复 ================= */
   async function restoreFromStore() {
     var snap = await SD.Store.load();
@@ -810,6 +842,7 @@ window.SD = window.SD || {};
 
   /* ================= 启动 ================= */
   function boot() {
+    installErrorBar();
     SD.Preview.mount($('stage-host'));
     buildTemplateSelect();
     buildParams();
@@ -869,6 +902,30 @@ window.SD = window.SD || {};
             + ' | params键数=' + Object.keys(snap.params || {}).length;
           document.body.appendChild(box);
         }, 5000);
+      }
+      if (/[?&]diag/.test(location.search)) {
+        setTimeout(function () {
+          var btn = document.getElementById('btnAddAnchor');
+          var sheet = SD.Book ? SD.Book.activeSheet() : null;
+          var lines = [
+            '页面类型     : ' + STATE.pageType,
+            '加锚点按钮   : ' + (btn ? (getComputedStyle(btn).display === 'none' ? '存在但隐藏' : '存在且可见') : '不存在'),
+            '书页数量     : ' + ((STATE.book && STATE.book.pages) || []).length,
+            '当前选中     : ' + (sheet ? (sheet.kind + ' #' + sheet.index) : '-'),
+            '该页有图     : ' + (sheet && sheet.page && sheet.page.url ? '是' : '否'),
+            '该页锚点数   : ' + (sheet && sheet.page && sheet.page.anchors ? sheet.page.anchors.length : 0),
+            '拍品数量     : ' + (STATE.lots || []).length,
+            '素材数量     : ' + ((STATE.materials && STATE.materials.items) || []).length,
+            '本地服务     : ' + (SERVER_OK ? '已连接' : '断开'),
+            '360 库       : ' + (typeof window.CI360),
+            '工作台版本   : ' + (document.querySelector('script[src*="360-view"]') ? '有库引用' : '-')
+          ];
+          var box = document.createElement('pre');
+          box.style.cssText = 'position:fixed;left:6px;bottom:6px;background:#000;color:#0f0;'
+            + 'font:12px/1.6 monospace;padding:8px 10px;z-index:99999;max-width:92vw';
+          box.textContent = lines.join('\n');
+          document.body.appendChild(box);
+        }, 4000);
       }
       if (/[?&]code/.test(location.search)) {
         var pane = $('codepane');

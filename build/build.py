@@ -91,6 +91,24 @@ def main():
         parts.append(read_text(os.path.join('js', name)).rstrip())
     app_js = '\n\n'.join(parts)
 
+    # 先逐个检查源模块的语法 —— 一个小笔误就会让整个工作台失效，
+    # 而症状往往是「点了没反应」，极难定位（已经栽过两次）。
+    if shutil.which('node'):
+        bad_files = []
+        for name in JS_ORDER:
+            fp = os.path.join(ROOT, 'js', name)
+            rr = subprocess.run(['node', '--check', fp], capture_output=True,
+                                text=True, encoding='utf-8', errors='replace')
+            if rr.returncode != 0:
+                bad_files.append((name, (rr.stderr or '')[:600]))
+        if bad_files:
+            for name, err in bad_files:
+                sys.stderr.write('✗ %s 语法错误：' % name)
+                sys.stderr.write(err)
+                sys.stderr.write(chr(10))
+            return 1
+        print('  模块语法检查: 通过（%d 个）' % len(JS_ORDER))
+
     if '{{APP_JS}}' not in shell:
         sys.stderr.write('shell.html 缺少占位符 {{APP_JS}}\n')
         return 1
