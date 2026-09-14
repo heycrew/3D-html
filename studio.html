@@ -291,6 +291,8 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面模板</label>
   <select id="tplSelect" style="width:150px"></select>
+  <label style="color:var(--sd-fg2);font-size:12px">参数预设</label>
+  <select id="presetSelect" style="width:190px"></select>
   <div class="topbar-sep"></div>
   <button class="btn ghost sm" id="btnHelp">使用说明</button>
   <button class="btn ghost sm" id="btnWipeStore" title="清除浏览器里自动保存的工程">清空本地工程</button>
@@ -4277,6 +4279,134 @@ window.SD = window.SD || {};
     refresh();
   }
 
+  /* ================= 配置的导出 / 导入 =================
+     只带「结构 + 参数」，不带图片（图片体积大，换机器时重新传一次即可）。
+     拍品 id 与锚点绑定关系会原样保留，所以传完图锚点就能直接对上。 */
+  function buildConf() {
+    var bk = STATE.book || {};
+    return {
+      app: '360-studio',
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      pageType: STATE.pageType,
+      title: STATE.title,
+      templateId: STATE.templateId,
+      customCss: STATE.customCss,
+      params: JSON.parse(JSON.stringify(STATE.params || {})),
+      lots: (STATE.lots || []).map(function (l) {
+        return {
+          id: l.id, title: l.title || '', code: l.code || '',
+          items: ((l.items) || []).map(function (it) {
+            return { name: it.name || '', axis: it.axis || 'x', off: !!it.off };
+          })
+        };
+      }),
+      book: {
+        w: bk.w, h: bk.h,
+        coverName: (bk.cover && bk.cover.name) || '',
+        backName: (bk.back && bk.back.name) || '',
+        pages: ((bk.pages) || []).map(function (p) {
+          return { name: p.name || '', anchors: JSON.parse(JSON.stringify(p.anchors || [])) };
+        })
+      },
+      note: '仅含配置与结构，不含图片；导入后请重新上传对应图片'
+    };
+  }
+
+  function applyConf(conf) {
+    if (!conf || conf.app !== '360-studio') {
+      toast('err', '这不是本工作台导出的配置', '请选择正确的 JSON 文件');
+      return;
+    }
+    STATE.pageType = conf.pageType || 'single';
+    STATE.title = conf.title || STATE.title;
+    STATE.templateId = conf.templateId || STATE.templateId;
+    STATE.customCss = conf.customCss || '';
+    STATE.params = Object.assign(SD.defaults(), conf.params || {});
+
+    /* 拍品：保留 id 与元数据，图片留空待传 */
+    STATE.lots = (conf.lots || []).map(function (l) {
+      return {
+        id: l.id || ('lot-' + Math.random().toString(36).slice(2, 8)),
+        title: l.title || '', code: l.code || '',
+        items: ((l.items) || []).map(function (it) {
+          return { name: it.name || '', axis: it.axis || 'x', off: !!it.off };
+        })
+      };
+    });
+    if (!STATE.lots.length) SD.Lots.ensureInit();
+    STATE.activeLot = 0;
+    STATE.materials.items = [];
+
+    /* 书页：保留锚点，图片留空待传 */
+    if (!STATE.book) STATE.book = {};
+    STATE.book.w = (conf.book && conf.book.w) || 900;
+    STATE.book.h = (conf.book && conf.book.h) || 1200;
+    STATE.book.active = 0;
+    STATE.book.cover = null;
+    STATE.book.back = null;
+    STATE.book.pages = ((conf.book && conf.book.pages) || []).map(function (p) {
+      return { url: '', file: null, name: p.name || '', anchors: p.anchors || [] };
+    });
+
+    if ($('pageType')) $('pageType').value = STATE.pageType;
+    if ($('btnAddAnchor')) $('btnAddAnchor').style.display = (STATE.pageType === 'book') ? '' : 'none';
+    syncParamsUI();
+    SD.Lots.render();
+    SD.Book.render();
+    renderMaterials();
+    refresh();
+
+    var needImg = (STATE.lots.reduce(function (n, l) { return n + l.items.length; }, 0))
+                + STATE.book.pages.length
+                + (STATE.book.cover ? 1 : 0) + (STATE.book.back ? 1 : 0);
+    toast('ok', '配置已导入', needImg
+      ? '参数、拍品与锚点都恢复了；请重新上传图片（图片不在配置文件里）'
+      : '参数与结构已恢复', 7000);
+  }
+
+  /* ================= 参数预设 ================= */
+  var PRESETS = [
+    { id: '', name: '（不套用）', params: null },
+    { id: 'ec', name: '电商详情：稳、可放大',
+      params: { zoomMax: 3, zoomControls: true, fullscreen: true, hints: true,
+                scrollHint: true, dragSpeed: 150, lazyload: true } },
+    { id: 'smooth', name: '少帧顺滑：插值 + 降灵敏',
+      params: { interp: 3, dragSpeed: 90, hints: false, scrollHint: false } },
+    { id: 'mobile', name: '移动端轻量：省内存',
+      params: { zoomMax: 2, amountX: 24, lazyload: true, hints: false,
+                scrollHint: false, bottomCircle: true } },
+    { id: 'showcase', name: '展厅大图：自动旋转 + 暗色',
+      params: { theme: 'dark', autoplay: true, speed: 60, fullscreen: true,
+                zoomMax: 4, hints: false, aspectRatio: '' } },
+    { id: 'strict', name: '严格不循环：到边界停',
+      params: { stopAtEdges: true, stopAtEdgesX: true, stopAtEdgesY: true,
+                inertia: false } }
+  ];
+
+  function buildPresetSelect() {
+    var sel = $('presetSelect');
+    if (!sel) return;
+    sel.innerHTML = '';
+    PRESETS.forEach(function (pr) {
+      var op = document.createElement('option');
+      op.value = pr.id;
+      op.textContent = pr.name;
+      sel.appendChild(op);
+    });
+    sel.addEventListener('change', function () {
+      var id = sel.value;
+      var pr = null;
+      for (var i = 0; i < PRESETS.length; i++) { if (PRESETS[i].id === id) pr = PRESETS[i]; }
+      if (!pr || !pr.params) { sel.value = ''; return; }
+      Object.keys(pr.params).forEach(function (k) { STATE.params[k] = pr.params[k]; });
+      syncParamsUI();
+      refresh();
+      toast('ok', '已套用预设', pr.name, 4000);
+      sel.value = '';
+    });
+  }
+
   /* ================= 环境提示 ================= */
   function showEnvWarning() {
     status('文件模式（file://）下预览不可用，请用「启动工作台.bat」打开', 'warn');
@@ -4460,21 +4590,28 @@ window.SD = window.SD || {};
     };
 
     $('btnExportCfg').addEventListener('click', function () {
-      var conf = {
-        app: '360-studio', version: 1,
-        templateId: STATE.templateId,
-        title: STATE.title,
-        params: STATE.params,
-        materials: {
-          count: STATE.materials.items.length,
-          names: STATE.materials.items.map(function (i) { return i.name; })
-        }
-      };
+      var conf = buildConf();
       downloadFile('360-config.json', JSON.stringify(conf, null, 2), 'application/json');
-      toast('ok', '已导出配置', '（不含图片本身）');
+      toast('ok', '已导出配置', '含参数/拍品/锚点结构（不含图片）', 5000);
     });
     $('btnImportCfg').addEventListener('click', function () {
-      toast('warn', '配置导入', '将随后续版本提供');
+      var inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = '.json,application/json';
+      inp.addEventListener('change', function () {
+        var f = inp.files && inp.files[0];
+        if (!f) return;
+        var rd = new FileReader();
+        rd.onload = function () {
+          var conf = null;
+          try { conf = JSON.parse(rd.result); }
+          catch (e) { toast('err', '配置文件解析失败', (e && e.message) || ''); return; }
+          applyConf(conf);
+        };
+        rd.onerror = function () { toast('err', '读取文件失败'); };
+        rd.readAsText(f, 'utf-8');
+      });
+      inp.click();
     });
   }
 
@@ -4483,6 +4620,7 @@ window.SD = window.SD || {};
     installErrorBar();
     SD.Preview.mount($('stage-host'));
     buildTemplateSelect();
+    buildPresetSelect();
     buildParams();
     bindEvents();
     applyStage();
