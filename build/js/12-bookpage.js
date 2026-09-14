@@ -181,8 +181,8 @@ SD.BookPage = (function () {
       '  background:rgba(0,0,0,' + (p.boguMask2 === undefined ? .72 : p.boguMask2) + ');}',
       '.lot-modal.on{display:grid;place-items:center;animation:lotFade .2s ease;}',
       '@keyframes lotFade{from{opacity:0}to{opacity:1}}',
-      '.lot-stage{width:min(100vw, calc(100vh * ' + R + '));' +
-      '  height:min(100vh, calc(100vw / ' + R + '));' +
+      '.lot-stage{width:100vw;' +
+      '  height:100vh;' +
       '  display:grid;place-items:center;position:relative;}',
       '.lot-stage .cloudimage-360{width:100%;height:100%;}',
       '.lot-stage .cloudimage-360 img{object-fit:contain;}',

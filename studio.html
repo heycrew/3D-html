@@ -281,7 +281,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-14 16:15</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-14 16:30</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -2937,8 +2937,8 @@ SD.BookPage = (function () {
       '  background:rgba(0,0,0,' + (p.boguMask2 === undefined ? .72 : p.boguMask2) + ');}',
       '.lot-modal.on{display:grid;place-items:center;animation:lotFade .2s ease;}',
       '@keyframes lotFade{from{opacity:0}to{opacity:1}}',
-      '.lot-stage{width:min(100vw, calc(100vh * ' + R + '));' +
-      '  height:min(100vh, calc(100vw / ' + R + '));' +
+      '.lot-stage{width:100vw;' +
+      '  height:100vh;' +
       '  display:grid;place-items:center;position:relative;}',
       '.lot-stage .cloudimage-360{width:100%;height:100%;}',
       '.lot-stage .cloudimage-360 img{object-fit:contain;}',
