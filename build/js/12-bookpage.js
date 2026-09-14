@@ -181,11 +181,17 @@ SD.BookPage = (function () {
       '  background:rgba(0,0,0,' + (p.boguMask2 === undefined ? .72 : p.boguMask2) + ');}',
       '.lot-modal.on{display:grid;place-items:center;animation:lotFade .2s ease;}',
       '@keyframes lotFade{from{opacity:0}to{opacity:1}}',
-      '.lot-stage{width:min(96vw, calc(96vh * ' + R + '));' +
-      '  height:min(96vh, calc(96vw / ' + R + '));' +
+      '.lot-stage{width:min(100vw, calc(100vh * ' + R + '));' +
+      '  height:min(100vh, calc(100vw / ' + R + '));' +
       '  display:grid;place-items:center;position:relative;}',
       '.lot-stage .cloudimage-360{width:100%;height:100%;}',
       '.lot-stage .cloudimage-360 img{object-fit:contain;}',
+      /* 让查看器画布撑满整个舞台：素材本身是正方形时，
+         CI360 只建了 520x520 的画布，放大后很快顶到边界被裁。
+         交给容器定尺寸 + object-fit:contain ——
+         图片仍按自身比例居中不变形，但可用空间变成整个屏幕。 */
+      '.lot-stage .cloudimage-360 canvas{width:100% !important;height:100% !important;',
+      '  object-fit:contain;display:block;}',
       '.lot-stage .lot-title{position:absolute;top:-4px;left:0;color:#fff;font-size:15px;',
       '  letter-spacing:2px;opacity:.9;pointer-events:none;}',
       '.lot-close{position:absolute;top:22px;right:26px;width:40px;height:40px;border:0;',
@@ -287,12 +293,12 @@ SD.BookPage = (function () {
       'var SHEETS = ' + SD.Codegen.safeJson(pages, false) + ';',
       'var LOTS = ' + SD.Codegen.safeJson(data, false) + ';',
       'var BASE = ' + SD.Codegen.safeJson(keep, false) + ';',
-      'var BOOK_RATIO = ' + JSON.stringify(
-        (function () {
-          var cov = (state.book && state.book.cover) || null;
-          if (p.bookFit !== 'manual' && cov && cov.w && cov.h) return String(cov.w) + '/' + String(cov.h);
-          return String(p.bookW || 900) + '/' + String(p.bookH || 1200);
-        })()) + ';',
+      '/* CI360 的 aspectRatio 只认数字（如 0.75）或 "4/3" 形式；传 "600/800" 会被忽略并退回 1:1 正方形，所以要换算成小数。 */',
+      'var BOOK_RATIO = ' + (function () {
+        var cov = (state.book && state.book.cover) || null;
+        if (p.bookFit !== 'manual' && cov && cov.w && cov.h) return (cov.w / cov.h);
+        return (Number(p.bookW || 900) / Number(p.bookH || 1200));
+      })().toFixed(4) + ';',
       'var INTERP = ' + (p.interp || 0) + ';',
       'var TURN = ' + (p.bookTurn || 700) + ';',
       'var SLICES = ' + (p.bookSlices || 90) + ';',
@@ -750,6 +756,19 @@ SD.BookPage = (function () {
       '  stage.appendChild(el);',
       '  var ci = (typeof window.CI360 === "function") ? new window.CI360() : window.CI360;',
       '  try { ci.init(el, cfg); } catch (e) { titleEl.textContent = "加载失败：" + e.message; }',
+      '  /* 让查看器画布铺满整个舞台：CI360 按素材尺寸建画布，素材本身是正方形时就只有 520x520，放大后立刻顶到边界被裁。这里把尺寸交给容器（object-fit:contain 保证图片按自身比例居中不变形），放大时可用空间就是整个屏幕。 */',
+      '  var _fitCanvas = function () {',
+      '    var _cs = stage.querySelectorAll("canvas");',
+      '    for (var _j = 0; _j < _cs.length; _j++) {',
+      '      _cs[_j].style.setProperty("width", "100%", "important");',
+      '      _cs[_j].style.setProperty("height", "100%", "important");',
+      '      _cs[_j].style.setProperty("object-fit", "contain", "important");',
+      '      _cs[_j].style.setProperty("display", "block", "important");',
+      '    }',
+      '  };',
+      '  _fitCanvas();',
+      '  requestAnimationFrame(_fitCanvas);',
+      '  setTimeout(_fitCanvas, 120);',
       '  };',
       '  buildInterpolated(lot.x, INTERP, _go);',
       '}',
@@ -759,9 +778,9 @@ SD.BookPage = (function () {
       '   关键：拖动翻页（滑动）松手后浏览器仍会补发一次 click，',
       '   若不排除，翻完页就会「自动」弹出 360 —— 表现为翻页后冒出全景。',
       '   所以记录按下位置，位移超过阈值就认定是翻页手势，不算点击。 */',
-      'var _dnX = 0, _dnY = 0, _moved = false, _dnT = 0;',
+      'var _dnX = 0, _dnY = 0, _moved = false;',
       'bookEl.addEventListener("pointerdown", function (e) {',
-      '  _dnX = e.clientX; _dnY = e.clientY; _moved = false; _dnT = performance.now();',
+      '  _dnX = e.clientX; _dnY = e.clientY; _moved = false;',
       '});',
       'bookEl.addEventListener("pointermove", function (e) {',
       '  if (Math.abs(e.clientX - _dnX) > 8 || Math.abs(e.clientY - _dnY) > 8) _moved = true;',
@@ -769,7 +788,6 @@ SD.BookPage = (function () {
       'bookEl.addEventListener("click", function (e) {',
       '  if (_moved) { _moved = false; return; }          /* 刚才是翻页拖动 → 不是点击 */',
       '  if (busy) return;                                 /* 翻页动画进行中 → 忽略 */',
-      '  if (performance.now() - _dnT > 700) return;       /* 长按不算点击 */',
       '  var t = e.target;',
       '  if (t && t.closest) {',
       '    if (t.closest(".corner") || t.closest(".book-nav") || t.closest(".dot")) return;',

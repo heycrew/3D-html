@@ -146,7 +146,7 @@ SD.Bogu = (function () {
       '  -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);}',
       '.lot-modal.on{display:grid;place-items:center;animation:lotFade .2s ease;}',
       '@keyframes lotFade{from{opacity:0}to{opacity:1}}',
-      '.lot-stage{width:min(92vw,1040px);height:min(82vh,780px);',
+      '.lot-stage{width:100vw;height:100vh;',
       '  display:grid;place-items:center;position:relative;}',
       '/* 只定高度、宽度交给 aspect-ratio 自适应；两个维度都定死会让 1:1 的 canvas 被拉伸 */',
       '.lot-stage .cloudimage-360{height:100%;width:auto;max-width:100%;}',
