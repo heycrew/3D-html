@@ -281,7 +281,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-14 15:53</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-14 16:01</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -2937,7 +2937,9 @@ SD.BookPage = (function () {
       '  background:rgba(0,0,0,' + (p.boguMask2 === undefined ? .72 : p.boguMask2) + ');}',
       '.lot-modal.on{display:grid;place-items:center;animation:lotFade .2s ease;}',
       '@keyframes lotFade{from{opacity:0}to{opacity:1}}',
-      '.lot-stage{' + size + 'display:grid;place-items:center;position:relative;}',
+      '.lot-stage{width:min(96vw, calc(96vh * ' + R + '));' +
+      '  height:min(96vh, calc(96vw / ' + R + '));' +
+      '  display:grid;place-items:center;position:relative;}',
       '.lot-stage .cloudimage-360{width:100%;height:100%;}',
       '.lot-stage .cloudimage-360 img{object-fit:contain;}',
       '.lot-stage .lot-title{position:absolute;top:-4px;left:0;color:#fff;font-size:15px;',
@@ -3238,7 +3240,7 @@ SD.BookPage = (function () {
       '    sheetB.classList.add("hide");',
       '    phBox.classList.remove("hide");',
       '    tail();',
-      '    cv.classList.remove("on");',
+      '    cv.classList.remove("on");   /* 没图才真的撤画布 */',
       '    return;',
       '  }',
       '  phBox.classList.add("hide");',
@@ -3246,7 +3248,7 @@ SD.BookPage = (function () {
       '  if (top.getAttribute("src") === want) {   /* 显示的已经是目标页 */',
       '    top.classList.remove("hide");',
       '    tail();',
-      '    cv.classList.remove("on");',
+      '    holdFrame();',
       '    return;',
       '  }',
       '',
@@ -3261,7 +3263,7 @@ SD.BookPage = (function () {
       '      requestAnimationFrame(function () {',
       '        top.classList.add("hide");',
       '        tail();',
-      '        cv.classList.remove("on");',
+      '        holdFrame();',
       '      });',
       '    });',
       '  };',
@@ -3273,6 +3275,21 @@ SD.BookPage = (function () {
       '  if (bot.complete && bot.naturalWidth) { go(); }',
       '  else { bot.addEventListener("load", go); bot.addEventListener("error", swap); }',
       '  tail();',
+      '}',
+      '',
+      '/* 让卷边画布常驻显示「当前这一页」的最终画面，而不是撤掉它。',
+      '   为什么这样就彻底不闪了：',
+      '   之前无论怎么优化，都是在「撤掉 canvas、露出 img」这一刻做文章，',
+      '   而那一刻总有新旧画面的交替。现在干脆不撤 ——',
+      '   canvas 上画的内容和底下的 img 完全同源（都是 prep() 预渲染的同尺寸帧），',
+      '   两者像素一致，切不切、什么时候切，都看不出来。',
+      '   画布 pointer-events:none，不影响点页面、翻页、锚点。 */',
+      'function holdFrame() {',
+      '  var fr = cache[cur];',
+      '  if (!fr) { prep(cur, function () { holdFrame(); }); return; }',
+      '  ctx.clearRect(0, 0, W, H);',
+      '  ctx.drawImage(fr, 0, 0);',
+      '  cv.classList.add("on");',
       '}',
       '',
       'function goTo(n) {',
