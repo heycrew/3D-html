@@ -297,6 +297,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
   <button class="btn ghost sm" id="btnHelp">使用说明</button>
   <button class="btn ghost sm" id="btnWipeStore" title="清除浏览器里自动保存的工程">清空本地工程</button>
   <div class="topbar-spacer"></div>
+  <button class="btn sm" id="btnCheckup" title="检查图片尺寸是否一致、帧数够不够、有没有超大的图、锚点是否还有效">体检</button>
   <button class="btn sm" id="btnImportCfg">导入配置</button>
   <button class="btn sm" id="btnExportCfg">导出配置</button>
   <button class="btn primary" id="btnExport">导出 HTML</button>
@@ -4457,6 +4458,142 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 素材体检 =================
+     把常见坑一次说清楚：图尺寸不一致（会被拉伸）、帧数太少（旋转跳跃）、
+     单张太大（手机慢）、拍品没素材（锚点置灰）、锚点指向已删拍品。 */
+  function probeSizes(list) {
+    return Promise.all(list.map(function (it) {
+      return new Promise(function (res) {
+        if (it._w && it._h) return res();
+        if (!it.url) return res();
+        var im = new Image();
+        im.onload = function () { it._w = im.naturalWidth; it._h = im.naturalHeight; res(); };
+        im.onerror = function () { res(); };
+        im.src = it.url;
+      });
+    }));
+  }
+
+  function collectCheckup() {
+    var issues = [];
+    function add(kind, title, detail) { issues.push({ kind: kind, title: title, detail: detail || '' }); }
+
+    var items = (STATE.materials.items || []).filter(function (it) { return !it.off; });
+    var xs = items.filter(function (it) { return it.axis !== 'y'; });
+    var ys = items.filter(function (it) { return it.axis === 'y'; });
+
+    /* 1) 尺寸一致性 —— 不一致会被第一张的比例拉伸 */
+    var dims = {}, order = [];
+    items.forEach(function (it) {
+      if (!it._w || !it._h) return;
+      var k = it._w + ' × ' + it._h;
+      if (!dims[k]) { dims[k] = []; order.push(k); }
+      dims[k].push(it.name || '');
+    });
+    if (order.length > 1) {
+      order.sort(function (a, b) { return dims[b].length - dims[a].length; });
+      add('warn', '图片尺寸不一致（共 ' + order.length + ' 种）—— 成品里会被拉伸变形',
+        order.map(function (k) {
+          var arr = dims[k];
+          return '· ' + k + '（' + arr.length + ' 张）：' + arr.slice(0, 3).join('、') +
+                 (arr.length > 3 ? ' …' : '');
+        }).join('<br>') + '<br>建议先统一裁成同一尺寸再上传。');
+    }
+
+    /* 2) 帧数 */
+    if (xs.length && xs.length < 8) {
+      add('info', '水平帧数偏少（' + xs.length + ' 张）—— 旋转会一跳一跳',
+        '两个办法：把「帧插值平滑」开到 2~3（推荐，不用重拍），或补拍更多帧。');
+    }
+    if (xs.length && !ys.length) {
+      add('info', '没有垂直（俯仰）帧 —— 只能左右转，不能上下看',
+        '想上下看需要再拍一组并上传为「垂直」组。');
+    }
+
+    /* 3) 单张体积 */
+    var big = items.filter(function (it) { return it.file && it.file.size > 3 * 1024 * 1024; });
+    if (big.length) {
+      add('warn', big.length + ' 张图片过大（单张 > 3MB）—— 手机上会很慢',
+        big.slice(0, 5).map(function (it) {
+          return '· ' + (it.name || '') + ' ' + (it.file.size / 1048576).toFixed(1) + 'MB';
+        }).join('<br>') + (big.length > 5 ? '<br>…' : '') + '<br>建议先压缩到每张 500KB 以内。');
+    }
+
+    /* 4) 拍品素材 */
+    (STATE.lots || []).forEach(function (l, i) {
+      var n = (l.items || []).filter(function (it) { return !it.off; }).length;
+      if (!n) {
+        add('warn', '拍品「' + (l.title || ('拍品 ' + (i + 1))) + '」没有任何 360 素材',
+          '书页上绑定它的锚点会置灰、点不开。');
+      }
+    });
+
+    /* 5) 锚点指向 */
+    if (STATE.pageType === 'book') {
+      var ids = {};
+      (STATE.lots || []).forEach(function (l) { ids[l.id] = true; });
+      var bk = STATE.book || {};
+      if (!bk.pages || !bk.pages.length) {
+        add('warn', '还没有任何书页', '去左栏「书页」上传内容页图片。');
+      } else {
+        (bk.pages || []).forEach(function (p, i) {
+          if (!p.url) add('warn', '第 ' + (i + 1) + ' 页还没有上传图片', '');
+          (p.anchors || []).forEach(function (a) {
+            if (!ids[a.lotId]) {
+              add('err', '第 ' + (i + 1) + ' 页有个锚点指向了已删除的拍品',
+                '该锚点不会生效，建议删掉重新打。');
+            }
+          });
+        });
+      }
+      if (!bk.cover || !bk.cover.url) add('info', '还没有上传封面', '成品会直接从第 1 页开始。');
+    }
+
+    return issues;
+  }
+
+  function showCheckup(issues) {
+    var host = document.createElement('div');
+    host.className = 'modal-mask';
+    var icons = { err: '❌', warn: '⚠️', info: '💡' };
+    var order = { err: 0, warn: 1, info: 2 };
+    issues.sort(function (a, b) { return order[a.kind] - order[b.kind]; });
+    var body = issues.map(function (it, i) {
+      return '<div style="padding:10px 12px;margin-bottom:8px;border-radius:6px;' +
+        'background:' + (it.kind === 'err' ? 'rgba(220,60,60,.14)' : it.kind === 'warn' ? 'rgba(240,170,40,.14)' : 'rgba(80,140,240,.14)') + ';' +
+        'border:1px solid ' + (it.kind === 'err' ? 'rgba(220,60,60,.4)' : it.kind === 'warn' ? 'rgba(240,170,40,.4)' : 'rgba(80,140,240,.4)') + '">' +
+        '<div style="font-weight:600;margin-bottom:' + (it.detail ? '6px' : '0') + '">' +
+        icons[it.kind] + ' ' + it.title + '</div>' +
+        (it.detail ? '<div style="font-size:12px;line-height:1.7;color:var(--sd-fg2)">' + it.detail + '</div>' : '') +
+        '</div>';
+    }).join('');
+    if (!issues.length) {
+      body = '<div style="padding:20px;text-align:center;color:var(--sd-fg2)">' +
+        '✅ 没有发现问题，可以放心导出</div>';
+    }
+    host.innerHTML = '<div style="background:var(--sd-panel);border:1px solid var(--sd-line2);' +
+      'border-radius:10px;padding:18px;width:min(620px,92vw);max-height:82vh;overflow:auto">' +
+      '<h3 style="margin:0 0 12px">素材体检 —— 共 ' + issues.length + ' 条提示</h3>' +
+      body +
+      '<div style="text-align:right;margin-top:8px"><button class="btn" id="ckClose">知道了</button></div></div>';
+    document.body.appendChild(host);
+    host.addEventListener('click', function (e) { if (e.target === host) host.remove(); });
+    document.getElementById('ckClose').addEventListener('click', function () { host.remove(); });
+  }
+
+  function runCheckup() {
+    var items = (STATE.materials.items || []).concat(
+      (STATE.lots || []).reduce(function (acc, l) { return acc.concat(l.items || []); }, []));
+    status('正在体检…');
+    return probeSizes(items).then(function () {
+      var issues = collectCheckup();
+      showCheckup(issues);
+      status('就绪 · 体检完成，' + issues.length + ' 条提示');
+    }).catch(function (e) {
+      toast('err', '体检失败', (e && e.message) || '');
+    });
+  }
+
   /* ================= 服务重启自愈 =================
      素材存在本地服务的内存里，一旦服务重启（双击 启动.bat），
      页面里所有 /@mat/... URL 都会 404 —— 表现就是「缩略图空白、预览出不来」。
@@ -4679,6 +4816,7 @@ window.SD = window.SD || {};
       downloadFile('360-config.json', JSON.stringify(conf, null, 2), 'application/json');
       toast('ok', '已导出配置', '含参数/拍品/锚点结构（不含图片）', 5000);
     });
+    if ($('btnCheckup')) $('btnCheckup').addEventListener('click', function () { runCheckup(); });
     $('btnImportCfg').addEventListener('click', function () {
       var inp = document.createElement('input');
       inp.type = 'file';
