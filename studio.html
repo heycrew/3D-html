@@ -328,6 +328,17 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
         <div style="padding:0 12px 10px">
           <button class="btn sm" id="btnUpPage" style="width:100%;justify-content:center">上传本页图片</button>
         </div>
+        <div style="padding:10px 12px;border-top:1px solid var(--sd-line)">
+          <div style="font-size:12px;color:var(--sd-fg2);margin-bottom:6px">
+            本页 360 素材<span style="color:var(--sd-fg3)">（成品里点这一页就会弹出）</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button class="btn sm" id="btnUpPage360X" style="flex:1;justify-content:center">＋ 水平转动</button>
+            <button class="btn sm" id="btnUpPage360Y" style="flex:1;justify-content:center">＋ 垂直俯仰</button>
+          </div>
+          <div id="page360List" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px"></div>
+          <div id="page360Hint" style="font-size:11px;color:var(--sd-fg3);margin-top:6px"></div>
+        </div>
         <div class="mini-note" id="bookHint"></div>
       </div>
       <div id="lotBar" style="display:none">
@@ -381,7 +392,6 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
       <div class="topbar-sep"></div>
       <button class="btn ghost sm" id="btnAddHotspot" title="在预览图上点选位置添加热点">＋ 添加热点</button>
       <button class="btn ghost sm" id="btnHotspotList" title="查看 / 删除热点">热点 <span id="hsCount">0</span></button>
-      <button class="btn ghost sm" id="btnAddAnchor" title="在当前页面上打锚点" style="display:none">＋ 加锚点</button>
       <span class="spacer"></span>
       <span id="stageMeta" style="color:var(--sd-fg3);font-size:11px"></span>
     </div>
@@ -1753,6 +1763,14 @@ SD.Export = (function () {
       for (var pi = 0; pi < (bk.pages || []).length; pi++) {
         var pg = bk.pages[pi];
         if (pg && pg.url) await put(pg, 'book/page-' + (pi + 1) + extOf(pg.name));
+        /* 这一页自己的 360 素材组 → book/page-N/ 下，文件名与页面引用一致 */
+        var its = (pg && pg.items) || [];
+        for (var qi = 0; qi < its.length; qi++) {
+          var it = its[qi];
+          if (!it || it.off || !it.url) continue;
+          var nm = it.name || ('frame-' + (qi + 1) + '.png');
+          await put(it, 'book/page-' + (pi + 1) + '/' + nm);
+        }
       }
       if (bk.back && bk.back.url) await put(bk.back, 'book/back' + extOf(bk.back.name));
     } else {
@@ -2412,7 +2430,7 @@ SD.Book = (function () {
         w: 900, h: 1200,          /* 整本书的统一尺寸，可自定义 */
         cover: null,              /* { url, file, name } */
         back: null,
-        pages: [],                /* { url, file, name, anchors: [{x,y,lotId}] } */
+        pages: [],                /* { url, file, name, items: [360 素材] } */
         active: 0                 /* 当前编辑的纸张索引 */
       };
     }
@@ -2448,7 +2466,7 @@ SD.Book = (function () {
   /* ---------- 页操作 ---------- */
   function addPage() {
     var b = book();
-    b.pages.push({ url: '', file: null, name: '', anchors: [] });
+    b.pages.push({ url: '', file: null, name: '', items: [] });
     setActive(b.pages.length);
     afterChange('已新增一页');
   }
@@ -2471,6 +2489,13 @@ SD.Book = (function () {
   }
 
   /* ---------- 锚点 ---------- */
+  /* 本页的 360 素材组（书模式下一个内容页自带一组，点页面即可弹出） */
+  function itemsOf(sh) {
+    if (!sh || sh.kind !== 'page') return null;
+    if (!sh.page.items) sh.page.items = [];
+    return sh.page.items;
+  }
+
   function anchorsOf(sh) {
     if (sh.kind !== 'page' || !sh.page) return [];
     if (!sh.page.anchors) sh.page.anchors = [];
@@ -2710,6 +2735,7 @@ SD.Book = (function () {
     anchorsOf: anchorsOf,
     addAnchor: addAnchor,
     removeAnchor: removeAnchor,
+    itemsOf: itemsOf,
     anchorCount: anchorCount,
     lotHasMedia: lotHasMedia,
     lotTitle: lotTitle,
@@ -2752,24 +2778,39 @@ SD.BookPage = (function () {
       return (mode === 'preview') ? (item.url || '') : ('book/' + fallbackName);
     }
 
+    /* 某个内容页自己的 360 素材组：预览用内存 URL，导出用相对文件名 */
+    function itemsOf(page, pageIndex) {
+      var arr = (page && page.items) || [];
+      var out = [];
+      arr.forEach(function (it, k) {
+        if (it.off) return;
+        var nm = 'book/page-' + (pageIndex + 1) + '/' +
+                 (it.name || ('frame-' + (k + 1) + '.png'));
+        var u = (mode === 'preview') ? (it.url || '') : nm;
+        if (u) out.push(u);
+      });
+      return out;
+    }
+
     out.push({
       kind: 'cover',
       src: srcOf(b.cover, 'cover' + extOfName(b.cover && b.cover.name)),
-      anchors: []
+      items: [], title: '封面'
     });
 
     (b.pages || []).forEach(function (p, i) {
       out.push({
         kind: 'page',
         src: srcOf(p, 'page-' + (i + 1) + extOfName(p && p.name)),
-        anchors: (p && p.anchors) ? p.anchors : []
+        items: itemsOf(p, i),
+        title: '第 ' + (i + 1) + ' 页'
       });
     });
 
     out.push({
       kind: 'back',
       src: srcOf(b.back, 'back' + extOfName(b.back && b.back.name)),
-      anchors: []
+      items: [], title: '封底'
     });
 
     return out;
@@ -2961,7 +3002,11 @@ SD.BookPage = (function () {
 
     /* 页数据（含锚点 HTML，避免运行时再拼） */
     var pages = sheets.map(function (sh) {
-      return { kind: sh.kind, src: sh.src, dots: dotsHtml(sh.anchors) };
+      /* items：这一页自己的 360 素材组（点这一页就弹它）
+         title：弹层标题 */
+      return { kind: sh.kind, src: sh.src,
+               items: sh.items || [], title: sh.title || '',
+               dots: dotsHtml(sh.anchors) };
     });
 
     var keep = {};
@@ -3377,13 +3422,11 @@ SD.BookPage = (function () {
       '    })(i);',
       '  }',
       '}',
-      'function openLot(lotId) {',
-      '  var lot = null;',
-      '  for (var i = 0; i < LOTS.length; i++) { if (LOTS[i].id === lotId) { lot = LOTS[i]; break; } }',
-      '  if (!lot) return;',
-      '  if (!(lot.x && lot.x.length) && !(lot.y && lot.y.length)) return;   /* 没素材 → 不响应 */',
+      'function openSheet360(sh) {',
+      '  if (!sh || !sh.items || !sh.items.length) return;   /* 本页没素材 → 不响应 */',
+      '  var lot = { x: sh.items, y: [], title: sh.title || "" };',
       '  destroyViewer();',
-      '  titleEl.textContent = lot.title + (lot.code ? "  " + lot.code : "");',
+      '  titleEl.textContent = lot.title;',
       '  modal.classList.add("on");',
       '  if (hintEl) hintEl.style.display = "";',
       '',
@@ -3409,12 +3452,17 @@ SD.BookPage = (function () {
       '  buildInterpolated(lot.x, INTERP, _go);',
       '}',
       '',
+      '/* 点内容页任意位置 → 弹出这一页自己的 360 素材组。',
+      '   翻页热区（左右下角）与导航按钮除外。 */',
       'bookEl.addEventListener("click", function (e) {',
-      '  var d = e.target.closest ? e.target.closest(".dot") : null;',
-      '  if (!d) return;',
-      '  if (d.getAttribute("data-off")) return;   /* 没上传 360 → 点击无效 */',
-      '  e.stopPropagation();',
-      '  openLot(d.getAttribute("data-lot"));',
+      '  var t = e.target;',
+      '  if (t && t.closest) {',
+      '    if (t.closest(".corner") || t.closest(".book-nav") || t.closest(".dot")) return;',
+      '  }',
+      '  if (modal.classList.contains("on")) return;',
+      '  var sh = SHEETS[cur];',
+      '  if (!sh || !sh.items || !sh.items.length) return;   /* 本页没有 360 素材 → 不响应 */',
+      '  openSheet360(sh);',
       '});',
       'document.getElementById("lotClose").addEventListener("click", closeLot);',
       'modal.addEventListener("click", function (e) { if (e.target === modal) closeLot(); });',
@@ -4519,6 +4567,85 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 本页 360 素材 =================
+     书模式下每个内容页自带一组 360 素材，成品里点这一页就弹出。
+     比原来「建拍品 → 打锚点 → 绑拍品」少两步，更贴近真实素材组织方式。 */
+  function page360Render() {
+    var host = $('page360List'), hint = $('page360Hint');
+    if (!host) return;
+    var sh = SD.Book ? SD.Book.activeSheet() : null;
+    var list = (sh && sh.kind === 'page') ? SD.Book.itemsOf(sh) : null;
+    host.innerHTML = '';
+    if (!list) {
+      if (hint) hint.textContent = '先选一张内容页（封面 / 封底不需要 360 素材）';
+      return;
+    }
+    list.forEach(function (it) {
+      var d = document.createElement('div');
+      d.className = 'mat-item' + (it.off ? ' is-off' : '');
+      d.style.cssText = 'width:44px;height:44px;position:relative';
+      d.title = (it.name || '') + '（' + (it.axis === 'y' ? '垂直俯仰' : '水平旋转') + '，点击可启用/排除；右键删除）';
+      d.innerHTML = '<img alt="" style="width:100%;height:100%;object-fit:cover;border-radius:4px">';
+      var im = d.querySelector('img');
+      im.addEventListener('error', function () {
+        if (!it.file || it._healing) return;
+        it._healing = true;
+        SD.Materials.importFiles([it.file], it.axis || 'x', null)
+          .then(function (r) { if (r && r.length) { it.url = r[0].url; im.src = it.url; } it._healing = false; })
+          .catch(function () { it._healing = false; });
+      });
+      if (it.url) im.src = it.url;
+      d.addEventListener('click', function () {
+        it.off = !it.off; page360Render(); refresh();
+      });
+      d.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        var i = list.indexOf(it);
+        if (i >= 0) { list.splice(i, 1); page360Render(); refresh(); toast('ok', '已删除该素材'); }
+      });
+      host.appendChild(d);
+    });
+    if (hint) {
+      var xs = list.filter(function (i) { return i.axis !== 'y'; }).length;
+      var ys = list.filter(function (i) { return i.axis === 'y'; }).length;
+      hint.innerHTML = list.length
+        ? ('共 ' + list.length + ' 张（水平 ' + xs + ' · 垂直 ' + ys + '）' +
+           (xs && xs < 8 ? '<br><span style="color:#e0a030">水平帧偏少，可在参数里把「帧插值平滑」开到 2~3</span>' : ''))
+        : '还没有素材 —— 点上面按钮上传这一页的 360 图';
+    }
+  }
+
+  function page360Upload(axis) {
+    var sh = SD.Book ? SD.Book.activeSheet() : null;
+    if (!sh || sh.kind !== 'page') {
+      toast('warn', '请先在左栏「书页」里选中一张内容页');
+      return;
+    }
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.multiple = true;
+    inp.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(inp.files || []);
+      if (!files.length) return;
+      status('正在上传本页 360 素材…');
+      SD.Materials.importFiles(files, axis, function (n, total) {
+        status('正在上传本页 360 素材 ' + n + '/' + total + '…');
+      }).then(function (added) {
+        var list = SD.Book.itemsOf(sh);
+        (added || []).forEach(function (it) { list.push(it); });
+        page360Render();
+        refresh();
+        status('就绪 · ' + sh.label + ' 已有 ' + list.length + ' 张 360 素材');
+        toast('ok', '已添加 ' + (added || []).length + ' 张到' + sh.label,
+          '成品里点这一页就会弹出这组 360', 5000);
+      }).catch(function (e) {
+        toast('err', '上传失败', (e && e.message) || '');
+      });
+    });
+    inp.click();
+  }
+
   /* ================= 素材体检 =================
      把常见坑一次说清楚：图尺寸不一致（会被拉伸）、帧数太少（旋转跳跃）、
      单张太大（手机慢）、拍品没素材（锚点置灰）、锚点指向已删拍品。 */
@@ -4791,28 +4918,7 @@ window.SD = window.SD || {};
     });
     $('btnAddLot').addEventListener('click', function () { SD.Lots.add(); });
     var btnAn = $('btnAddAnchor');
-    if (btnAn) btnAn.addEventListener('click', function () {
-      /* 即时反馈 + 异常兜底：让「有没有被点到」「哪一步失败」都看得见 */
-      status('正在打开锚点编辑器…');
-      try {
-        if (!SD.Book || typeof SD.Book.startAnchorPick !== 'function') {
-          toast('err', '锚点编辑器未加载', '请刷新工作台（Ctrl+F5）后重试', 6000);
-          return;
-        }
-        SD.Book.startAnchorPick();
-        var sheet = SD.Book.activeSheet();
-        if (sheet && sheet.kind !== 'page') {
-          toast('warn', '请先选中一张内容页', '左栏「书页」里点一下要打锚点的那一页', 5000);
-        } else if (sheet && sheet.page && !sheet.page.url) {
-          toast('warn', '本页还没有上传图片', '先点「上传本页图片」', 5000);
-        } else {
-          status('就绪 · 锚点编辑器已打开');
-        }
-      } catch (e) {
-        toast('err', '打开锚点编辑器出错', (e && e.message) || String(e), 9000);
-        throw e;
-      }
-    });
+    /* 书模式已改为「每页自带一组 360，点页面即弹出」，不再需要锚点按钮 */
 
     $('btnAddHotspot').addEventListener('click', function () {
       if (!SD.Codegen.activeItems(STATE).length) {
@@ -4878,6 +4984,8 @@ window.SD = window.SD || {};
       toast('ok', '已导出配置', '含参数/拍品/锚点结构（不含图片）', 5000);
     });
     if ($('btnCheckup')) $('btnCheckup').addEventListener('click', function () { runCheckup(); });
+    if ($('btnUpPage360X')) $('btnUpPage360X').addEventListener('click', function () { page360Upload('x'); });
+    if ($('btnUpPage360Y')) $('btnUpPage360Y').addEventListener('click', function () { page360Upload('y'); });
     $('btnImportCfg').addEventListener('click', function () {
       var inp = document.createElement('input');
       inp.type = 'file';

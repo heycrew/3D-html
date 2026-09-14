@@ -33,24 +33,39 @@ SD.BookPage = (function () {
       return (mode === 'preview') ? (item.url || '') : ('book/' + fallbackName);
     }
 
+    /* 某个内容页自己的 360 素材组：预览用内存 URL，导出用相对文件名 */
+    function itemsOf(page, pageIndex) {
+      var arr = (page && page.items) || [];
+      var out = [];
+      arr.forEach(function (it, k) {
+        if (it.off) return;
+        var nm = 'book/page-' + (pageIndex + 1) + '/' +
+                 (it.name || ('frame-' + (k + 1) + '.png'));
+        var u = (mode === 'preview') ? (it.url || '') : nm;
+        if (u) out.push(u);
+      });
+      return out;
+    }
+
     out.push({
       kind: 'cover',
       src: srcOf(b.cover, 'cover' + extOfName(b.cover && b.cover.name)),
-      anchors: []
+      items: [], title: '封面'
     });
 
     (b.pages || []).forEach(function (p, i) {
       out.push({
         kind: 'page',
         src: srcOf(p, 'page-' + (i + 1) + extOfName(p && p.name)),
-        anchors: (p && p.anchors) ? p.anchors : []
+        items: itemsOf(p, i),
+        title: '第 ' + (i + 1) + ' 页'
       });
     });
 
     out.push({
       kind: 'back',
       src: srcOf(b.back, 'back' + extOfName(b.back && b.back.name)),
-      anchors: []
+      items: [], title: '封底'
     });
 
     return out;
@@ -242,7 +257,11 @@ SD.BookPage = (function () {
 
     /* 页数据（含锚点 HTML，避免运行时再拼） */
     var pages = sheets.map(function (sh) {
-      return { kind: sh.kind, src: sh.src, dots: dotsHtml(sh.anchors) };
+      /* items：这一页自己的 360 素材组（点这一页就弹它）
+         title：弹层标题 */
+      return { kind: sh.kind, src: sh.src,
+               items: sh.items || [], title: sh.title || '',
+               dots: dotsHtml(sh.anchors) };
     });
 
     var keep = {};
@@ -658,13 +677,11 @@ SD.BookPage = (function () {
       '    })(i);',
       '  }',
       '}',
-      'function openLot(lotId) {',
-      '  var lot = null;',
-      '  for (var i = 0; i < LOTS.length; i++) { if (LOTS[i].id === lotId) { lot = LOTS[i]; break; } }',
-      '  if (!lot) return;',
-      '  if (!(lot.x && lot.x.length) && !(lot.y && lot.y.length)) return;   /* 没素材 → 不响应 */',
+      'function openSheet360(sh) {',
+      '  if (!sh || !sh.items || !sh.items.length) return;   /* 本页没素材 → 不响应 */',
+      '  var lot = { x: sh.items, y: [], title: sh.title || "" };',
       '  destroyViewer();',
-      '  titleEl.textContent = lot.title + (lot.code ? "  " + lot.code : "");',
+      '  titleEl.textContent = lot.title;',
       '  modal.classList.add("on");',
       '  if (hintEl) hintEl.style.display = "";',
       '',
@@ -690,12 +707,17 @@ SD.BookPage = (function () {
       '  buildInterpolated(lot.x, INTERP, _go);',
       '}',
       '',
+      '/* 点内容页任意位置 → 弹出这一页自己的 360 素材组。',
+      '   翻页热区（左右下角）与导航按钮除外。 */',
       'bookEl.addEventListener("click", function (e) {',
-      '  var d = e.target.closest ? e.target.closest(".dot") : null;',
-      '  if (!d) return;',
-      '  if (d.getAttribute("data-off")) return;   /* 没上传 360 → 点击无效 */',
-      '  e.stopPropagation();',
-      '  openLot(d.getAttribute("data-lot"));',
+      '  var t = e.target;',
+      '  if (t && t.closest) {',
+      '    if (t.closest(".corner") || t.closest(".book-nav") || t.closest(".dot")) return;',
+      '  }',
+      '  if (modal.classList.contains("on")) return;',
+      '  var sh = SHEETS[cur];',
+      '  if (!sh || !sh.items || !sh.items.length) return;   /* 本页没有 360 素材 → 不响应 */',
+      '  openSheet360(sh);',
       '});',
       'document.getElementById("lotClose").addEventListener("click", closeLot);',
       'modal.addEventListener("click", function (e) { if (e.target === modal) closeLot(); });',

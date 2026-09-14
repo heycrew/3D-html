@@ -213,6 +213,14 @@ SD.Export = (function () {
       for (var pi = 0; pi < (bk.pages || []).length; pi++) {
         var pg = bk.pages[pi];
         if (pg && pg.url) await put(pg, 'book/page-' + (pi + 1) + extOf(pg.name));
+        /* 这一页自己的 360 素材组 → book/page-N/ 下，文件名与页面引用一致 */
+        var its = (pg && pg.items) || [];
+        for (var qi = 0; qi < its.length; qi++) {
+          var it = its[qi];
+          if (!it || it.off || !it.url) continue;
+          var nm = it.name || ('frame-' + (qi + 1) + '.png');
+          await put(it, 'book/page-' + (pi + 1) + '/' + nm);
+        }
       }
       if (bk.back && bk.back.url) await put(bk.back, 'book/back' + extOf(bk.back.name));
     } else {

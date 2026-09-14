@@ -811,6 +811,85 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 本页 360 素材 =================
+     书模式下每个内容页自带一组 360 素材，成品里点这一页就弹出。
+     比原来「建拍品 → 打锚点 → 绑拍品」少两步，更贴近真实素材组织方式。 */
+  function page360Render() {
+    var host = $('page360List'), hint = $('page360Hint');
+    if (!host) return;
+    var sh = SD.Book ? SD.Book.activeSheet() : null;
+    var list = (sh && sh.kind === 'page') ? SD.Book.itemsOf(sh) : null;
+    host.innerHTML = '';
+    if (!list) {
+      if (hint) hint.textContent = '先选一张内容页（封面 / 封底不需要 360 素材）';
+      return;
+    }
+    list.forEach(function (it) {
+      var d = document.createElement('div');
+      d.className = 'mat-item' + (it.off ? ' is-off' : '');
+      d.style.cssText = 'width:44px;height:44px;position:relative';
+      d.title = (it.name || '') + '（' + (it.axis === 'y' ? '垂直俯仰' : '水平旋转') + '，点击可启用/排除；右键删除）';
+      d.innerHTML = '<img alt="" style="width:100%;height:100%;object-fit:cover;border-radius:4px">';
+      var im = d.querySelector('img');
+      im.addEventListener('error', function () {
+        if (!it.file || it._healing) return;
+        it._healing = true;
+        SD.Materials.importFiles([it.file], it.axis || 'x', null)
+          .then(function (r) { if (r && r.length) { it.url = r[0].url; im.src = it.url; } it._healing = false; })
+          .catch(function () { it._healing = false; });
+      });
+      if (it.url) im.src = it.url;
+      d.addEventListener('click', function () {
+        it.off = !it.off; page360Render(); refresh();
+      });
+      d.addEventListener('contextmenu', function (e) {
+        e.preventDefault();
+        var i = list.indexOf(it);
+        if (i >= 0) { list.splice(i, 1); page360Render(); refresh(); toast('ok', '已删除该素材'); }
+      });
+      host.appendChild(d);
+    });
+    if (hint) {
+      var xs = list.filter(function (i) { return i.axis !== 'y'; }).length;
+      var ys = list.filter(function (i) { return i.axis === 'y'; }).length;
+      hint.innerHTML = list.length
+        ? ('共 ' + list.length + ' 张（水平 ' + xs + ' · 垂直 ' + ys + '）' +
+           (xs && xs < 8 ? '<br><span style="color:#e0a030">水平帧偏少，可在参数里把「帧插值平滑」开到 2~3</span>' : ''))
+        : '还没有素材 —— 点上面按钮上传这一页的 360 图';
+    }
+  }
+
+  function page360Upload(axis) {
+    var sh = SD.Book ? SD.Book.activeSheet() : null;
+    if (!sh || sh.kind !== 'page') {
+      toast('warn', '请先在左栏「书页」里选中一张内容页');
+      return;
+    }
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.multiple = true;
+    inp.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(inp.files || []);
+      if (!files.length) return;
+      status('正在上传本页 360 素材…');
+      SD.Materials.importFiles(files, axis, function (n, total) {
+        status('正在上传本页 360 素材 ' + n + '/' + total + '…');
+      }).then(function (added) {
+        var list = SD.Book.itemsOf(sh);
+        (added || []).forEach(function (it) { list.push(it); });
+        page360Render();
+        refresh();
+        status('就绪 · ' + sh.label + ' 已有 ' + list.length + ' 张 360 素材');
+        toast('ok', '已添加 ' + (added || []).length + ' 张到' + sh.label,
+          '成品里点这一页就会弹出这组 360', 5000);
+      }).catch(function (e) {
+        toast('err', '上传失败', (e && e.message) || '');
+      });
+    });
+    inp.click();
+  }
+
   /* ================= 素材体检 =================
      把常见坑一次说清楚：图尺寸不一致（会被拉伸）、帧数太少（旋转跳跃）、
      单张太大（手机慢）、拍品没素材（锚点置灰）、锚点指向已删拍品。 */
@@ -1083,28 +1162,7 @@ window.SD = window.SD || {};
     });
     $('btnAddLot').addEventListener('click', function () { SD.Lots.add(); });
     var btnAn = $('btnAddAnchor');
-    if (btnAn) btnAn.addEventListener('click', function () {
-      /* 即时反馈 + 异常兜底：让「有没有被点到」「哪一步失败」都看得见 */
-      status('正在打开锚点编辑器…');
-      try {
-        if (!SD.Book || typeof SD.Book.startAnchorPick !== 'function') {
-          toast('err', '锚点编辑器未加载', '请刷新工作台（Ctrl+F5）后重试', 6000);
-          return;
-        }
-        SD.Book.startAnchorPick();
-        var sheet = SD.Book.activeSheet();
-        if (sheet && sheet.kind !== 'page') {
-          toast('warn', '请先选中一张内容页', '左栏「书页」里点一下要打锚点的那一页', 5000);
-        } else if (sheet && sheet.page && !sheet.page.url) {
-          toast('warn', '本页还没有上传图片', '先点「上传本页图片」', 5000);
-        } else {
-          status('就绪 · 锚点编辑器已打开');
-        }
-      } catch (e) {
-        toast('err', '打开锚点编辑器出错', (e && e.message) || String(e), 9000);
-        throw e;
-      }
-    });
+    /* 书模式已改为「每页自带一组 360，点页面即弹出」，不再需要锚点按钮 */
 
     $('btnAddHotspot').addEventListener('click', function () {
       if (!SD.Codegen.activeItems(STATE).length) {
@@ -1170,6 +1228,8 @@ window.SD = window.SD || {};
       toast('ok', '已导出配置', '含参数/拍品/锚点结构（不含图片）', 5000);
     });
     if ($('btnCheckup')) $('btnCheckup').addEventListener('click', function () { runCheckup(); });
+    if ($('btnUpPage360X')) $('btnUpPage360X').addEventListener('click', function () { page360Upload('x'); });
+    if ($('btnUpPage360Y')) $('btnUpPage360Y').addEventListener('click', function () { page360Upload('y'); });
     $('btnImportCfg').addEventListener('click', function () {
       var inp = document.createElement('input');
       inp.type = 'file';

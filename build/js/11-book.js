@@ -21,7 +21,7 @@ SD.Book = (function () {
         w: 900, h: 1200,          /* 整本书的统一尺寸，可自定义 */
         cover: null,              /* { url, file, name } */
         back: null,
-        pages: [],                /* { url, file, name, anchors: [{x,y,lotId}] } */
+        pages: [],                /* { url, file, name, items: [360 素材] } */
         active: 0                 /* 当前编辑的纸张索引 */
       };
     }
@@ -57,7 +57,7 @@ SD.Book = (function () {
   /* ---------- 页操作 ---------- */
   function addPage() {
     var b = book();
-    b.pages.push({ url: '', file: null, name: '', anchors: [] });
+    b.pages.push({ url: '', file: null, name: '', items: [] });
     setActive(b.pages.length);
     afterChange('已新增一页');
   }
@@ -80,6 +80,13 @@ SD.Book = (function () {
   }
 
   /* ---------- 锚点 ---------- */
+  /* 本页的 360 素材组（书模式下一个内容页自带一组，点页面即可弹出） */
+  function itemsOf(sh) {
+    if (!sh || sh.kind !== 'page') return null;
+    if (!sh.page.items) sh.page.items = [];
+    return sh.page.items;
+  }
+
   function anchorsOf(sh) {
     if (sh.kind !== 'page' || !sh.page) return [];
     if (!sh.page.anchors) sh.page.anchors = [];
@@ -319,6 +326,7 @@ SD.Book = (function () {
     anchorsOf: anchorsOf,
     addAnchor: addAnchor,
     removeAnchor: removeAnchor,
+    itemsOf: itemsOf,
     anchorCount: anchorCount,
     lotHasMedia: lotHasMedia,
     lotTitle: lotTitle,
