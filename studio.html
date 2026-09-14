@@ -2566,7 +2566,10 @@ SD.Book = (function () {
       rows.push({
         i: k + 1,
         label: '第 ' + (k + 1) + ' 页',
-        sub: (p.anchors ? p.anchors.length : 0) + ' 个锚点',
+        sub: (function () {
+          var n = (p.items || []).filter(function (it) { return !it.off; }).length;
+          return n ? (n + ' 张 360 素材') : '未上传 360 素材';
+        })(),
         img: p, kind: 'page', pi: k
       });
     });
@@ -3453,8 +3456,21 @@ SD.BookPage = (function () {
       '}',
       '',
       '/* 点内容页任意位置 → 弹出这一页自己的 360 素材组。',
-      '   翻页热区（左右下角）与导航按钮除外。 */',
+      '   翻页热区（左右下角）与导航按钮除外。',
+      '   关键：拖动翻页（滑动）松手后浏览器仍会补发一次 click，',
+      '   若不排除，翻完页就会「自动」弹出 360 —— 表现为翻页后冒出全景。',
+      '   所以记录按下位置，位移超过阈值就认定是翻页手势，不算点击。 */',
+      'var _dnX = 0, _dnY = 0, _moved = false, _dnT = 0;',
+      'bookEl.addEventListener("pointerdown", function (e) {',
+      '  _dnX = e.clientX; _dnY = e.clientY; _moved = false; _dnT = performance.now();',
+      '});',
+      'bookEl.addEventListener("pointermove", function (e) {',
+      '  if (Math.abs(e.clientX - _dnX) > 8 || Math.abs(e.clientY - _dnY) > 8) _moved = true;',
+      '});',
       'bookEl.addEventListener("click", function (e) {',
+      '  if (_moved) { _moved = false; return; }          /* 刚才是翻页拖动 → 不是点击 */',
+      '  if (busy) return;                                 /* 翻页动画进行中 → 忽略 */',
+      '  if (performance.now() - _dnT > 700) return;       /* 长按不算点击 */',
       '  var t = e.target;',
       '  if (t && t.closest) {',
       '    if (t.closest(".corner") || t.closest(".book-nav") || t.closest(".dot")) return;',

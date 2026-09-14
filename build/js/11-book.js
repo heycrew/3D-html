@@ -157,7 +157,10 @@ SD.Book = (function () {
       rows.push({
         i: k + 1,
         label: '第 ' + (k + 1) + ' 页',
-        sub: (p.anchors ? p.anchors.length : 0) + ' 个锚点',
+        sub: (function () {
+          var n = (p.items || []).filter(function (it) { return !it.off; }).length;
+          return n ? (n + ' 张 360 素材') : '未上传 360 素材';
+        })(),
         img: p, kind: 'page', pi: k
       });
     });
