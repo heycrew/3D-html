@@ -545,7 +545,8 @@ SD.SCHEMA = [
       { key: 'bookDotSize', label: '锚点大小', type: 'num', def: 16, min: 8, max: 40, unit: 'px' },
       { key: 'bookDotColor', label: '锚点颜色', type: 'color', def: '#ffb340' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
-      { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.88, min: 0.3, max: 0.98, step: 0.02 }
+      { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.72, min: 0.2, max: 0.98, step: 0.02,
+        desc: '越小越透，底下的内容页看得越清楚' }
     ]
   },
   {
@@ -2704,13 +2705,16 @@ SD.BookPage = (function () {
 
       '/* 360 弹层 */',
       '.lot-modal{position:fixed;inset:0;z-index:9998;display:none;',
-      '  background:rgba(0,0,0,' + (p.boguMask2 || .88) + ');}',
+      '  background:rgba(0,0,0,' + (p.boguMask2 === undefined ? .72 : p.boguMask2) + ');}',
       '.lot-modal.on{display:grid;place-items:center;animation:lotFade .2s ease;}',
       '@keyframes lotFade{from{opacity:0}to{opacity:1}}',
-      '.lot-stage{width:min(92vw,1040px);height:min(82vh,780px);display:grid;',
-      '  place-items:center;position:relative;}',
-      '/* 只定高度、宽度交给 aspect-ratio 自适应，否则画面会被拉伸 */',
-      '.lot-stage .cloudimage-360{height:100%;width:auto;max-width:100%;}',
+      '/* 360 舞台与书页同尺寸同位：点开后正好盖在当前这一页上 */',
+      '.lot-stage{width:min(' + W + 'px, calc((100vh - 120px) * ' + (W / H).toFixed(4) + '));',
+      '  height:min(' + H + 'px, calc(100vh - 120px));',
+      '  display:grid;place-items:center;position:relative;}',
+      '/* 舞台与 aspectRatio 参数同比例，图片在其中按同比例适配，不拉伸 */',
+      '.lot-stage .cloudimage-360{width:100%;height:100%;}',
+      '.lot-stage .cloudimage-360 img{object-fit:contain;}',
       '.lot-stage .lot-title{position:absolute;top:-4px;left:0;color:#fff;font-size:15px;',
       '  letter-spacing:2px;opacity:.9;pointer-events:none;}',
       '.lot-close{position:absolute;top:22px;right:26px;width:40px;height:40px;border:0;',
@@ -2810,6 +2814,7 @@ SD.BookPage = (function () {
       'var LOTS = ' + SD.Codegen.safeJson(data, true) + ';',
       'var BASE = ' + SD.Codegen.safeJson(keep, true) + ';',
       'var TURN = ' + (p.bookTurn || 700) + ';',
+      'var BOOK_RATIO = ' + JSON.stringify(String(p.bookW || 900) + '/' + String(p.bookH || 1200)) + ';',
       'var leaves = Array.prototype.slice.call(document.querySelectorAll(".leaf"));',
       'var total = leaves.length;',
       'var cur = 0;',
@@ -2928,7 +2933,7 @@ SD.BookPage = (function () {
       '  for (var k in BASE) cfg[k] = BASE[k];',
       '  if (lot.x && lot.x.length) { cfg.imageListX = lot.x; cfg.amountX = lot.x.length; }',
       '  if (lot.y && lot.y.length) { cfg.imageListY = lot.y; cfg.amountY = lot.y.length; }',
-      '  if (!cfg.aspectRatio) cfg.aspectRatio = lot.ratio || "1/1";',
+      '  if (!cfg.aspectRatio) cfg.aspectRatio = BOOK_RATIO;',
       '',
       '  var el = document.createElement("div");',
       '  el.className = "cloudimage-360";',
@@ -3753,10 +3758,16 @@ window.SD = window.SD || {};
         var ptb = $('pageType');
         ptb.value = 'book';
         ptb.dispatchEvent(new Event('change'));
-        setTimeout(function () {
-          var bk = SD.Book.book();
+        var _tryBook = 0;
+        (function waitBook() {
+          _tryBook++;
           var its = STATE.materials.items || [];
-          if (bk.pages.length || its.length < 4) return;
+          var bk = SD.Book.book();
+          if (bk.pages.length) return;
+          if (its.length < 4) {
+            if (_tryBook < 300) setTimeout(waitBook, 150);
+            return;
+          }
           function snap(k, nm) {
             var it = its[k];
             return it ? { url: it.url, file: it.file, name: nm } : null;
@@ -3772,9 +3783,10 @@ window.SD = window.SD || {};
           if (SD.Lots.lots().length) {
             bk.pages[0].anchors.push({ id: 'an-t1', x: 42, y: 38, lotId: SD.Lots.lots()[0].id });
           }
+          SD.Book.setActive(1);
           SD.Book.render();
           if (SD.refresh) SD.refresh();
-        }, 2500);
+        })();
       }
       if (/[?&]dump/.test(location.search)) {
         setTimeout(function () {

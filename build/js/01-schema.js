@@ -109,7 +109,8 @@ SD.SCHEMA = [
       { key: 'bookDotSize', label: '锚点大小', type: 'num', def: 16, min: 8, max: 40, unit: 'px' },
       { key: 'bookDotColor', label: '锚点颜色', type: 'color', def: '#ffb340' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
-      { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.88, min: 0.3, max: 0.98, step: 0.02 }
+      { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.72, min: 0.2, max: 0.98, step: 0.02,
+        desc: '越小越透，底下的内容页看得越清楚' }
     ]
   },
   {

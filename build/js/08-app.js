@@ -748,10 +748,16 @@ window.SD = window.SD || {};
         var ptb = $('pageType');
         ptb.value = 'book';
         ptb.dispatchEvent(new Event('change'));
-        setTimeout(function () {
-          var bk = SD.Book.book();
+        var _tryBook = 0;
+        (function waitBook() {
+          _tryBook++;
           var its = STATE.materials.items || [];
-          if (bk.pages.length || its.length < 4) return;
+          var bk = SD.Book.book();
+          if (bk.pages.length) return;
+          if (its.length < 4) {
+            if (_tryBook < 300) setTimeout(waitBook, 150);
+            return;
+          }
           function snap(k, nm) {
             var it = its[k];
             return it ? { url: it.url, file: it.file, name: nm } : null;
@@ -767,9 +773,10 @@ window.SD = window.SD || {};
           if (SD.Lots.lots().length) {
             bk.pages[0].anchors.push({ id: 'an-t1', x: 42, y: 38, lotId: SD.Lots.lots()[0].id });
           }
+          SD.Book.setActive(1);
           SD.Book.render();
           if (SD.refresh) SD.refresh();
-        }, 2500);
+        })();
       }
       if (/[?&]dump/.test(location.search)) {
         setTimeout(function () {
