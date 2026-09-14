@@ -21,7 +21,8 @@ param(
     [int]$Port = 8788,
     [string]$Root = "",
     [string]$Open = "index.html",
-    [switch]$NoBrowser
+    [switch]$NoBrowser,
+    [switch]$Local
 )
 
 $ErrorActionPreference = "Stop"
@@ -70,7 +71,10 @@ $listener = $null
 $startPort = $Port
 for ($p = $startPort; $p -lt ($startPort + 25); $p++) {
     try {
-        $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $p)
+        # 默认监听所有网卡：手机连同一 WiFi 就能打开，方便真机看效果。
+        # 只在本机用可加 -Local 参数退回仅回环。
+        $bindIp = if ($Local) { [System.Net.IPAddress]::Loopback } else { [System.Net.IPAddress]::Any }
+        $listener = New-Object System.Net.Sockets.TcpListener($bindIp, $p)
         $listener.Start()
         $Port = $p
         break
@@ -93,6 +97,37 @@ Write-Host "  ==============================================" -ForegroundColor D
 Write-Host "   360 viewer  -  local server" -ForegroundColor Green
 Write-Host "  ==============================================" -ForegroundColor DarkGray
 Write-Host "   URL  : http://localhost:$Port/" -ForegroundColor Cyan
+if (-not $Local) {
+    # 取局域网地址。要注意：装了 WSL / Hyper-V / 虚拟机的话，
+    # 会多出 172.x 这类虚拟网卡地址，手机连不上，所以优先挑 192.168.*。
+    $cands = @()
+    try {
+        $cands = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
+                   Where-Object { $_.IPAddress -notmatch '^127\.' -and
+                                  $_.IPAddress -notmatch '^169\.254\.' -and
+                                  $_.AddressState -eq 'Preferred' } |
+                   ForEach-Object { $_.IPAddress })
+    } catch { }
+    if ($cands.Count -eq 0) {
+        try {
+            $cands = @([System.Net.Dns]::GetHostAddresses([System.Net.Dns]::GetHostName()) |
+                       Where-Object { $_.AddressFamily -eq 'InterNetwork' } |
+                       ForEach-Object { $_.IPAddressToString } |
+                       Where-Object { $_ -notmatch '^127\.' })
+        } catch { }
+    }
+    $pref = @($cands | Where-Object { $_ -like '192.168.*' })
+    if ($pref.Count -eq 0) { $pref = @($cands | Where-Object { $_ -like '10.*' }) }
+    if ($pref.Count -eq 0) { $pref = $cands }
+    if ($pref.Count -gt 0) {
+        Write-Host ""
+        Write-Host "   手机访问（连同一个 WiFi）：" -ForegroundColor Yellow
+        foreach ($ip in $pref) {
+            Write-Host "     http://$ip`:$Port/" -ForegroundColor Yellow
+        }
+        Write-Host "     打不开就换上面另一个地址试试" -ForegroundColor DarkGray
+    }
+}
 Write-Host "   Root : $Root"
 Write-Host "   Stop : press Ctrl+C in this window"
 Write-Host ""
