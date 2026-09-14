@@ -281,7 +281,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-14 15:34</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-14 15:46</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -3243,16 +3243,24 @@ SD.BookPage = (function () {
       '  } else if (sheetA.getAttribute("src") === sh.src) {',
       '    reveal();',
       '  } else {',
-      '    var _once = function () {',
-      '      sheetA.removeEventListener("load", _once);',
-      '      sheetA.removeEventListener("error", _once);',
+      '    /* 关键修复：不能直接给 sheetA 换 src。',
+      '       换 src 之后浏览器要解码新图，解码期间它仍然显示上一张 ——',
+      '       回翻时上一张正是「第 2 页」，于是画布淡出后闪出第 2 页的画面。',
+      '       做法：先用一个隐藏的 Image 把目标页完整解码（decode()），',
+      '       解完再让 sheetA 换 src —— 此时图已在内存缓存里，',
+      '       赋值即刻可绘制，中间不会出现旧画面。 */',
+      '    var _pre = new Image();',
+      '    var _swap = function () {',
+      '      sheetA._ready = false;',
+      '      sheetA.src = sh.src;',
       '      reveal();',
       '    };',
-      '    sheetA.addEventListener("load", _once);',
-      '    sheetA.addEventListener("error", _once);',
-      '    sheetA._ready = false;            /* 换了 src → 需要重新解码 */',
-      '    sheetA.src = sh.src;',
-      '    if (sheetA.complete && sheetA.naturalWidth) { _once(); }',
+      '    _pre.onload = function () {',
+      '      if (_pre.decode) { _pre.decode().then(_swap).catch(_swap); }',
+      '      else { _swap(); }',
+      '    };',
+      '    _pre.onerror = _swap;',
+      '    _pre.src = sh.src;',
       '  }',
       '  dotsLayer.innerHTML = (sh && sh.dots) ? sh.dots : "";',
       '  if (navText) navText.textContent = (cur + 1) + " / " + total;',
