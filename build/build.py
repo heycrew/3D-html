@@ -115,7 +115,9 @@ def main():
 
     # 逻辑代码内联进 <script>：防止源码里的 </script 提前闭合标签
     app_safe = app_js.replace('</script', '<\\/script')
-    html = shell.replace('{{APP_JS}}', app_safe)
+    import datetime
+    _bt = datetime.datetime.now().strftime('%m-%d %H:%M')
+    html = shell.replace('{{APP_JS}}', app_safe).replace('{{BUILD_TIME}}', _bt)
 
     out_html = os.path.join(DEST, 'studio.html')
     with open(out_html, 'w', encoding='utf-8') as f:
