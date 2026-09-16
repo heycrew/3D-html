@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-16 16:17</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-16 16:24</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -2674,10 +2674,13 @@ SD.BookPage = (function () {
       '  if (xlist && xlist.length) { cfg.imageListX = xlist; cfg.amountX = xlist.length; }',
       '  if (lot.y && lot.y.length) { cfg.imageListY = lot.y; cfg.amountY = lot.y.length; }',
       '  if (!cfg.aspectRatio) cfg.aspectRatio = BOOK_RATIO;',
+      '  /* CI360 自带的操作提示都是英文（Drag to rotate / Double-click to zoom /',
+      '     Ctrl + scroll），跟弹层底部那条中文说明并排会中英混杂。',
+      '     这里一律关掉，只保留中文说明。 */',
+      '  cfg.hints = false;',
+      '  cfg.scrollHint = false;',
       '  if (SIMPLE_UI) {',
-      '    cfg.hints = false;          /* 不显示拖拽/双击提示 */',
-      '    cfg.scrollHint = false;     /* 不显示 Ctrl+滚轮提示 */',
-      '    cfg.zoomControls = false;   /* 不显示缩放按钮组 */',
+      '    cfg.zoomControls = false;   /* 手机上不显示缩放按钮组，纯手势操作 */',
       '  }',
       '',
       '  var el = document.createElement("div");',
