@@ -1,6 +1,9 @@
-* text=auto
+# 兜底：所有文本文件统一 LF（覆盖 core.autocrlf=true 的默认行为，
+# 否则 .gitignore / 未列举的扩展名下次被 Git 触碰时又会变回 CRLF）
+* text=auto eol=lf
 
 # Windows 脚本必须保持 CRLF，否则可能无法执行
+# （更具体的 pattern 优先，不受上面那行影响）
 *.bat  text eol=crlf
 *.cmd  text eol=crlf
 *.ps1  text eol=crlf

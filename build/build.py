@@ -119,8 +119,10 @@ def main():
     _bt = datetime.datetime.now().strftime('%m-%d %H:%M')
     html = shell.replace('{{APP_JS}}', app_safe).replace('{{BUILD_TIME}}', _bt)
 
+    # newline='\n' 是必须的：Windows 上默认把 \n 写成 \r\n，
+    # 会让这两个文件每次构建都退回 CRLF，与 .gitattributes 的 eol=lf 打架。
     out_html = os.path.join(DEST, 'studio.html')
-    with open(out_html, 'w', encoding='utf-8') as f:
+    with open(out_html, 'w', encoding='utf-8', newline='\n') as f:
         f.write(html)
 
     # 360 库
@@ -130,7 +132,8 @@ def main():
                     os.path.join(lib_dest_dir, '360-view.min.js'))
 
     # 使用说明
-    with open(os.path.join(DEST, '使用说明.txt'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(DEST, '使用说明.txt'), 'w', encoding='utf-8',
+              newline='\n') as f:
         f.write(README_TEXT)
 
     # 语法自检：buildInit 拼出来的 JS 容易漏逗号 / 多括号，
