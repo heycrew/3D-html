@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-16 18:50</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-16 22:22</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -2321,7 +2321,7 @@ SD.BookPage = (function () {
       '    /* 必须 fixed：stretch 会按「窗口」尺寸判定单页/对开，' + 
       '       宽屏下就变成左右两页了；fixed 用我们按容器算好的尺寸。 */',
       '    size: "fixed",',
-      '    usePortrait: true,',
+      '    usePortrait: true,   /* 单页模式（一屏一页）*/',
       '    /* showCover 关掉：开着时首页/末页会被标成「硬页」，翻页走刚性',
       '   整块翻转，回翻看起来就是一张长方形被拖动 —— 与要的卷曲冲突。 */',
       '    showCover: false,',

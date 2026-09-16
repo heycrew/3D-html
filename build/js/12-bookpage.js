@@ -396,7 +396,7 @@ SD.BookPage = (function () {
       '    /* 必须 fixed：stretch 会按「窗口」尺寸判定单页/对开，' + 
       '       宽屏下就变成左右两页了；fixed 用我们按容器算好的尺寸。 */',
       '    size: "fixed",',
-      '    usePortrait: true,',
+      '    usePortrait: true,   /* 单页模式（一屏一页）*/',
       '    /* showCover 关掉：开着时首页/末页会被标成「硬页」，翻页走刚性',
       '   整块翻转，回翻看起来就是一张长方形被拖动 —— 与要的卷曲冲突。 */',
       '    showCover: false,',
