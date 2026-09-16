@@ -6,7 +6,7 @@ build.py —— 把 build/ 下的源文件组装成工作台交付目录
 交付结构：
   studio.html            工作台入口（HTML + CSS + JS 全部内联）
   lib/360-view.min.js    360 库（Cloudimage 360 View 4.10.0，MIT）
-  lib/page-flip.browser.js  翻页库（StPageFlip / page-flip 2.0.7，MIT）
+  lib/vysmo-flipbook.min.js 翻页库（@vysmo/flipbook 0.5.0，MIT）
   serve.ps1              零依赖本地服务
   启动工作台.bat          双击启动
   使用说明.txt
@@ -51,7 +51,7 @@ README_TEXT = """360° 全景展示工作台 —— 使用说明
 【目录说明】
   studio.html            工作台页面（入口）
   lib/360-view.min.js    360 查看器库（Cloudimage 360 View 4.10.0，MIT 协议）
-  lib/page-flip.browser.js  翻页库（StPageFlip 2.0.7，MIT 协议）
+  lib/vysmo-flipbook.min.js 翻页库（@vysmo/flipbook 0.5.0，MIT 协议）
   serve.ps1              本地服务脚本（由启动器调用）
   启动工作台.bat          双击启动
   使用说明.txt            本文件
@@ -125,22 +125,20 @@ def main():
     with open(out_html, 'w', encoding='utf-8', newline='\n') as f:
         f.write(html)
 
-    # 第三方库（360 查看器 + 翻页）
+    # 第三方库（360 查看器 + 翻页库）：都是 vendor/ 下打好的产物，直接复制。
+    #   翻页库升级版本时跑 node build/mkvysmo.js 重新打包；日常构建不需要
+    #   node / npm —— 绿色版构建仍然只要一个 python。
     lib_dest_dir = os.path.join(DEST, 'lib')
     os.makedirs(lib_dest_dir, exist_ok=True)
-    shutil.copyfile(os.path.join(ROOT, 'vendor', '360-view.min.js'),
-                    os.path.join(lib_dest_dir, '360-view.min.js'))
-    # 翻页库要先打一个小补丁（把逐帧填白改成透明，让背面的淡化层露出来）
-    if shutil.which('node') and os.path.exists(os.path.join(ROOT, 'mkflip.js')):
-        r2 = subprocess.run(['node', 'mkflip.js'], cwd=ROOT,
-                            capture_output=True, text=True, encoding='utf-8', errors='replace')
-        sys.stdout.write(r2.stdout or '')
-        if r2.returncode != 0:
-            sys.stderr.write(r2.stderr or '')
-            return 1
-    else:
-        shutil.copyfile(os.path.join(ROOT, 'vendor', 'page-flip.browser.js'),
-                        os.path.join(lib_dest_dir, 'page-flip.browser.js'))
+    for _lib in ('360-view.min.js', 'vysmo-flipbook.min.js'):
+        shutil.copyfile(os.path.join(ROOT, 'vendor', _lib),
+                        os.path.join(lib_dest_dir, _lib))
+
+    # 清掉上一版遗留的翻页库（引擎已换成 vysmo，留着会让人以为还在用 StPageFlip）
+    _old_flip = os.path.join(lib_dest_dir, 'page-flip.browser.js')
+    if os.path.exists(_old_flip):
+        os.remove(_old_flip)
+        print('  已移除旧库：lib/page-flip.browser.js')
 
     # 使用说明
     with open(os.path.join(DEST, '使用说明.txt'), 'w', encoding='utf-8',
@@ -186,7 +184,7 @@ def main():
 
     print('构建完成')
     print('  studio.html  : %.1f KB' % (len(html.encode('utf-8')) / 1024.0))
-    print('  lib/         : 360-view.min.js + page-flip.browser.js')
+    print('  lib/         : 360-view.min.js + vysmo-flipbook.min.js')
     print('  serve.ps1    : 本地服务')
     print('  启动工作台.bat : 双击启动')
     print('  使用说明.txt  : 说明文档')

@@ -1,0 +1,11 @@
+{
+  "name": "vysmo-flipbook-src",
+  "private": true,
+  "description": "vysmo 翻页库的打包源：产物是 build/vendor/vysmo-flipbook.min.js，由 build/mkvysmo.js 生成。升级版本改这里的 dependencies 再跑 node build/mkvysmo.js。",
+  "dependencies": {
+    "@vysmo/flipbook": "0.5.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

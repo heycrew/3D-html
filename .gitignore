@@ -13,6 +13,9 @@ chrome-profile*/
 _patch*.py
 _test*.*
 
+# ===== 打包依赖（可随时重装：node build/mkvysmo.js）=====
+build/vysmo-src/node_modules/
+
 # ===== 系统文件 =====
 Thumbs.db
 desktop.ini

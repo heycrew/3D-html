@@ -1,17 +1,17 @@
 /* =====================================================================
- * 12-bookpage.js —— 翻书图录页面生成（Canvas 纸张弯曲翻页版）
+ * 12-bookpage.js —— 翻书图录页面生成（真实卷曲翻页版）
  *
- * 一本书 = 封面 + N 张内容页 + 封底，统一尺寸。
+ * 一本书 = 封面 + N 张内容页 + 封底，按封面比例统一尺寸。
  *
  * 翻页机制：
- *   不再用 CSS 的 rotateY 平面翻转，而是把页面按竖列切片，
- *   逐列计算「旋转角 → 3D 位置 → 透视投影」，模拟纸张绕书脊卷曲；
- *   并按该列法线朝向观众的成分叠明暗；转角超过 90° 的那部分显示纸背。
- *   全程只用 Canvas 2D，不引入任何第三方库。
+ *   交给第三方库 @vysmo/flipbook（MIT）—— WebGL 连续曲面卷曲，
+ *   前进与回翻走同一条卷曲管道，并支持拖拽跟手（scrub）。
+ *   库随产物打包：lib/vysmo-flipbook.min.js（IIFE，经典 <script src> 可用；
+ *   产物源在 build/vendor/，升级见 build/mkvysmo.js）。
  *
  * 层次：
- *   底层 <img class="sheet">  静止页（翻动时提前换成将被露出的那一页）
- *   中层 <canvas class="flip"> 翻动中的弯曲纸页
+ *   <div class="book">  翻页库的 canvas（当前页 + 翻动中的卷曲纸页）
+ *   <div class="dots">  360 锚点热区（浮在书页之上）
  * ===================================================================== */
 window.SD = window.SD || {};
 
@@ -106,12 +106,8 @@ SD.BookPage = (function () {
       '.book-shell{position:relative;' + size + 'border-radius:2px;',
       '  box-shadow:0 18px 46px rgba(0,0,0,.5);}',
       '.book{position:absolute;inset:0;}',
-      '/* 翻动页的背面：build/mkflip.js 把库的逐帧清屏改成了透明，',
-      '   于是被翻走的那块会露出这张「淡化版当前页」。 */',
-      '.flip-back{position:absolute;inset:0;background-repeat:no-repeat;',
-      '  background-position:center;background-size:contain;',
-      '  opacity:0;pointer-events:none;transition:opacity .12s linear;}',
-      '.flip-back.on{opacity:.3;}',
+      '/* 翻动页的背面现在由翻页库着色（纸背颜色 = 参数「纸背颜色」），',
+      '   不再铺「淡化版当前页」那一层（老方案要补丁改库的清屏才做得出）。 */',
       '.book::after{ /* 书脊投影 */',
       '  content:"";position:absolute;left:0;top:0;bottom:0;width:26px;z-index:60;',
       '  background:linear-gradient(to right, rgba(0,0,0,.40), rgba(0,0,0,0));',
@@ -224,7 +220,7 @@ SD.BookPage = (function () {
     out.push('<div class="desk"></div>');
     out.push('<div class="book-wrap">');
     out.push('  <div class="book-shell">');
-    out.push('    <div class="flip-back" id="flipBack"></div>');
+    /* 背面由翻页库着色（参数「纸背颜色」），这里不再铺淡化层 */
     out.push('    <div class="book" id="book"></div>');
     out.push('    <div class="ph hide" id="phBox">本页未上传图片</div>');
     out.push('    <div class="dots" id="dotsLayer"></div>');
@@ -282,34 +278,36 @@ SD.BookPage = (function () {
       '   「容器宽 x 素材宽高比」。既无收益又把容器撑高，已移除。 */',
       'var INTERP = ' + (p.interp || 0) + ';',
       'var TURN = ' + (p.bookTurn || 700) + ';',
-      'var SLICES = ' + (p.bookSlices || 90) + ';',
-      'var BEND = ' + (p.bookBend === undefined ? 1.57 : p.bookBend) + ';',
-      'var SHADE = ' + (p.bookShade === undefined ? .55 : p.bookShade) + ';',
-      'var SKEW = ' + (p.bookSkew === undefined ? 2.6 : p.bookSkew) + ';',
-      'var SKEWY = ' + (p.bookSkewY === undefined ? .16 : p.bookSkewY) + ';',
-      '/* 卷边斜向：纸面上端比下端超前多少（0 = 整条竖边平移）*/',
-      'var CURLTILT = ' + (p.bookCurlTilt === undefined ? .22 : p.bookCurlTilt) + ';',
-      'var CAMD = ' + (p.bookCamDist || 3) + ';',
-      'var BACKTONE = ' + JSON.stringify(p.bookBackTone || '#f3efe6') + ';',
+      '/* 卷边斜向 = 翻页库的铰链倾角（弧度）；纸背颜色是纯色 ——',
+      '   不再是「被翻页面的淡化版」（老方案要改库的清屏才做得出）。 */',
+      'var TILT = ' + (p.bookCurlTilt === undefined ? .22 : p.bookCurlTilt) + ';',
+      'var BACKRGB = ' + (function (hex) {
+        var m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || ''));
+        if (!m) return '[0.953, 0.937, 0.902]';
+        return '[' + [1, 2, 3].map(function (i) {
+          return (parseInt(m[i], 16) / 255).toFixed(3);
+        }).join(', ') + ']';
+      })(p.bookBackTone || '#f3efe6') + ';',
       '',
       'var bookEl = document.getElementById("book");',
-      '/* ---------- 翻页引擎：StPageFlip（lib/page-flip.browser.js）----------',
-      '   原先这里是一整套自研的 canvas 卷曲绘制：把纸面切成十几条矩形去近似一张',
-      '   连续曲面，条与条之间必然错位 —— 段数少就是台阶（看着像马赛克），',
-      '   段数多则每帧绘制次数爆炸。改用成熟库（MIT、零依赖）后，卷曲是连续曲面',
-      '   加阴影渐变，既顺滑又不吃性能。',
-      '   只用它的单页模式：一屏一页，页面尺寸跟着屏幕走。 */',
-      'var bookEl = document.getElementById("book");',
+      '/* ---------- 翻页引擎：@vysmo/flipbook（lib/vysmo-flipbook.min.js）----------',
+      '   WebGL 连续曲面卷曲。前进与回翻走的是同一条卷曲管道 —— 老的 StPageFlip',
+      '   在单页模式下回翻根本不卷曲（官方停更未修），只能靠合成一次手势去绕，',
+      '   这里不需要了。它还原生支持拖拽跟手（dragNavigation）。',
+      '   单页形态：一屏一页；canvas 铺满容器，而容器（.book-shell）已按封面比例',
+      '   和屏幕算好尺寸，这里不再自己算第二遍。',
+      '   注意：页面是按纹理直接铺满容器的（与老库行为一致），所以内容图要与书',
+      '   尺寸同比例，否则会被拉伸。库只吃图片/canvas、不吃 DOM —— 360 锚点与',
+      '   点击由上面的 .dots 层和 bookEl 上的监听承担（见文件后半段）。 */',
       'var phBox = document.getElementById("phBox");',
       'var dotsLayer = document.getElementById("dotsLayer");',
       'var navText = document.getElementById("navText");',
-      'var flipBack = document.getElementById("flipBack");',
       '/* 只有确实有图的页才交给翻页库：缺图的页它没法渲染，直接跳过 */',
       'var PAGES = SHEETS.filter(function (s) { return !!(s && s.src); });',
       'var total = PAGES.length;',
       'var cur = 0;',
       'var busy = false;',
-      'var pf = null;',
+      'var fb = null;',
       '/* 页面宽高比：优先用封面真实比例，否则退回书页设置 */',
       'var RATIO = ' + (function () {
         var cov = (state.book && state.book.cover) || null;
@@ -326,53 +324,11 @@ SD.BookPage = (function () {
       '  if (nx) nx.disabled = (cur === total - 1);',
       '}',
       '',
-      '/* 用 flip(目标页) 而不是 flipNext/flipPrev：后两者是「模拟按书页左右边缘」，',
-      '   单页模式下没有左页，flipPrev 会被直接忽略（键盘/按钮回翻不动就是这个原因）。',
-      '   flip(页码) 是带动画翻到指定页，两个方向都可靠。 */',
-      '/* 被翻动的始终是「当前页」（前进和回翻都是它），所以用 PAGES[cur] 的图。',
-      '   翻页一开始铺上、结束就撤掉。 */',
-      'function _showBack(on) {',
-      '  if (!flipBack) return;',
-      '  var src = (on && PAGES[cur] && PAGES[cur].src) ? PAGES[cur].src : null;',
-      '  if (src) { flipBack.style.backgroundImage = "url(" + src + ")"; }',
-      '  flipBack.classList.toggle("on", !!src);',
-      '}',
-      '/* 前进用 flipNext()：它走的是「从右边缘翻」的正规路径，卷曲动画正常；',
-      '   换成 flip(页码) 会走 flipToPage（先挪展开索引再翻），观感变成整页平移。 */',
-      'function flipNext() { if (pf && cur < total - 1) { busy = true; _showBack(true); pf.flipNext(); } }',
-      '/* 回翻不能用 flipPrev()/flip(cur-1)：单页模式下库把「左边缘」当成不可翻',
-      '   区域，这种调用会被静默忽略（实测页码 3->3 纹丝不动，还不报错）。',
-      '   但它自己的拖拽路径是好的，所以这里合成一次「从左往右拖」的手势，',
-      '   走的还是库的动画流程。 */',
-      'function _swipeBack() {',
-      '  var r = bookEl.getBoundingClientRect();',
-      '  var y = Math.round(r.top + r.height / 2);',
-      '  var x0 = Math.round(r.left + r.width * 0.25);',
-      '  var x1 = Math.round(r.left + r.width * 0.8);',
-      '  var fire = function (type, x) {',
-      '    var ev = new MouseEvent(type, { bubbles: true, cancelable: true,',
-      '      clientX: x, clientY: y, button: 0, buttons: 1, view: window });',
-      '    /* mousedown 必须落在「书页元素」上，跟真实拖动一样：直接发给外层',
-      '       容器的话，库的命中判断会当成没点在书上，整个手势被忽略。 */',
-      '    var tgt = (type === "mousedown") ? (document.elementFromPoint(x, y) || document) : document;',
-      '    tgt.dispatchEvent(ev);',
-      '  };',
-      '  fire("mousedown", x0);',
-      '  /* 逐帧推进，别在一帧里瞬移：库是按「拖动中的手指位置」实时折叠纸张的，',
-      '     同步派完所有 mousemove 等于瞬间拖到位 —— 中间过程一帧都不显示，',
-      '     看上去就跟「整块返回」一样。 */',
-      '  var step = 0, N = 10;',
-      '  var tick = function () {',
-      '    step++;',
-      '    fire("mousemove", Math.round(x0 + (x1 - x0) * step / N));',
-      '    if (step < N) { setTimeout(tick, 16); } else { fire("mouseup", x1); }',
-      '  };',
-      '  setTimeout(tick, 16);',
-      '}',
-      '/* 回翻用 fork（book-flip）新增的第二个参数：强制走卷曲动画。',
-      '   原版 StPageFlip 在单页模式下回翻会走「整块/折角」的路径，',
-      '   官方 2020 年后停更没修，社区 fork 加了这个开关。 */',
-      'function flipPrev() { if (pf && cur > 0) { busy = true; _showBack(true); pf.flipPrev("top", true); } }',
+      '/* 两个方向都走库的 next() / prev()：同一条卷曲管道，没有「回翻不卷」的坑。',
+      '   busy 只管按钮与键盘（库内部本来就会忽略动画中的新请求，这里只是避免',
+      '   连点把页码和画面搞乱）；拖拽由库自己接管，不受 busy 影响。 */',
+      'function flipNext() { if (fb && !busy && cur < total - 1) fb.next(); }',
+      'function flipPrev() { if (fb && !busy && cur > 0) fb.prev(); }',
       '',
       'function initFlip() {',
       '  if (!total) {',
@@ -383,34 +339,30 @@ SD.BookPage = (function () {
       '    return;',
       '  }',
       '  if (phBox) phBox.classList.add("hide");',
-      '  /* 基准页尺寸直接量容器：容器（.book-shell）已按封面比例和屏幕',
-      '     算好尺寸。若这里再按窗口另算一遍，手机上会得到比容器更大的',
-      '     尺寸（实测 633x844 vs 容器 390x520），书就被裁掉一块。 */',
-      '  var _bb = bookEl.getBoundingClientRect();',
-      '  var bw = Math.max(1, Math.round(_bb.width));',
-      '  var bh = Math.max(1, Math.round(_bb.height));',
       '  /* 万一翻页库初始化失败，至少把原因显示出来，别留一片空白 */',
       '  try {',
-      '  pf = new St.PageFlip(bookEl, {',
-      '    width: bw, height: bh,',
-      '    /* 必须 fixed：stretch 会按「窗口」尺寸判定单页/对开，' + 
-      '       宽屏下就变成左右两页了；fixed 用我们按容器算好的尺寸。 */',
-      '    size: "fixed",',
-      '    usePortrait: true,   /* 单页模式（一屏一页）*/',
-      '    /* showCover 关掉：开着时首页/末页会被标成「硬页」，翻页走刚性',
-      '   整块翻转，回翻看起来就是一张长方形被拖动 —— 与要的卷曲冲突。 */',
-      '    showCover: false,',
-      '    flippingTime: TURN,',
-      '    maxShadowOpacity: ' + (p.bookShade === undefined ? .55 : p.bookShade) + ',',
-      '    drawShadow: true,',
-      '    mobileScrollSupport: true,',
-      '    /* 点击留给「点页面开 360」：翻页只走拖拽、角落与按钮 */',
-      '    disableFlipByClick: true,',
-      '    useMouseEvents: true',
+      '  fb = VysmoFlipbook.createFlipbook({',
+      '    container: bookEl,',
+      '    pages: PAGES.map(function (s) { return s.src; }),',
+      '    axis: "horizontal",        /* 从右边缘往左翻（西式书）*/',
+      '    tilt: TILT,                /* 卷边斜向：斜着推进，不是整条竖边平移 */',
+      '    backColor: BACKRGB,        /* 翻动页背面 = 纸背颜色（纯色）*/',
+      '    flipDuration: TURN,',
+      '    dragNavigation: true,      /* 拖拽跟手：拖过半松手才提交 */',
+      '    dragCommitThreshold: 0.35,',
+      '    /* 点击留给「点页面开 360」：库不接管点击 */',
+      '    clickNavigation: false,',
+      '    /* 键盘也自己接（见下面的 keydown），免得和 360 弹层抢 */',
+      '    keyboardNavigation: false,',
+      '    /* 懒加载：只把当前页和邻近页传上 GPU，长图录也不爆显存 */',
+      '    lazy: true,',
+      '    preloadWindow: 2',
       '  });',
-      '  pf.loadFromImages(PAGES.map(function (s) { return s.src; }));',
-      '  pf.on("flip", function (e) { cur = e.data; busy = false; _showBack(false); syncNav(); });',
-      '  pf.on("changeState", function (e) { if (e.data === "read") busy = false; });',
+      '  /* change 在翻到新页后触发（同步页码/热点）；',
+      '     flipstart / flipend 管忙标志与收尾。 */',
+      '  fb.on("change", function (i) { cur = i; syncNav(); });',
+      '  fb.on("flipstart", function () { busy = true; });',
+      '  fb.on("flipend", function () { busy = false; syncNav(); });',
       '  } catch (err) {',
       '    if (phBox) {',
       '      phBox.classList.remove("hide");',
@@ -418,7 +370,7 @@ SD.BookPage = (function () {
       '    }',
       '    if (window.console) console.error("[flip] init failed:", err);',
       '  }',
-      '  window.__pf = pf;   /* 诊断用：控制台可直接调 flip/turnToPage */',
+      '  window.__fb = fb;   /* 诊断用：控制台可直接调 next/prev/goTo/seek */',
       '  syncNav();',
       '}',
       '',
@@ -614,29 +566,17 @@ SD.BookPage = (function () {
       'document.getElementById("lotClose").addEventListener("click", closeLot);',
       'modal.addEventListener("click", function (e) { if (e.target === modal) closeLot(); });',
       '',
-      '/* ?flip=0.4 直接把翻页画面停在指定进度，',
-      '   方便截图对照效果（不依赖真实拖拽）*/',
+      '/* ?flip=0.4 想把翻页画面停在指定进度看效果：控制台调 __fb.seek(0.4)，',
+      '   库原生支持 scrub，不需要真实拖拽。 */',
       '/* 触屏或窄屏时：关掉 360 查看器的文字提示与操作按钮，纯手势操作 */',
       'var IS_TOUCH = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0);',
       'var IS_NARROW = window.innerWidth < 820;',
       'var SIMPLE_UI = IS_TOUCH || IS_NARROW;',
       '/* ---------- 启动 ---------- */',
-      '/* 尺寸自适应由翻页库自己处理（它监听 resize），这里只建一次 */',
-      '/* 窗口尺寸变了：fixed 模式下基准尺寸是我们自己算的，得重算并重建',
-      '   （保留当前页），否则书会停在旧尺寸上。 */',
-      'var _rsTimer = null;',
-      'window.addEventListener("resize", function () {',
-      '  clearTimeout(_rsTimer);',
-      '  _rsTimer = setTimeout(function () {',
-      '    var keep = cur;',
-      '    if (pf) { try { pf.destroy(); } catch (e) {} pf = null; }',
-      '    bookEl.innerHTML = "";',
-      '    initFlip();',
-      '    if (pf && keep > 0) { try { pf.turnToPage(keep); syncNav(); } catch (e) {} }',
-      '  }, 250);',
-      '});',
+      '/* 尺寸自适应不用我们管：翻页库用 ResizeObserver 盯着容器，容器一变它自己',
+      '   重建缓冲。老库要「销毁 + 重建 + 跳回原页」，是因为基准尺寸由我们算。 */',
       '/* 预检每一页能不能加载：失败的直接从页表里剔掉。',
-      '   否则翻页库会一直停在 loading（转圈图标常驻），翻页整个卡住 ——',
+      '   翻页库要等所有页 decode 完才会 ready，坏图会让它一直等下去（翻页停住）——',
       '   而缺素材是很常见的情况。过滤完再建翻页器。 */',
       'function bootFlip() {',
       '  if (!PAGES.length) { initFlip(); return; }',
@@ -672,7 +612,7 @@ SD.BookPage = (function () {
        libHref 允许外面传绝对地址，避免 blob 文档里相对路径解析出错。 */
     var libSrc = opts.libHref || './lib/360-view.min.js';
     /* 翻页库与 360 库放同一目录 */
-    var flipLib = libSrc.replace(/360-view[.]min[.]js$/, 'page-flip.browser.js');
+    var flipLib = libSrc.replace(/360-view[.]min[.]js$/, 'vysmo-flipbook.min.js');
     var tail = [
       '',
       '<script src="' + libSrc + '"><\/script>',

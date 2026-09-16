@@ -8,6 +8,7 @@
  *     ├─ index.html          引用 ./lib/ 与 ./images/
  *     ├─ images/             frame-1.jpg …
  *     ├─ lib/360-view.min.js
+ *     ├─ lib/vysmo-flipbook.min.js
  *     ├─ serve.ps1
  *     ├─ 启动.bat
  *     └─ 使用说明.txt
@@ -64,6 +65,7 @@ SD.Export = (function () {
       '  index.html            展示页面（不要改名）',
       '  images/               图片素材，共 ' + count + ' 张',
       '  lib/360-view.min.js   360 查看器库（Cloudimage 360 View 4.10.0，MIT）',
+      '  lib/vysmo-flipbook.min.js 翻页库（@vysmo/flipbook 0.5.0，MIT）',
       '  serve.ps1             本地服务脚本（由 启动.bat 调用）',
       '  启动.bat              双击即可预览',
       '',
@@ -190,10 +192,14 @@ SD.Export = (function () {
       }
     }
 
-    /* 3) lib/ */
-    var libBytes = await fetchBytes('lib/360-view.min.js');
-    await writeIn(dir, 'lib/360-view.min.js', libBytes);
-    tick('lib/360-view.min.js');
+    /* 3) lib/ —— 360 查看器 + 翻页库，两个都得在：书页靠翻页库、360 靠查看器。
+       少一个就有一半功能是坏的（之前这里只复制了 360，导出的书页翻不动）。 */
+    var LIBS = ['360-view.min.js', 'vysmo-flipbook.min.js'];
+    for (var li = 0; li < LIBS.length; li++) {
+      var libBytes = await fetchBytes('lib/' + LIBS[li]);
+      await writeIn(dir, 'lib/' + LIBS[li], libBytes);
+      tick('lib/' + LIBS[li]);
+    }
 
     /* 4) serve.ps1 */
     var ps = await fetchBytes('serve.ps1');
@@ -204,7 +210,7 @@ SD.Export = (function () {
     await writeIn(dir, '启动.bat', batContent('index.html', 8790));
     await writeIn(dir, '使用说明.txt', readmeText(state, nImgs, names));
 
-    return { ok: true, dir: dir.name, files: nImgs + 5, names: names };
+    return { ok: true, dir: dir.name, files: nImgs + 6, names: names };
   }
 
   /* ---------- 降级：只下载 index.html ---------- */
