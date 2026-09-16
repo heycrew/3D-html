@@ -6,6 +6,7 @@ build.py —— 把 build/ 下的源文件组装成工作台交付目录
 交付结构：
   studio.html            工作台入口（HTML + CSS + JS 全部内联）
   lib/360-view.min.js    360 库（Cloudimage 360 View 4.10.0，MIT）
+  lib/page-flip.browser.js  翻页库（StPageFlip / page-flip 2.0.7，MIT）
   serve.ps1              零依赖本地服务
   启动工作台.bat          双击启动
   使用说明.txt
@@ -50,6 +51,7 @@ README_TEXT = """360° 全景展示工作台 —— 使用说明
 【目录说明】
   studio.html            工作台页面（入口）
   lib/360-view.min.js    360 查看器库（Cloudimage 360 View 4.10.0，MIT 协议）
+  lib/page-flip.browser.js  翻页库（StPageFlip 2.0.7，MIT 协议）
   serve.ps1              本地服务脚本（由启动器调用）
   启动工作台.bat          双击启动
   使用说明.txt            本文件
@@ -123,11 +125,12 @@ def main():
     with open(out_html, 'w', encoding='utf-8', newline='\n') as f:
         f.write(html)
 
-    # 360 库
+    # 第三方库（360 查看器 + 翻页）
     lib_dest_dir = os.path.join(DEST, 'lib')
     os.makedirs(lib_dest_dir, exist_ok=True)
-    shutil.copyfile(os.path.join(ROOT, 'vendor', '360-view.min.js'),
-                    os.path.join(lib_dest_dir, '360-view.min.js'))
+    for _lib in ('360-view.min.js', 'page-flip.browser.js'):
+        shutil.copyfile(os.path.join(ROOT, 'vendor', _lib),
+                        os.path.join(lib_dest_dir, _lib))
 
     # 使用说明
     with open(os.path.join(DEST, '使用说明.txt'), 'w', encoding='utf-8',
@@ -173,7 +176,7 @@ def main():
 
     print('构建完成')
     print('  studio.html  : %.1f KB' % (len(html.encode('utf-8')) / 1024.0))
-    print('  lib/         : 360-view.min.js')
+    print('  lib/         : 360-view.min.js + page-flip.browser.js')
     print('  serve.ps1    : 本地服务')
     print('  启动工作台.bat : 双击启动')
     print('  使用说明.txt  : 说明文档')
