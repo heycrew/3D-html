@@ -118,7 +118,7 @@ SD.SCHEMA = [
       { key: 'bookSkewY', label: '卷边翘角', type: 'num', def: 0.16, min: 0, max: 0.6, step: 0.02,
         desc: '卷起的那一边向下斜翘的幅度' },
       { key: 'bookCurlTilt', label: '卷边斜向', type: 'num', def: 0.22, min: 0, max: 0.6, step: 0.02,
-        desc: '卷边斜着推进的幅度：0 = 整条竖边平移，越大越像纸角先翻起来' },
+        desc: '右下角比上端超前多少：越大卷边斜得越明显，0 = 整条竖边平移' },
       { key: 'bookCamDist', label: '相机距离', type: 'num', def: 3, min: 1.5, max: 8, step: 0.5,
         desc: '越小透视越强烈' },
       { key: 'bookBackTone', label: '纸背颜色', type: 'color', def: '#f3efe6',
