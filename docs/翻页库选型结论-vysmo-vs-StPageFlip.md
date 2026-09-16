@@ -83,7 +83,23 @@
   · 修改：build/js/12-bookpage.js（引擎 + CSS 的 .flip-back 层 + resize 逻辑）、
           build/js/07-export.js（lib 清单）、build/build.py（复制两个库/文档）
   · 未做：运行时双引擎开关 —— 回退直接走 git 历史（切换是原子的，产物也随之换）。
-  · 待决：UI 上 7 个旧引擎参数已失效但仍在面板里 ——
-          bookBend（纸张弯曲程度）、bookSlices（切片数）、bookShade（折痕阴影）、
-          bookSkew（倾斜角度）、bookSkewY（卷边翘角）、bookCamDist（相机距离）、
-          bookMaxH（屏幕占高上限）。新引擎只认「翻页时长 / 卷边斜向 / 纸背颜色」。
+  · 已做（按新引擎模型重做参数面板）：
+      删除失效的 7 项 —— bookBend（纸张弯曲程度）、bookSlices（切片数）、
+      bookShade（折痕阴影）、bookSkew（倾斜角度）、bookSkewY（卷边翘角）、
+      bookCamDist（相机距离）、bookMaxH（屏幕占高上限）。
+      它们在 schema 之外零引用（已 grep 全仓确认），删掉不动其它代码。
+      新增 4 项并接进 createFlipbook（默认值与切库时完全一致，所以不动参数
+      也能得到验证过的行为）：
+        bookDrag（拖拽翻页）      → dragNavigation      默认 true
+        bookDragCommit（提交阈值） → dragCommitThreshold 默认 0.35
+        bookLoop（循环翻页）      → loop                 默认 false
+        bookPreload（预载页数）    → preloadWindow        默认 2
+      bookLoop 打开时首尾相接，所以 flipNext/flipPrev 的边界判断与导航按钮的
+      禁用逻辑都随之放宽（`!LOOP && ...`）。
+      保留并继续生效：bookTurn → flipDuration、bookCurlTilt → tilt、
+      bookBackTone → backColor；书宽/书高/尺寸适配/桌面背景/页码导航/遮罩浓度不变。
+      顺带删掉一个死变量 RATIO（原来喂 CI360 的 aspectRatio，画布比例现在由
+      .book-shell 的 CSS 决定，运行时用不到）。
+      验证：build/.verify/verify_params.py —— 面板键齐备且失效项已清、默认值下
+      末页翻不动（与切库时一致）、loop 首尾相绕、关掉拖拽后拖不动（帧差 0）、
+      阈值 0.15 时拖 20% 即提交（0.35 时不提交）。
