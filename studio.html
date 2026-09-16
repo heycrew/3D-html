@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-16 18:43</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-16 18:50</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -2294,7 +2294,10 @@ SD.BookPage = (function () {
       '  };',
       '  setTimeout(tick, 16);',
       '}',
-      'function flipPrev() { if (pf && cur > 0) { busy = true; _showBack(true); _swipeBack(); } }',
+      '/* 回翻用 fork（book-flip）新增的第二个参数：强制走卷曲动画。',
+      '   原版 StPageFlip 在单页模式下回翻会走「整块/折角」的路径，',
+      '   官方 2020 年后停更没修，社区 fork 加了这个开关。 */',
+      'function flipPrev() { if (pf && cur > 0) { busy = true; _showBack(true); pf.flipPrev("top", true); } }',
       '',
       'function initFlip() {',
       '  if (!total) {',
@@ -2319,7 +2322,9 @@ SD.BookPage = (function () {
       '       宽屏下就变成左右两页了；fixed 用我们按容器算好的尺寸。 */',
       '    size: "fixed",',
       '    usePortrait: true,',
-      '    showCover: true,',
+      '    /* showCover 关掉：开着时首页/末页会被标成「硬页」，翻页走刚性',
+      '   整块翻转，回翻看起来就是一张长方形被拖动 —— 与要的卷曲冲突。 */',
+      '    showCover: false,',
       '    flippingTime: TURN,',
       '    maxShadowOpacity: ' + (p.bookShade === undefined ? .55 : p.bookShade) + ',',
       '    drawShadow: true,',
