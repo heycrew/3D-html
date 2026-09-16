@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-16 18:39</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-16 18:43</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -2031,6 +2031,12 @@ SD.BookPage = (function () {
       '.book-shell{position:relative;' + size + 'border-radius:2px;',
       '  box-shadow:0 18px 46px rgba(0,0,0,.5);}',
       '.book{position:absolute;inset:0;}',
+      '/* 翻动页的背面：build/mkflip.js 把库的逐帧清屏改成了透明，',
+      '   于是被翻走的那块会露出这张「淡化版当前页」。 */',
+      '.flip-back{position:absolute;inset:0;background-repeat:no-repeat;',
+      '  background-position:center;background-size:contain;',
+      '  opacity:0;pointer-events:none;transition:opacity .12s linear;}',
+      '.flip-back.on{opacity:.3;}',
       '.book::after{ /* 书脊投影 */',
       '  content:"";position:absolute;left:0;top:0;bottom:0;width:26px;z-index:60;',
       '  background:linear-gradient(to right, rgba(0,0,0,.40), rgba(0,0,0,0));',
@@ -2143,6 +2149,7 @@ SD.BookPage = (function () {
     out.push('<div class="desk"></div>');
     out.push('<div class="book-wrap">');
     out.push('  <div class="book-shell">');
+    out.push('    <div class="flip-back" id="flipBack"></div>');
     out.push('    <div class="book" id="book"></div>');
     out.push('    <div class="ph hide" id="phBox">本页未上传图片</div>');
     out.push('    <div class="dots" id="dotsLayer"></div>');
@@ -2221,6 +2228,7 @@ SD.BookPage = (function () {
       'var phBox = document.getElementById("phBox");',
       'var dotsLayer = document.getElementById("dotsLayer");',
       'var navText = document.getElementById("navText");',
+      'var flipBack = document.getElementById("flipBack");',
       '/* 只有确实有图的页才交给翻页库：缺图的页它没法渲染，直接跳过 */',
       'var PAGES = SHEETS.filter(function (s) { return !!(s && s.src); });',
       'var total = PAGES.length;',
@@ -2246,7 +2254,17 @@ SD.BookPage = (function () {
       '/* 用 flip(目标页) 而不是 flipNext/flipPrev：后两者是「模拟按书页左右边缘」，',
       '   单页模式下没有左页，flipPrev 会被直接忽略（键盘/按钮回翻不动就是这个原因）。',
       '   flip(页码) 是带动画翻到指定页，两个方向都可靠。 */',
-      'function flipNext() { if (pf && cur < total - 1) { busy = true; pf.flip(cur + 1); } }',
+      '/* 被翻动的始终是「当前页」（前进和回翻都是它），所以用 PAGES[cur] 的图。',
+      '   翻页一开始铺上、结束就撤掉。 */',
+      'function _showBack(on) {',
+      '  if (!flipBack) return;',
+      '  var src = (on && PAGES[cur] && PAGES[cur].src) ? PAGES[cur].src : null;',
+      '  if (src) { flipBack.style.backgroundImage = "url(" + src + ")"; }',
+      '  flipBack.classList.toggle("on", !!src);',
+      '}',
+      '/* 前进用 flipNext()：它走的是「从右边缘翻」的正规路径，卷曲动画正常；',
+      '   换成 flip(页码) 会走 flipToPage（先挪展开索引再翻），观感变成整页平移。 */',
+      'function flipNext() { if (pf && cur < total - 1) { busy = true; _showBack(true); pf.flipNext(); } }',
       '/* 回翻不能用 flipPrev()/flip(cur-1)：单页模式下库把「左边缘」当成不可翻',
       '   区域，这种调用会被静默忽略（实测页码 3->3 纹丝不动，还不报错）。',
       '   但它自己的拖拽路径是好的，所以这里合成一次「从左往右拖」的手势，',
@@ -2276,7 +2294,7 @@ SD.BookPage = (function () {
       '  };',
       '  setTimeout(tick, 16);',
       '}',
-      'function flipPrev() { if (pf && cur > 0) { busy = true; _swipeBack(); } }',
+      'function flipPrev() { if (pf && cur > 0) { busy = true; _showBack(true); _swipeBack(); } }',
       '',
       'function initFlip() {',
       '  if (!total) {',
@@ -2311,7 +2329,7 @@ SD.BookPage = (function () {
       '    useMouseEvents: true',
       '  });',
       '  pf.loadFromImages(PAGES.map(function (s) { return s.src; }));',
-      '  pf.on("flip", function (e) { cur = e.data; busy = false; syncNav(); });',
+      '  pf.on("flip", function (e) { cur = e.data; busy = false; _showBack(false); syncNav(); });',
       '  pf.on("changeState", function (e) { if (e.data === "read") busy = false; });',
       '  } catch (err) {',
       '    if (phBox) {',
@@ -2537,7 +2555,28 @@ SD.BookPage = (function () {
       '    if (pf && keep > 0) { try { pf.turnToPage(keep); syncNav(); } catch (e) {} }',
       '  }, 250);',
       '});',
-      'initFlip();'
+      '/* 预检每一页能不能加载：失败的直接从页表里剔掉。',
+      '   否则翻页库会一直停在 loading（转圈图标常驻），翻页整个卡住 ——',
+      '   而缺素材是很常见的情况。过滤完再建翻页器。 */',
+      'function bootFlip() {',
+      '  if (!PAGES.length) { initFlip(); return; }',
+      '  var keep = [], left = PAGES.length;',
+      '  var fin = function (i, pg, ok) {',
+      '    if (ok) { keep[i] = pg; }',
+      '    if (--left === 0) {',
+      '      PAGES = keep.filter(function (x) { return !!x; });',
+      '      total = PAGES.length;',
+      '      initFlip();',
+      '    }',
+      '  };',
+      '  PAGES.forEach(function (pg, i) {',
+      '    var im = new Image();',
+      '    im.onload = function () { fin(i, pg, true); };',
+      '    im.onerror = function () { fin(i, pg, false); };',
+      '    im.src = pg.src;',
+      '  });',
+      '}',
+      'bootFlip();'
     ].join('\n');
   }
 

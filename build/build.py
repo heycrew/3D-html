@@ -128,9 +128,19 @@ def main():
     # 第三方库（360 查看器 + 翻页）
     lib_dest_dir = os.path.join(DEST, 'lib')
     os.makedirs(lib_dest_dir, exist_ok=True)
-    for _lib in ('360-view.min.js', 'page-flip.browser.js'):
-        shutil.copyfile(os.path.join(ROOT, 'vendor', _lib),
-                        os.path.join(lib_dest_dir, _lib))
+    shutil.copyfile(os.path.join(ROOT, 'vendor', '360-view.min.js'),
+                    os.path.join(lib_dest_dir, '360-view.min.js'))
+    # 翻页库要先打一个小补丁（把逐帧填白改成透明，让背面的淡化层露出来）
+    if shutil.which('node') and os.path.exists(os.path.join(ROOT, 'mkflip.js')):
+        r2 = subprocess.run(['node', 'mkflip.js'], cwd=ROOT,
+                            capture_output=True, text=True, encoding='utf-8', errors='replace')
+        sys.stdout.write(r2.stdout or '')
+        if r2.returncode != 0:
+            sys.stderr.write(r2.stderr or '')
+            return 1
+    else:
+        shutil.copyfile(os.path.join(ROOT, 'vendor', 'page-flip.browser.js'),
+                        os.path.join(lib_dest_dir, 'page-flip.browser.js'))
 
     # 使用说明
     with open(os.path.join(DEST, '使用说明.txt'), 'w', encoding='utf-8',
