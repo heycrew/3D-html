@@ -26,7 +26,7 @@ const bookDir = path.join(SRC, 'book');
 const imgDir = path.join(SRC, 'images');
 const cover = ls(bookDir).find(f => /^cover\./i.test(f));
 const back  = ls(bookDir).find(f => /^back\./i.test(f));
-const pages = ls(bookDir).filter(f => /^page-/i.test(f)).sort();
+const pages = ls(bookDir).filter(f => /^page-[0-9]+\.(jpe?g|png|webp|gif)$/i.test(f)).sort();
 
 const lots = ls(imgDir).filter(f => /^lot-/i.test(f)).sort().map((d, i) => {
   const files = ls(path.join(imgDir, d)).sort();
@@ -55,11 +55,16 @@ const state = {
   book: {
     cover: cover ? { url: 'book/' + cover, name: cover } : null,
     back: back ? { url: 'book/' + back, name: back } : null,
-    pages: pages.map((f, i) => ({
-      url: 'book/' + f, name: f,
-      anchors: i === 0 && lots.length
-        ? [{ id: 'a1', x: 50, y: 50, lotId: lots[0].id }] : []
-    }))
+    pages: pages.map((f, i) => {
+      const pdir = ls(path.join(bookDir, 'page-' + (i + 1)))
+        .filter(g => /\.(jpe?g|png|webp)$/i.test(g)).sort();
+      return {
+        url: 'book/' + f, name: f,
+        items: pdir.map(g => ({ name: g, w: 1000, h: 1000 })),
+        anchors: i === 0 && lots.length
+          ? [{ id: 'a1', x: 50, y: 50, lotId: lots[0].id }] : []
+      };
+    })
   },
   lots: lots,
   materials: { items: [] }
