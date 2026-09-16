@@ -198,9 +198,9 @@ SD.BookPage = (function () {
       '  color:rgba(255,255,255,.6);font-size:12px;letter-spacing:1px;z-index:9999;}',
 
       '@media (max-width:820px){',
-      '  /* 手机上靠手势操作 —— 隐藏所有按钮与文字提示 */',
+      '  /* 手机上靠手势操作 —— 按钮都收起来，但底部那条操作说明要保留：',
+      '     它写的就是手机手势，正是给手机用户看的 */',
       '  .book-nav button{display:none;}',
-      '  .lot-hint{display:none !important;}',
       '  .lot-close{width:34px;height:34px;font-size:17px;top:14px;right:14px;}',
       '  .book-nav{bottom:12px;font-size:13px;padding:6px 14px;}',
       '  .corner{display:none;}         /* 也去掉左右点击热区，避免误触 */',
@@ -242,7 +242,7 @@ SD.BookPage = (function () {
     out.push('    <div class="lot-title" id="lotTitle"></div>');
     out.push('  </div>');
     out.push('</div>');
-    out.push('<div class="lot-hint" id="lotHint" style="display:none">左右拖动旋转 · 上下拖动俯仰 · Esc 关闭</div>');
+    out.push('<div class="lot-hint" id="lotHint" style="display:none">左右拖动旋转 · 双指放大缩小</div>');
 
     return out.join('\n');
   }
