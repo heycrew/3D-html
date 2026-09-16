@@ -59,16 +59,9 @@ window.SD = window.SD || {};
     bookBg: function (doc, v) {
       doc.documentElement.style.background = v;
       if (doc.body) doc.body.style.background = v;
-    },
-    bookDotColor: function (doc, v) {
-      var st = doc.getElementById('sd-live-dot');
-      if (!st) {
-        st = doc.createElement('style');
-        st.id = 'sd-live-dot';
-        (doc.head || doc.documentElement).appendChild(st);
-      }
-      st.textContent = '.dot{background:' + v + ' !important;}';
     }
+    /* 这里原本还有一项 bookDotColor（改锚点颜色），但面板上从来没有这个参数，
+       那段永远不会被触发 —— 已随锚点样式改成常量一并删除。 */
   };
 
   function previewDoc() {

@@ -81,8 +81,11 @@ SD.BookPage = (function () {
     var W = _p.bookW || 900, H = _p.bookH || 1200;
     if (_fit) { H = Math.max(1, Math.round(W * _cov.h / _cov.w)); }
     var bg = p.bookBg || '#2a2118';
-    var dot = p.bookDotSize || 16;
-    var dotColor = p.bookDotColor || '#ffb340';
+    /* 锚点（.dot，点页面开 360 时那个脉冲圆点）的尺寸与颜色写死在这里：
+       面板上没有对应参数，原先的 p.bookDotSize / p.bookDotColor 永远只会
+       取到默认值 —— 「代码里像可配、界面里却改不了」的遗留，已清理成常量。 */
+    var dot = 16;
+    var dotColor = '#ffb340';
     var R = (W / H).toFixed(4);
     /* 按屏幕宽高等比铺满：两轴同时受 100vw / 100vh 约束，
        取更小的那个 → 整本书永远完整可见（不裁切、不变形）。
