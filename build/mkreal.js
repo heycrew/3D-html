@@ -14,9 +14,7 @@ global.SD = {
     safeJson: o => JSON.stringify(o),
     fileWarn: () => '<div id="fileWarn" style="display:none"></div>'
   },
-  Book: { lotHasMedia: () => true, lotTitle: () => '', book: () => ({}) },
-  Bogu: { onItems: lot => (lot && lot.items) || [],
-          lotImages: (lot, i) => ({ x: (lot.items||[]).map(it => it.src), y: [] }) }
+  Book: { book: () => ({}) }
 };
 require(path.join(__dirname, 'js/12-bookpage.js'));
 
@@ -60,9 +58,7 @@ const state = {
         .filter(g => /\.(jpe?g|png|webp)$/i.test(g)).sort();
       return {
         url: 'book/' + f, name: f,
-        items: pdir.map(g => ({ name: g, w: 1000, h: 1000 })),
-        anchors: i === 0 && lots.length
-          ? [{ id: 'a1', x: 50, y: 50, lotId: lots[0].id }] : []
+        items: pdir.map(g => ({ name: g, w: 1000, h: 1000 }))
       };
     })
   },

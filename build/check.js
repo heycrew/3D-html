@@ -1,7 +1,7 @@
 /* =====================================================================
  * check.js —— 构建期语法自检
  *
- * 背景：10-bogu.js / 12-bookpage.js 的 buildInit() 返回的是一大串
+ * 背景：12-bookpage.js 的 buildInit() 返回的是一大串
  * "拼出来的 JS 源码"。这类代码写错（漏逗号、多一个花括号）时，构建
  * 本身不会报错 —— 要等真正导出、浏览器执行时才炸，而且症状是
  * "图不显示 / 按钮没反应"，很难定位。
@@ -27,13 +27,7 @@ global.SD = {
     fileWarn: function () { return '<div id="fileWarn"></div>'; }
   },
   Book: {
-    lotHasMedia: function () { return true; },
-    lotTitle: function () { return '示例拍品'; },
     book: function () { return {}; }
-  },
-  Bogu: {
-    onItems: function (lot) { return (lot && lot.items) || []; },
-    lotImages: function () { return { x: ['images/lot-1/frame-1.jpg'], y: [] }; }
   }
 };
 
@@ -54,22 +48,16 @@ function mkState() {
       cover: { url: 'u/cover.png', name: 'cover.png' },
       back: { url: 'u/back.png', name: 'back.png' },
       pages: [
-        { url: 'u/page-1.png', name: 'page-1.png',
-          anchors: [{ id: 'a1', x: 30, y: 40, lotId: 'lot-1' }] },
-        { url: 'u/page-2.png', name: 'page-2.png', anchors: [] }
+        { url: 'u/page-1.png', name: 'page-1.png' },
+        { url: 'u/page-2.png', name: 'page-2.png' }
       ]
     },
-    lots: [
-      { id: 'lot-1', title: '拍品一', code: 'LOT 1',
-        items: [mkItem('f1.png', 1000, 1000), mkItem('f2.png', 1000, 1000)] }
-    ],
     materials: { items: [mkItem('f1.png', 1000, 1000)] }
   };
 }
 
 /* ---------- 跑起来 ---------- */
 const targets = [
-  { file: '10-bogu.js', key: 'Bogu', type: 'lots' },
   { file: '12-bookpage.js', key: 'BookPage', type: 'book' }
 ];
 

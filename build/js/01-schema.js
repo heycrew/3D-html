@@ -125,29 +125,9 @@ SD.SCHEMA = [
         unit: '%', desc: '书在屏幕里最高占多少' },
       { key: 'bookTurn', label: '翻页时长', type: 'num', def: 700, min: 150, max: 2000, unit: 'ms' },
       { key: 'bookBg', label: '桌面背景', type: 'color', def: '#2a2118' },
-      { key: 'bookDotSize', label: '锚点大小', type: 'num', def: 16, min: 8, max: 40, unit: 'px' },
-      { key: 'bookDotColor', label: '锚点颜色', type: 'color', def: '#ffb340' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
       { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.72, min: 0.2, max: 0.98, step: 0.02,
         desc: '越小越透，底下的内容页看得越清楚' }
-    ]
-  },
-  {
-    id: 'bogu', name: '博古架布局', open: false,
-    desc: '仅「拍品列表」页面类型生效',
-    params: [
-      { key: 'boguLayout', label: '布局预设', type: 'select', def: 'cuoluo',
-        options: [['cuoluo', '错落'], ['jiugong', '九宫'], ['pinzi', '品字']] },
-      { key: 'boguTheme', label: '架子木色', type: 'select', def: 'dark',
-        options: [['dark', '深木'], ['warm', '浅木'], ['black', '黑檀']] },
-      { key: 'boguCols', label: '列数', type: 'num', def: 0, min: 0, max: 10,
-        desc: '0 = 用预设自带列数' },
-      { key: 'boguRowH', label: '格子基准行高', type: 'num', def: 0, min: 0, max: 240,
-        unit: 'px', desc: '0 = 用预设值' },
-      { key: 'boguGap', label: '格子间距', type: 'num', def: 14, min: 0, max: 40, unit: 'px' },
-      { key: 'boguShowCap', label: '显示名称', type: 'bool', def: true },
-      { key: 'boguShowCode', label: '显示编号', type: 'bool', def: true },
-      { key: 'boguMask', label: '遮罩浓度', type: 'num', def: 0.86, min: 0.3, max: 0.98, step: 0.02 }
     ]
   },
   {

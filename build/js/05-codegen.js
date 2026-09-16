@@ -170,11 +170,6 @@ SD.Codegen = (function () {
     opts = opts || {};
     var mode = opts.mode || 'files';
 
-    /* 拍品列表（博古架）走独立生成器 */
-    if (state.pageType === 'lots' && SD.Bogu) {
-      return SD.Bogu.buildHtml(state, opts);
-    }
-
     /* 翻书图录走独立生成器 */
     if (state.pageType === 'book' && SD.BookPage) {
       return SD.BookPage.buildHtml(state, opts);

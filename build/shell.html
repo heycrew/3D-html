@@ -75,13 +75,12 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
 .col-head .spacer{flex:1}
 .col-body{flex:1;overflow-y:auto;overflow-x:hidden}
 
-/* ---------- 拍品列表（博古架模式） ---------- */
+/* ---------- 列表行（书页列表复用） ---------- */
 .lot-bar-head{
   display:flex;align-items:center;gap:8px;padding:10px 12px 6px;
   font-size:12px;font-weight:600;color:var(--sd-fg2);
 }
 .lot-bar-head .spacer{flex:1}
-#lotList{padding:0 8px 10px;max-height:236px;overflow-y:auto}
 .lot-row{
   display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:6px;
   cursor:pointer;border:1px solid transparent;
@@ -287,7 +286,6 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
   <select id="pageType" style="width:132px">
     <option value="single">单品 360 展示</option>
-    <option value="lots">拍品列表（博古架）</option>
     <option value="book">翻书图录（电子图册）</option>
   </select>
   <div class="topbar-sep"></div>
@@ -299,7 +297,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
   <button class="btn ghost sm" id="btnHelp">使用说明</button>
   <button class="btn ghost sm" id="btnWipeStore" title="清除浏览器里自动保存的工程">清空本地工程</button>
   <div class="topbar-spacer"></div>
-  <button class="btn sm" id="btnCheckup" title="检查图片尺寸是否一致、帧数够不够、有没有超大的图、锚点是否还有效">体检</button>
+  <button class="btn sm" id="btnCheckup" title="检查图片尺寸是否一致、帧数够不够、有没有超大的图">体检</button>
   <button class="btn sm" id="btnImportCfg">导入配置</button>
   <button class="btn sm" id="btnExportCfg">导出配置</button>
   <button class="btn primary" id="btnExport">导出 HTML</button>
@@ -343,18 +341,10 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
         </div>
         <div class="mini-note" id="bookHint"></div>
       </div>
-      <div id="lotBar" style="display:none">
-        <div class="lot-bar-head">
-          <span>拍品</span>
-          <span class="spacer"></span>
-          <button class="btn ghost sm" id="btnAddLot">＋ 新增</button>
-        </div>
-        <div id="lotList"></div>
-      </div>
-      <!-- 书模式下整块收起（素材直接挂在内容页上）；单品/博古架时照旧 -->
+      <!-- 书模式下整块收起（素材直接挂在内容页上）；单品时照旧 -->
       <div id="matPanel">
         <div style="padding:8px 12px 4px;font-size:12px;color:var(--sd-fg3)">
-          素材（当前页面 / 当前拍品的 360 图）
+          素材（当前页面的 360 图）
         </div>
       <div id="dropzone">
         <span class="big">🖼</span>

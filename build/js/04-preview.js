@@ -30,10 +30,9 @@ SD.Preview = (function () {
     if (!mounted || !host) return;
     destroy();
 
-    /* 拍品列表（博古架）：整页交给 iframe，布局所见即所得 */
-    if ((state.pageType === 'lots' || state.pageType === 'book') &&
-        (SD.Bogu || SD.BookPage)) {
-      var gen = (state.pageType === 'book') ? SD.BookPage : SD.Bogu;
+    /* 翻书图录：整页交给 iframe，布局所见即所得 */
+    if (state.pageType === 'book' && SD.BookPage) {
+      var gen = SD.BookPage;
       if (gen) {
       /* 必须用 blob URL 而不是 srcdoc：
          srcdoc 文档的 origin 是 about:srcdoc，CI360 强制 crossOrigin="anonymous"，

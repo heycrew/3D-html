@@ -12,7 +12,6 @@
  * 层次：
  *   底层 <img class="sheet">  静止页（翻动时提前换成将被露出的那一页）
  *   中层 <canvas class="flip"> 翻动中的弯曲纸页
- *   上层 <div class="dots">    锚点（静止时显示当前页的锚点）
  * ===================================================================== */
 window.SD = window.SD || {};
 
@@ -71,21 +70,6 @@ SD.BookPage = (function () {
     return out;
   }
 
-  /* 锚点 → HTML（共用给「当前页」与「翻页中」两种情形） */
-  function dotsHtml(anchors) {
-    var out = '';
-    (anchors || []).forEach(function (a) {
-      var has = SD.Book ? SD.Book.lotHasMedia(a.lotId) : false;
-      var title = SD.Book ? SD.Book.lotTitle(a.lotId) : '';
-      out += '<span class="dot' + (has ? '' : ' off') + '" data-lot="' +
-             SD.Codegen.esc(a.lotId || '') + '"' +
-             (has ? '' : ' data-off="1"') +
-             ' style="left:' + a.x + '%;top:' + a.y + '%">' +
-             '<span class="tip">' + SD.Codegen.esc(title || '未绑定拍品') + '</span></span>';
-    });
-    return out;
-  }
-
   /* ---------- CSS ---------- */
   function buildCss(state) {
     var p = state.params || {};
@@ -141,7 +125,6 @@ SD.BookPage = (function () {
       '.flip.on{opacity:1;visibility:visible;',
       '  transition:opacity .14s linear, visibility 0s linear;}',
 
-      '/* 锚点层 */',
       '.dots{position:absolute;inset:0;z-index:40;pointer-events:none;}',
       '.dots.hide{display:none;}',
       '.dot{position:absolute;width:' + dot + 'px;height:' + dot + 'px;border-radius:50%;',
@@ -268,34 +251,17 @@ SD.BookPage = (function () {
   function buildInit(state, mode) {
     var p = state.params || {};
     var sheets = sheetList(state, mode);
-    var lots = state.lots || [];
-
-    /* 拍品数据（与博古架同一套规则） */
-    var data = lots.map(function (lot, i) {
-      var im = SD.Bogu ? SD.Bogu.lotImages(lot, i, mode) : { x: [], y: [] };
-      var first = (lot.items || []).filter(function (x) { return !x.off; })[0] || null;
-      var ratio = '';
-      if (first && first.w && first.h) {
-        var a = Math.abs(first.w), b = Math.abs(first.h);
-        while (b) { var t = a % b; a = b; b = t; }
-        ratio = (first.w / a) + '/' + (first.h / a);
-      }
-      return { id: lot.id, title: lot.title || '', code: lot.code || '',
-               x: im.x, y: im.y, ratio: ratio };
-    });
-
-    /* 页数据（含锚点 HTML，避免运行时再拼） */
+    /* 页数据 */
     var pages = sheets.map(function (sh) {
       /* items：这一页自己的 360 素材组（点这一页就弹它）
          title：弹层标题 */
       return { kind: sh.kind, src: sh.src,
-               items: sh.items || [], title: sh.title || '',
-               dots: dotsHtml(sh.anchors) };
+               items: sh.items || [], title: sh.title || '' };
     });
 
     var keep = {};
     Object.keys(p).forEach(function (k) {
-      if (k.indexOf('book') !== 0 && k.indexOf('bogu') !== 0) keep[k] = p[k];
+      if (k.indexOf('book') !== 0) keep[k] = p[k];
     });
     ['folder', 'filenameX', 'amountX', 'indexZeroBase', 'filenameY', 'amountY',
      'filenameGrid', 'imageListX', 'imageListY', 'imageListGrid'].forEach(function (k) {
@@ -304,7 +270,6 @@ SD.BookPage = (function () {
 
     return [
       'var SHEETS = ' + SD.Codegen.safeJson(pages, false) + ';',
-      'var LOTS = ' + SD.Codegen.safeJson(data, false) + ';',
       'var BASE = ' + SD.Codegen.safeJson(keep, false) + ';',
       '/* CI360 的 aspectRatio 只认数字（如 0.75）或 "4/3" 形式；传 "600/800" 会被忽略并退回 1:1 正方形，所以要换算成小数。 */',
       'var BOOK_RATIO = ' + (function () {
@@ -487,7 +452,7 @@ SD.BookPage = (function () {
       '  var top = (_top === "A") ? sheetA : sheetB;',
       '  var bot = (_top === "A") ? sheetB : sheetA;',
       '',
-      '  /* 页码、锚点、相邻页预取：与显示哪张无关，先做完 */',
+      '  /* 页码、相邻页预取：与显示哪张无关，先做完 */',
       '  var tail = function () {',
       '    dotsLayer.innerHTML = (sh && sh.dots) ? sh.dots : "";',
       '    if (navText) navText.textContent = (cur + 1) + " / " + total;',
@@ -554,7 +519,7 @@ SD.BookPage = (function () {
       '   而那一刻总有新旧画面的交替。现在干脆不撤 ——',
       '   canvas 上画的内容和底下的 img 完全同源（都是 prep() 预渲染的同尺寸帧），',
       '   两者像素一致，切不切、什么时候切，都看不出来。',
-      '   画布 pointer-events:none，不影响点页面、翻页、锚点。 */',
+      '   画布 pointer-events:none，不影响点页面与翻页。 */',
       'function holdFrame() {',
       '  var fr = cache[cur];',
       '  if (!fr) {',
@@ -905,7 +870,7 @@ SD.BookPage = (function () {
       (mode === 'preview'
         ? ['<div style="position:fixed;left:0;right:0;bottom:0;text-align:center;padding:4px;',
            'font-size:12px;color:#c9bda9;background:rgba(0,0,0,.4);pointer-events:none">',
-           '预览：拖动翻页（纸张弯曲）、点锚点查看拍品</div>'].join('')
+           '预览：拖动翻页（纸张弯曲）、点页面查看 360</div>'].join('')
         : '')
     ].join('\n');
 

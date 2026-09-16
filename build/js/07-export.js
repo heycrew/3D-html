@@ -107,7 +107,6 @@ SD.Export = (function () {
   /* ---------- 主流程：写到一个用户选择的目录 ---------- */
   async function exportToDirectory(state, onProgress) {
     var items = SD.Codegen.activeItems(state);
-    var isLots = state.pageType === 'lots';
     var isBook = state.pageType === 'book';
     if (isBook) {
       var bk0 = state.book || {};
@@ -115,19 +114,11 @@ SD.Export = (function () {
       if (!(bk0.cover && bk0.cover.url) && !nPage0) {
         throw new Error('书里还没有内容：请先上传封面或内容页图片');
       }
-    } else if (isLots) {
-      SD.Lots.saveCurrent();
-      var lotTotal = (state.lots || []).reduce(function (n, l) {
-        return n + SD.Bogu.onItems(l).length;
-      }, 0);
-      if (!lotTotal) throw new Error('还没有拍品素材，先给拍品导入图片');
     } else if (!items.length) {
       throw new Error('还没有素材，先导入图片或载入示例');
     }
 
-    var names = isLots
-      ? (state.lots || []).map(function (l, i) { return (l.title || ('拍品' + (i + 1))); })
-      : planNames(items);
+    var names = planNames(items);
     var dir;
     try {
       dir = await window.showDirectoryPicker({ mode: 'readwrite', id: 'ci360-export' });
@@ -136,9 +127,7 @@ SD.Export = (function () {
       throw e;
     }
 
-    var nImgs = isLots
-      ? (state.lots || []).reduce(function (n, l) { return n + SD.Bogu.onItems(l).length; }, 0)
-      : (isBook ? (function () {
+    var nImgs = (isBook ? (function () {
           var bk1 = state.book || {};
           var n = (bk1.cover && bk1.cover.url) ? 1 : 0;
           n += (bk1.pages || []).filter(function (x) { return x && x.url; }).length;
@@ -152,20 +141,6 @@ SD.Export = (function () {
       if (onProgress) onProgress(step, total, label);
     }
 
-    /* 0) 先把导出文件名算好 —— Bogu.buildHtml 生成页面时会引用它，
-          必须赶在 buildHtml 之前完成，否则页面里的图片路径会变成 undefined */
-    if (isLots) {
-      (state.lots || []).forEach(function (lot) {
-        var lotItems = SD.Bogu.onItems(lot);
-        var ci = 0, cy = 0;
-        lotItems.forEach(function (it) {
-          var ex = extOf(it.name);
-          if (it.axis === 'y') { cy++; it.exportName = 'vframe-' + cy + ex; }
-          else { ci++; it.exportName = 'frame-' + ci + ex; }
-        });
-      });
-    }
-
     /* 1) index.html —— 指向 ./images/ 与 ./lib/ */
     var xs = items.filter(function (it) { return (it.axis || 'x') !== 'y'; });
     var ys = items.filter(function (it) { return it.axis === 'y'; });
@@ -173,8 +148,8 @@ SD.Export = (function () {
                  fy: state.materials.filenameY };
     state.materials.folder = './images/';
     state.materials.pad = 0;
-    if (!isLots && xs.length) state.materials.filenameX = 'frame-{index}' + extOf(xs[0].name);
-    if (!isLots && ys.length) state.materials.filenameY = 'vframe-{index}' + extOf(ys[0].name);
+    if (xs.length) state.materials.filenameX = 'frame-{index}' + extOf(xs[0].name);
+    if (ys.length) state.materials.filenameY = 'vframe-{index}' + extOf(ys[0].name);
     var html = SD.Codegen.buildHtml(state, { mode: 'files' });
     state.materials.folder = prev.folder;
     state.materials.filenameX = prev.fx;
@@ -183,24 +158,7 @@ SD.Export = (function () {
     tick('index.html');
 
     /* 2) images/ */
-    if (isLots) {
-      /* 每个拍品一个子目录：images/lot-1/frame-1.jpg … */
-      for (var li = 0; li < (state.lots || []).length; li++) {
-        var its = SD.Bogu.onItems(state.lots[li]);
-        var xi = 0, yi = 0;
-        for (var k = 0; k < its.length; k++) {
-          var it = its[k];
-          var ex = extOf(it.name);
-          var nm;
-          if (it.axis === 'y') { yi++; nm = 'vframe-' + yi + ex; }
-          else { xi++; nm = 'frame-' + xi + ex; }
-          it.exportName = nm;   /* Bogu.buildHtml 生成页面时会用到 */
-          var bb = it.file || await (await fetch(it.url)).blob();
-          await writeIn(dir, 'images/lot-' + (li + 1) + '/' + nm, bb);
-          tick('lot-' + (li + 1) + '/' + nm);
-        }
-      }
-    } else if (isBook) {
+    if (isBook) {
       /* 翻书图录：书本相关图放 book/ 下，命名与页面引用保持一致 */
       var bk = state.book || {};
       var put = async function (item, rel) {
@@ -229,25 +187,6 @@ SD.Export = (function () {
         var blob = f || await (await fetch(items[i].url)).blob();
         await writeIn(dir, 'images/' + names[i], blob);
         tick(names[i]);
-      }
-    }
-
-    /* 2b) 翻书模式：拍品的 360 素材同样要导出（锚点指向它们） */
-    if (isBook) {
-      for (var bi = 0; bi < (state.lots || []).length; bi++) {
-        var bits = SD.Bogu.onItems(state.lots[bi]);
-        var bxi = 0, byi = 0;
-        for (var bk2 = 0; bk2 < bits.length; bk2++) {
-          var bit = bits[bk2];
-          var bex = extOf(bit.name);
-          var bnm;
-          if (bit.axis === 'y') { byi++; bnm = 'vframe-' + byi + bex; }
-          else { bxi++; bnm = 'frame-' + bxi + bex; }
-          bit.exportName = bnm;
-          var bblob = bit.file || await (await fetch(bit.url)).blob();
-          await writeIn(dir, 'images/lot-' + (bi + 1) + '/' + bnm, bblob);
-          tick('lot-' + (bi + 1) + '/' + bnm);
-        }
       }
     }
 

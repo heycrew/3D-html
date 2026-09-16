@@ -23,16 +23,7 @@ global.SD = {
     fileWarn: function () { return '<div id="fileWarn" style="display:none"></div>'; }
   },
   Book: {
-    lotHasMedia: function () { return true; },     /* 让锚点可点，便于测 360 */
-    lotTitle: function () { return '测试拍品'; },
     book: function () { return {}; }
-  },
-  Bogu: {
-    onItems: function (lot) { return (lot && lot.items) || []; },
-    lotImages: function (lot, i) {
-      /* 用真实存在的图片，方便直接跑 */
-      return { x: ['images/lot-1/frame-1.png', 'images/lot-1/frame-2.png'], y: [] };
-    }
   }
 };
 

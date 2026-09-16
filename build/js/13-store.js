@@ -2,7 +2,7 @@
  * 13-store.js —— 工程自动保存 / 恢复（IndexedDB）
  *
  * 为什么需要：素材只存在内存里，刷新页面就全没了 —— 用户辛苦传的
- * 几十张图、打好的锚点会一并消失。这里把「参数 + 拍品素材 + 书页」
+ * 几十张图会一并消失。这里把「参数 + 素材 + 书页」
  * 自动存进浏览器本地数据库，下次打开自动恢复。
  *
  * 关键点：预览用的 /@mat/... URL 是本地服务临时发的，重启即失效，
@@ -69,21 +69,7 @@ SD.Store = (function () {
       customCss: st.customCss || '',
       templateId: st.templateId || '',
       params: JSON.parse(JSON.stringify(st.params || {})),
-      activeLot: st.activeLot || 0,
-
-      lots: (st.lots || []).map(function (lot) {
-        return {
-          id: lot.id, title: lot.title || '', code: lot.code || '',
-          items: ((lot.items) || []).map(function (it) {
-            return {
-              name: it.name || '', w: it.w, h: it.h,
-              axis: it.axis || 'x', off: !!it.off, file: it.file || null
-            };
-          })
-        };
-      }),
-
-      /* 当前正在编辑的那一份也要存（它可能还没被 saveCurrent 落库） */
+      /* 当前正在编辑的那一份也要存 */
       editingItems: (st.materials && st.materials.items || []).map(function (it) {
         return {
           name: it.name || '', w: it.w, h: it.h,
@@ -98,8 +84,7 @@ SD.Store = (function () {
         back: fileOf(bk.back),
         pages: ((bk.pages) || []).map(function (p) {
           return {
-            name: p.name || '', file: p.file || null,
-            anchors: JSON.parse(JSON.stringify(p.anchors || []))
+            name: p.name || '', file: p.file || null
           };
         })
       }
@@ -124,7 +109,6 @@ SD.Store = (function () {
 
   /* 完全空的工程不必存 */
   function hasWork(snap) {
-    if (snap.lots && snap.lots.some(function (l) { return (l.items || []).length; })) return true;
     if (snap.editingItems && snap.editingItems.length) return true;
     var b = snap.book || {};
     if (b.cover && b.cover.file) return true;

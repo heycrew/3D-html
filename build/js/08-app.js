@@ -15,9 +15,7 @@ window.SD = window.SD || {};
     customCss: '',
     params: SD.defaults(),
     materials: { items: [], folder: './images/', filenameX: 'frame-{index}.jpg', pad: 0 },
-    pageType: 'single',   /* single = 单品 360；lots = 拍品列表（博古架） */
-    lots: [],             /* 拍品列表模式下的多套素材 */
-    activeLot: 0,
+    pageType: 'single',   /* single = 单品 360；book = 翻书图录 */
     stage: { width: 520, bg: 'checker' }
   };
   SD.STATE = STATE;
@@ -74,7 +72,7 @@ window.SD = window.SD || {};
   };
 
   function previewDoc() {
-    /* 预览 iframe 挂在 stage-host 下；书/博古架模式里是 blob 文档 */
+    /* 预览 iframe 挂在 stage-host 下；书模式里是 blob 文档 */
     var f = document.querySelector('#stage-host iframe') ||
             document.querySelector('.pv iframe') ||
             document.querySelector('iframe');
@@ -341,7 +339,6 @@ window.SD = window.SD || {};
       syncParamsUI();
       renderMaterials();
       refresh();
-      if (STATE.pageType === 'lots') { SD.Lots.saveCurrent(); SD.Lots.render(); }
       toast('ok', '已导入 ' + items.length + ' 张素材');
       status('就绪 · 素材 ' + STATE.materials.items.length + ' 张');
     }).catch(function (e) {
@@ -362,7 +359,6 @@ window.SD = window.SD || {};
       syncParamsUI();
       renderMaterials();
       refresh();
-      if (STATE.pageType === 'lots') { SD.Lots.saveCurrent(); SD.Lots.render(); }
       toast('ok', '已载入示例素材', '水平 4 帧（前/右/后/左）＋ 垂直 2 帧（上/下）');
       status('就绪 · 示例素材 6 张');
     });
@@ -400,7 +396,7 @@ window.SD = window.SD || {};
   }
 
   function applyStage() {
-    /* 热点只对「单品 360」的整张画面有意义；书/拍品列表用它反而添乱 */
+    /* 热点只对「单品 360」的整张画面有意义；书模式用它反而添乱 */
     var hsBtn = $('btnAddHotspot'), hsList = $('btnHotspotList');
     var hsShow = (STATE.pageType === 'single') ? '' : 'none';
     if (hsBtn) hsBtn.style.display = hsShow;
@@ -444,19 +440,9 @@ window.SD = window.SD || {};
 
   SD.refresh = refresh;
 
-  /* 切换拍品后：素材面板 / 参数面板 / 预览 / 拍品列表 全部刷新 */
-  SD.syncAfterLotChange = function () {
-    renderMaterials();
-    syncFrameCount();
-    syncParamsUI();
-    refresh();
-    SD.Lots.render();
-  };
-
   /* ================= 导出 ================= */
   function doExport() {
-    /* 前置检查要分页面类型：
-       书把素材挂在各个内容页上、博古架挂在各个拍品上，
+    /* 前置检查要分页面类型：书把素材挂在各个内容页上，
        只有「单品」才用全局素材 —— 一律检查全局素材会误报「还没有素材」。 */
     if (STATE.pageType === 'book') {
       var bk0 = STATE.book || {};
@@ -467,12 +453,6 @@ window.SD = window.SD || {};
         toast('warn', '书里还没有内容', '先在左栏「书页」上传封面或内容页图片');
         return;
       }
-    } else if (STATE.pageType === 'lots') {
-      SD.Lots.saveCurrent();
-      var tot = (STATE.lots || []).reduce(function (n, l) {
-        return n + SD.Bogu.onItems(l).length;
-      }, 0);
-      if (!tot) { toast('warn', '还没有拍品素材', '先给拍品导入图片'); return; }
     } else {
       var items = SD.Codegen.activeItems(STATE);
       if (!items.length) { toast('warn', '还没有素材', '先导入图片或载入示例'); return; }
@@ -699,19 +679,6 @@ window.SD = window.SD || {};
                axis: rec.axis || 'x', off: !!rec.off };
     }
 
-    /* 拍品素材 */
-    var lots = [];
-    for (var i = 0; i < (snap.lots || []).length; i++) {
-      var l = snap.lots[i];
-      var items = [];
-      for (var j = 0; j < (l.items || []).length; j++) {
-        items.push(await uploadOne(l.items[j]));
-      }
-      lots.push({ id: l.id, title: l.title || '', code: l.code || '', items: items });
-    }
-    STATE.lots = lots;
-    STATE.activeLot = Math.max(0, Math.min(snap.activeLot || 0, Math.max(0, lots.length - 1)));
-
     /* 当前编辑的那一份 */
     var editing = [];
     for (var k = 0; k < (snap.editingItems || []).length; k++) {
@@ -738,8 +705,7 @@ window.SD = window.SD || {};
         pages.push({
           url: o ? o.url : '',
           file: o ? o.file : null,
-          name: (o && o.name) || pg.name || '',
-          anchors: pg.anchors || []
+          name: (o && o.name) || pg.name || ''
         });
       }
       STATE.book.pages = pages;
@@ -749,21 +715,16 @@ window.SD = window.SD || {};
 
   async function applyRestored() {
     if ($('pageType')) $('pageType').value = STATE.pageType;
-    if ($('btnAddAnchor')) $('btnAddAnchor').style.display = (STATE.pageType === 'book') ? '' : 'none';
-    /* 快照里可能一个拍品都没有，而锚点必须绑到拍品上 —— 补一个 */
-    SD.Lots.ensureInit();
     /* 旧工程的封面可能没记尺寸，补读，保证画布比例跟着封面 */
     ensureCoverSize();
     syncParamsUI();
-    SD.Lots.render();
     SD.Book.render();
     renderMaterials();
     refresh();
   }
 
   /* ================= 配置的导出 / 导入 =================
-     只带「结构 + 参数」，不带图片（图片体积大，换机器时重新传一次即可）。
-     拍品 id 与锚点绑定关系会原样保留，所以传完图锚点就能直接对上。 */
+     只带「结构 + 参数」，不带图片（图片体积大，换机器时重新传一次即可）。 */
   function buildConf() {
     var bk = STATE.book || {};
     return {
@@ -775,20 +736,12 @@ window.SD = window.SD || {};
       templateId: STATE.templateId,
       customCss: STATE.customCss,
       params: JSON.parse(JSON.stringify(STATE.params || {})),
-      lots: (STATE.lots || []).map(function (l) {
-        return {
-          id: l.id, title: l.title || '', code: l.code || '',
-          items: ((l.items) || []).map(function (it) {
-            return { name: it.name || '', axis: it.axis || 'x', off: !!it.off };
-          })
-        };
-      }),
       book: {
         w: bk.w, h: bk.h,
         coverName: (bk.cover && bk.cover.name) || '',
         backName: (bk.back && bk.back.name) || '',
         pages: ((bk.pages) || []).map(function (p) {
-          return { name: p.name || '', anchors: JSON.parse(JSON.stringify(p.anchors || [])) };
+          return { name: p.name || '' };
         })
       },
       note: '仅含配置与结构，不含图片；导入后请重新上传对应图片'
@@ -806,21 +759,9 @@ window.SD = window.SD || {};
     STATE.customCss = conf.customCss || '';
     STATE.params = Object.assign(SD.defaults(), conf.params || {});
 
-    /* 拍品：保留 id 与元数据，图片留空待传 */
-    STATE.lots = (conf.lots || []).map(function (l) {
-      return {
-        id: l.id || ('lot-' + Math.random().toString(36).slice(2, 8)),
-        title: l.title || '', code: l.code || '',
-        items: ((l.items) || []).map(function (it) {
-          return { name: it.name || '', axis: it.axis || 'x', off: !!it.off };
-        })
-      };
-    });
-    if (!STATE.lots.length) SD.Lots.ensureInit();
-    STATE.activeLot = 0;
     STATE.materials.items = [];
 
-    /* 书页：保留锚点，图片留空待传 */
+    /* 书页：图片留空待传 */
     if (!STATE.book) STATE.book = {};
     STATE.book.w = (conf.book && conf.book.w) || 900;
     STATE.book.h = (conf.book && conf.book.h) || 1200;
@@ -828,22 +769,19 @@ window.SD = window.SD || {};
     STATE.book.cover = null;
     STATE.book.back = null;
     STATE.book.pages = ((conf.book && conf.book.pages) || []).map(function (p) {
-      return { url: '', file: null, name: p.name || '', anchors: p.anchors || [] };
+      return { url: '', file: null, name: p.name || '' };
     });
 
     if ($('pageType')) $('pageType').value = STATE.pageType;
-    if ($('btnAddAnchor')) $('btnAddAnchor').style.display = (STATE.pageType === 'book') ? '' : 'none';
     syncParamsUI();
-    SD.Lots.render();
     SD.Book.render();
     renderMaterials();
     refresh();
 
-    var needImg = (STATE.lots.reduce(function (n, l) { return n + l.items.length; }, 0))
-                + STATE.book.pages.length
+    var needImg = STATE.book.pages.length
                 + (STATE.book.cover ? 1 : 0) + (STATE.book.back ? 1 : 0);
     toast('ok', '配置已导入', needImg
-      ? '参数、拍品与锚点都恢复了；请重新上传图片（图片不在配置文件里）'
+      ? '参数与结构已恢复；请重新上传图片（图片不在配置文件里）'
       : '参数与结构已恢复', 7000);
   }
 
@@ -917,7 +855,7 @@ window.SD = window.SD || {};
 
   /* ================= 本页 360 素材 =================
      书模式下每个内容页自带一组 360 素材，成品里点这一页就弹出。
-     比原来「建拍品 → 打锚点 → 绑拍品」少两步，更贴近真实素材组织方式。 */
+     比原来「逐页建条目」少两步，更贴近真实素材组织方式。 */
   function page360Render() {
     var host = $('page360List'), hint = $('page360Hint');
     if (!host) return;
@@ -996,7 +934,7 @@ window.SD = window.SD || {};
 
   /* ================= 素材体检 =================
      把常见坑一次说清楚：图尺寸不一致（会被拉伸）、帧数太少（旋转跳跃）、
-     单张太大（手机慢）、拍品没素材（锚点置灰）、锚点指向已删拍品。 */
+     单张太大（手机慢）、书页缺图等。 */
   function probeSizes(list) {
     return Promise.all(list.map(function (it) {
       return new Promise(function (res) {
@@ -1055,31 +993,14 @@ window.SD = window.SD || {};
         }).join('<br>') + (big.length > 5 ? '<br>…' : '') + '<br>建议先压缩到每张 500KB 以内。');
     }
 
-    /* 4) 拍品素材 */
-    (STATE.lots || []).forEach(function (l, i) {
-      var n = (l.items || []).filter(function (it) { return !it.off; }).length;
-      if (!n) {
-        add('warn', '拍品「' + (l.title || ('拍品 ' + (i + 1))) + '」没有任何 360 素材',
-          '书页上绑定它的锚点会置灰、点不开。');
-      }
-    });
-
-    /* 5) 锚点指向 */
+    /* 4) 书页 */
     if (STATE.pageType === 'book') {
-      var ids = {};
-      (STATE.lots || []).forEach(function (l) { ids[l.id] = true; });
       var bk = STATE.book || {};
       if (!bk.pages || !bk.pages.length) {
         add('warn', '还没有任何书页', '去左栏「书页」上传内容页图片。');
       } else {
         (bk.pages || []).forEach(function (p, i) {
           if (!p.url) add('warn', '第 ' + (i + 1) + ' 页还没有上传图片', '');
-          (p.anchors || []).forEach(function (a) {
-            if (!ids[a.lotId]) {
-              add('err', '第 ' + (i + 1) + ' 页有个锚点指向了已删除的拍品',
-                '该锚点不会生效，建议删掉重新打。');
-            }
-          });
         });
       }
       if (!bk.cover || !bk.cover.url) add('info', '还没有上传封面', '成品会直接从第 1 页开始。');
@@ -1118,8 +1039,7 @@ window.SD = window.SD || {};
   }
 
   function runCheckup() {
-    var items = (STATE.materials.items || []).concat(
-      (STATE.lots || []).reduce(function (acc, l) { return acc.concat(l.items || []); }, []));
+    var items = (STATE.materials.items || []);
     status('正在体检…');
     return probeSizes(items).then(function () {
       var issues = collectCheckup();
@@ -1147,7 +1067,6 @@ window.SD = window.SD || {};
           .catch(function () {}));
       }
       (STATE.materials.items || []).forEach(reupload);
-      (STATE.lots || []).forEach(function (l) { (l.items || []).forEach(reupload); });
       var bk = STATE.book || {};
       reupload(bk.cover);
       reupload(bk.back);
@@ -1260,27 +1179,16 @@ window.SD = window.SD || {};
     $('pageType').addEventListener('change', function () {
       var t = $('pageType').value;
       STATE.pageType = t;
-      var ab = $('btnAddAnchor');
-      if (ab) ab.style.display = (t === 'book') ? '' : 'none';
       if (t === 'book') {
         SD.Book.book();
         SD.Book.render();
         status('已切到翻书图录：左侧可管理封面 / 内容页 / 封底');
-      } else if (t === 'lots') {
-        SD.Lots.ensureInit();
-        SD.Lots.render();
-        status('已切到拍品列表模式：左侧可管理多个拍品');
       } else {
-        SD.Lots.saveCurrent();
-        SD.Lots.render();
         status('已切到单品 360 模式');
       }
       syncParamsUI();
       refresh();
     });
-    $('btnAddLot').addEventListener('click', function () { SD.Lots.add(); });
-    var btnAn = $('btnAddAnchor');
-    /* 书模式已改为「每页自带一组 360，点页面即弹出」，不再需要锚点按钮 */
 
     $('btnAddHotspot').addEventListener('click', function () {
       if (!SD.Codegen.activeItems(STATE).length) {
@@ -1343,7 +1251,7 @@ window.SD = window.SD || {};
     $('btnExportCfg').addEventListener('click', function () {
       var conf = buildConf();
       downloadFile('360-config.json', JSON.stringify(conf, null, 2), 'application/json');
-      toast('ok', '已导出配置', '含参数/拍品/锚点结构（不含图片）', 5000);
+      toast('ok', '已导出配置', '含参数与结构（不含图片）', 5000);
     });
     if ($('btnCheckup')) $('btnCheckup').addEventListener('click', function () { runCheckup(); });
     if ($('btnUpPage360X')) $('btnUpPage360X').addEventListener('click', function () { page360Upload('x'); });
@@ -1388,8 +1296,6 @@ window.SD = window.SD || {};
       toast('err', '360 库未加载', '请确认 lib/360-view.min.js 与工作台在同一目录', 8000);
     }
 
-    SD.Lots.ensureInit();
-    SD.Lots.render();
     SD.Book.render();
     bindBookEvents();
 
@@ -1404,7 +1310,7 @@ window.SD = window.SD || {};
       window.addEventListener('focus', function () { healAfterRestart(); });
 
       /* 有调试参数时不打扰，直接按参数走 */
-      var hasDebug = /[?&](demo|lots|book)/.test(location.search);
+      var hasDebug = /[?&](demo|book)/.test(location.search);
       if (!hasDebug && SD.Store) {
         restoreFromStore().then(function (restored) {
           if (!restored) return;
@@ -1418,16 +1324,13 @@ window.SD = window.SD || {};
         setTimeout(function () {
           var snap = SD.Store.snapshot();
           var withFile = 0, total = 0;
-          (snap.lots || []).forEach(function (l) {
-            (l.items || []).forEach(function (it) { total++; if (it.file) withFile++; });
-          });
           (snap.book && snap.book.pages || []).forEach(function (p) { total++; if (p.file) withFile++; });
           if (snap.book && snap.book.cover && snap.book.cover.file) { total++; withFile++; }
           if (snap.book && snap.book.back && snap.book.back.file) { total++; withFile++; }
           var box = document.createElement('pre');
           box.style.cssText = 'position:fixed;left:6px;bottom:6px;background:#000;'
             + 'color:#0f0;font:12px monospace;padding:8px;z-index:99999;max-width:92vw';
-          box.textContent = 'snapshot: lots=' + (snap.lots || []).length
+          box.textContent = 'snapshot:'
             + ' | editingItems=' + (snap.editingItems || []).length
             + ' | bookPages=' + ((snap.book && snap.book.pages) || []).length
             + ' | 带File的条目=' + withFile + '/' + total
@@ -1437,16 +1340,12 @@ window.SD = window.SD || {};
       }
       if (/[?&]diag/.test(location.search)) {
         setTimeout(function () {
-          var btn = document.getElementById('btnAddAnchor');
           var sheet = SD.Book ? SD.Book.activeSheet() : null;
           var lines = [
             '页面类型     : ' + STATE.pageType,
-            '加锚点按钮   : ' + (btn ? (getComputedStyle(btn).display === 'none' ? '存在但隐藏' : '存在且可见') : '不存在'),
             '书页数量     : ' + ((STATE.book && STATE.book.pages) || []).length,
             '当前选中     : ' + (sheet ? (sheet.kind + ' #' + sheet.index) : '-'),
             '该页有图     : ' + (sheet && sheet.page && sheet.page.url ? '是' : '否'),
-            '该页锚点数   : ' + (sheet && sheet.page && sheet.page.anchors ? sheet.page.anchors.length : 0),
-            '拍品数量     : ' + (STATE.lots || []).length,
             '素材数量     : ' + ((STATE.materials && STATE.materials.items) || []).length,
             '本地服务     : ' + (SERVER_OK ? '已连接' : '断开'),
             '360 库       : ' + (typeof window.CI360),
@@ -1463,11 +1362,6 @@ window.SD = window.SD || {};
         var pane = $('codepane');
         pane.classList.add('open');
         updateCode();
-      }
-      if (/[?&]lots/.test(location.search)) {
-        var pt = $('pageType');
-        pt.value = 'lots';
-        pt.dispatchEvent(new Event('change'));
       }
       if (/[?&]book/.test(location.search)) {
         var ptb = $('pageType');
@@ -1491,13 +1385,10 @@ window.SD = window.SD || {};
           bk.back = snap(3, 'back.png');
           bk.pages = [
             { url: (snap(1, 'page-1.png') || {}).url, file: (snap(1, 'page-1.png') || {}).file,
-              name: 'page-1.png', anchors: [] },
+              name: 'page-1.png' },
             { url: (snap(2, 'page-2.png') || {}).url, file: (snap(2, 'page-2.png') || {}).file,
-              name: 'page-2.png', anchors: [] }
+              name: 'page-2.png' }
           ];
-          if (SD.Lots.lots().length) {
-            bk.pages[0].anchors.push({ id: 'an-t1', x: 42, y: 38, lotId: SD.Lots.lots()[0].id });
-          }
           SD.Book.setActive(1);
           SD.Book.render();
           if (SD.refresh) SD.refresh();
