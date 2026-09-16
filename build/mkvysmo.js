@@ -38,10 +38,40 @@ if (!fs.existsSync(path.join(SRC, 'node_modules', '@vysmo', 'flipbook'))) {
   }
 }
 
+/* ---------- 补丁：lazy 路径的纹理 Y 翻转 ----------
+ * 库的 TextureCache.loadUrlAsTexture() 是这么走的：
+ *     const bitmap = await createImageBitmap(blob);
+ *     return this.uploadAsNewTexture(bitmap);
+ * 而 uploadAsNewTexture 靠 gl.pixelStorei(UNPACK_FLIP_Y_WEBGL, true) 翻纹理 ——
+ * 这个参数对 **ImageBitmap 源按 WebGL 规范被忽略**，方向只能由
+ * createImageBitmap 的 imageOrientation 决定。于是：开了 lazy（flipbook 的
+ * lazy:true 走 preload → resolveAsync → 这条路）时页面纹理没翻转，
+ * 整个页面上下颠倒；非 lazy 路径用 HTMLImageElement，pixelStorei 有效，
+ * 所以只有开了 lazy 才会看到「页面是倒着的」。
+ * 升级库版本时若这段源码变了，下面的计数校验会直接报错退出，不会静默放过。 */
+const GL_FLIP_PATCH = {
+  name: 'gl-core-lazy-flip',
+  setup: function (build) {
+    build.onLoad({ filter: /gl-core[\\/]dist[\\/]texture-cache\.js$/ }, function (args) {
+      const src = fs.readFileSync(args.path, 'utf8');
+      const OLD = 'await createImageBitmap(blob)';
+      const NEW = "await createImageBitmap(blob, { imageOrientation: this.flipY ? 'flipY' : 'none' })";
+      const n = src.split(OLD).length - 1;
+      if (n !== 1) {
+        throw new Error('纹理翻转补丁：在 ' + path.basename(args.path) + ' 里找到 ' + n
+          + ' 处目标代码（应为 1）—— 库版本可能变了，需要对照新版本调整补丁。');
+      }
+      console.log('  纹理翻转补丁: 已应用（lazy 路径的 createImageBitmap 补上 imageOrientation）');
+      return { contents: src.replace(OLD, NEW), loader: 'js' };
+    });
+  }
+};
+
 /* 用 esbuild 的 JS API 而不是 CLI：banner 里有空格，
-   在 Windows 上经 shell 传参会把它拆散。 */
+   在 Windows 上经 shell 传参会把它拆散。
+   又：必须用异步 API —— esbuild 不允许 buildSync 里带 plugins（补丁要用插件）。 */
 const esbuild = require(path.join(SRC, 'node_modules', 'esbuild'));
-esbuild.buildSync({
+esbuild.build({
   entryPoints: [path.join(SRC, 'entry.js')],
   bundle: true,
   minify: true,
@@ -49,9 +79,13 @@ esbuild.buildSync({
   target: 'es2019',
   legalComments: 'none',
   banner: { js: BANNER },
+  plugins: [GL_FLIP_PATCH],
   outfile: OUT
+}).then(function () {
+  console.log('  翻页库打包  : @vysmo/flipbook %s -> vendor/vysmo-flipbook.min.js'
+    + ' (%s KB, esbuild %s)', VER, (fs.statSync(OUT).size / 1024).toFixed(1),
+    require(path.join(SRC, 'node_modules', 'esbuild', 'package.json')).version);
+}).catch(function (err) {
+  console.error(err && (err.message || err));
+  process.exit(1);
 });
-
-console.log('  翻页库打包  : @vysmo/flipbook %s -> vendor/vysmo-flipbook.min.js'
-  + ' (%s KB, esbuild %s)', VER, (fs.statSync(OUT).size / 1024).toFixed(1),
-  require(path.join(SRC, 'node_modules', 'esbuild', 'package.json')).version);

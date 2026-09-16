@@ -16,6 +16,20 @@
   · 端到端验证（build/.verify/e2e_export.py，走真实产物目录）：
     前进/回翻都有卷曲中间态、拖拽回翻跟手并在过半后提交、点内容页弹 360、
     Esc 关闭、翻页过程中不误触弹层。
+  · 库补丁（打包期打，build/mkvysmo.js 里带计数校验）：
+    **开了 lazy 时整页上下颠倒** —— 库的 TextureCache.loadUrlAsTexture() 走
+        const bitmap = await createImageBitmap(blob);
+        return this.uploadAsNewTexture(bitmap);
+    而 uploadAsNewTexture 是靠 gl.pixelStorei(UNPACK_FLIP_Y_WEBGL, true) 翻纹理的，
+    **这个参数对 ImageBitmap 源按 WebGL 规范被忽略**，方向只能由 createImageBitmap
+    的 imageOrientation 决定 → lazy 路径的纹理没翻转。非 lazy 路径用
+    HTMLImageElement，pixelStorei 有效，所以「只有开了 lazy 才会看到页面倒着」。
+    补丁：createImageBitmap(blob, { imageOrientation: this.flipY ? 'flipY' : 'none' })。
+    定位过程：7 张不同尺寸/格式的探针图（上红下蓝）全部翻转 → 参数二分（tilt/
+    backColor/preloadWindow 无关）→ 锁定 lazy。验证脚本 build/.verify/probe_root.py
+    （lazy 开关对照）与 probe_orient.py（修复后 7/7 正立）。
+    注意：这条补丁依附库内部实现，升级 @vysmo/flipbook 时若该源码变动，
+    mkvysmo.js 会因计数不符直接报错退出，不会静默产出坏包。
 
 【结论】
 建议把书页翻页引擎切到 @vysmo/flipbook 0.5.0（MIT），
