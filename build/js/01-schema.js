@@ -129,6 +129,10 @@ SD.SCHEMA = [
         desc: '首次加载时显示的文字，可留空（回退默认）' },
       { key: 'bookLoadProg', label: '显示加载进度', type: 'bool', def: true,
         desc: '文案下面显示「已加载 x / y 页」' },
+      { key: 'bookLoadTopText', label: '顶部说明文字', type: 'text', def: '点击页码可跳转指定页面',
+        desc: '加载引导页顶部那句（留空则用默认值）' },
+      { key: 'bookLoadMinMs', label: '最短停留', type: 'num', def: 3000, min: 0, max: 10000, step: 100,
+        unit: 'ms', desc: '加载页至少停留多久 —— 实际时长取「真实加载耗时」与它的较大者' },
       { key: 'bookBg', label: '桌面背景', type: 'color', def: '#000000',
         desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
               '已保存的工程仍用它当时的值）' },
