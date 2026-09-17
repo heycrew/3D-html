@@ -143,6 +143,8 @@ SD.SCHEMA = [
               '那张内容页，直接在图上拖拽就能拉取' },
       { key: 'bookHintColor', label: '示意框颜色', type: 'color', def: '#ffffff',
         desc: '四角的描边色（外面会自动加一层深色描边，保证任何底色上都看得清）' },
+      { key: 'bookHintCaption', label: '示意框文案', type: 'text', def: '点击查看360全景图',
+        desc: '显示在示意框底部（贴着框内底边），颜色与四角一致；留空则不显示' },
       { key: 'bookHintLen', label: '角臂长度', type: 'num', def: 12, min: 4, max: 40, unit: '%',
         desc: '每个角的两条边有多长（占框短边的百分比）' },
       { key: 'bookHintRadius', label: '角圆角', type: 'num', def: 6, min: 0, max: 24, unit: 'px' },

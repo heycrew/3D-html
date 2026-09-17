@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 14:07</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 14:09</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -592,6 +592,8 @@ SD.SCHEMA = [
               '那张内容页，直接在图上拖拽就能拉取' },
       { key: 'bookHintColor', label: '示意框颜色', type: 'color', def: '#ffffff',
         desc: '四角的描边色（外面会自动加一层深色描边，保证任何底色上都看得清）' },
+      { key: 'bookHintCaption', label: '示意框文案', type: 'text', def: '点击查看360全景图',
+        desc: '显示在示意框底部（贴着框内底边），颜色与四角一致；留空则不显示' },
       { key: 'bookHintLen', label: '角臂长度', type: 'num', def: 12, min: 4, max: 40, unit: '%',
         desc: '每个角的两条边有多长（占框短边的百分比）' },
       { key: 'bookHintRadius', label: '角圆角', type: 'num', def: 6, min: 0, max: 24, unit: 'px' },
@@ -2383,6 +2385,13 @@ SD.BookPage = (function () {
       '    "@keyframes hintBreath{0%,100%{opacity:.5;}50%{opacity:1;}}" +',
       '    ".hint.breath .hc{animation:hintBreath 3.2s ease-in-out infinite;}" +',
       '    "@media (prefers-reduced-motion: reduce){.hint .hc{animation:none;opacity:1;}}" +',
+      '    /* 示意框底部文案：贴在框内底边（文字底边与框底边齐平），颜色与四角一致；',
+      '       用多层 text-shadow 当深色描边 —— 与四角那套 drop-shadow 同思路，',
+      '       保证任何底图上都看得清。 */',
+      '    ".hint .hint-cap{position:absolute;left:50%;bottom:0;transform:translateX(-50%);" +',
+      '    "white-space:nowrap;font-size:14px;letter-spacing:1px;line-height:1;" +',
+      '    "color:' + (p.bookHintColor || '#ffffff') + ';" +',
+      '    "text-shadow:0 0 2px rgba(0,0,0,.95),0 0 7px rgba(0,0,0,.6),0 1px 2px rgba(0,0,0,.85);}" +',
       '    /* 360 弹层打开时藏起来（用 :has 就省掉一处事件挂钩；旧浏览器不支持时',
       '       最多是「弹层上仍看得见框」，而框是 pointer-events:none，不影响操作）*/',
       '    "body:has(.lot-modal.on) .hint{opacity:0 !important;}";',
@@ -2402,6 +2411,17 @@ SD.BookPage = (function () {
       '    e.className = "hc " + c;',
       '    frameEl.appendChild(e);',
       '  });',
+      '  /* 底部文案（参数「示意框文案」，留空则不显示）*/',
+      '  var _capTxt = ' + JSON.stringify((function () {
+        var t = (p.bookHintCaption === undefined ? '点击查看360全景图' : p.bookHintCaption);
+        return String(t).replace(/\r\n?/g, '\n').trim();
+      })()) + ';',
+      '  if (_capTxt) {',
+      '    var _cap = document.createElement("div");',
+      '    _cap.className = "hint-cap";',
+      '    _cap.textContent = _capTxt;',
+      '    frameEl.appendChild(_cap);',
+      '  }',
       '  (bookEl.parentNode || document.body).appendChild(frameEl);',
       '}',
       'function layoutHint() {',
