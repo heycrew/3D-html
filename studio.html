@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-16 23:16</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 07:59</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -569,6 +569,13 @@ SD.SCHEMA = [
         desc: '翻到最后一页再往后翻会回到第 1 页（回翻同理）' },
       { key: 'bookPreload', label: '预载页数', type: 'num', def: 2, min: 0, max: 5,
         desc: '当前页前后各预先加载几页；页数很多时调小可省内存' },
+      { key: 'bookLoadOn', label: '首次加载提示', type: 'bool', def: true,
+        desc: '素材还没就位时先显示一层提示，避免白屏' },
+      { key: 'bookLoadText', label: '加载文案', type: 'list', def: '正在装帧…',
+        placeholder: '支持多行（直接换行）',
+        desc: '首次加载时显示的文字，可留空（回退默认）' },
+      { key: 'bookLoadProg', label: '显示加载进度', type: 'bool', def: true,
+        desc: '文案下面显示「已加载 x / y 页」' },
       { key: 'bookBg', label: '桌面背景', type: 'color', def: '#2a2118' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
       { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.72, min: 0.2, max: 0.98, step: 0.02,
@@ -2241,6 +2248,57 @@ SD.BookPage = (function () {
       'var cur = 0;',
       'var busy = false;',
       'var fb = null;',
+      '',
+      '/* ---------- 首次加载提示（参数：首次加载提示 / 加载文案 / 显示加载进度）----------',
+      '   为什么用 JS 建而不是写进 HTML：html/body 已经铺了桌面背景色，',
+      '   这段脚本紧跟着内容执行，屏幕上不会出现白闪；也省得为它单独写一套 CSS。',
+      '   文案支持多行（white-space: pre-line）。 */',
+      'var LOAD_ON = ' + (p.bookLoadOn === false ? 'false' : 'true') + ';',
+      'var LOAD_PROG = ' + (p.bookLoadProg === false ? 'false' : 'true') + ';',
+      'var LOAD_TXT = ' + JSON.stringify(
+        String(p.bookLoadText || '').replace(/\r\n?/g, '\n').trim() || '正在装帧…') + ';',
+      'var bootEl = null;',
+      'var _bootAt = Date.now();',
+      'if (LOAD_ON) {',
+      '  bootEl = document.createElement("div");',
+      '  bootEl.id = "bootLoad";',
+      '  bootEl.setAttribute("style",',
+      '    "position:fixed;inset:0;z-index:200;display:grid;place-items:center;' + 
+      'text-align:center;white-space:pre-line;box-sizing:border-box;padding:24px;" +',
+      '    "background:' + (p.bookBg || '#2a2118') + ';color:#b9ae9c;font-size:15px;' + 
+      'letter-spacing:2px;transition:opacity .35s ease");',
+      '  var _btw = document.createElement("div");',
+      '  var _bpw = document.createElement("div");',
+      '  _btw.className = "bt";',
+      '  _btw.textContent = LOAD_TXT;',
+      '  _bpw.className = "bp";',
+      '  _bpw.setAttribute("style", "margin-top:10px;font-size:13px;opacity:.7");',
+      '  /* 必须包一层：.boot 是 grid + place-items:center，',
+      '     两个直接子元素会各占一个网格单元、被分别居中（文案跑到 1/4 高、',
+      '     进度跑到 3/4 高）。包一层之后整块才居中。 */',
+      '  var _bwrap = document.createElement("div");',
+      '  _bwrap.appendChild(_btw);',
+      '  _bwrap.appendChild(_bpw);',
+      '  bootEl.appendChild(_bwrap);',
+      '  document.body.appendChild(bootEl);',
+      '}',
+      'function bootProg(done, all) {',
+      '  if (!bootEl || !LOAD_PROG) return;',
+      '  var bp = bootEl.querySelector(".bp");',
+      '  if (bp) bp.textContent = "已加载 " + done + " / " + all + " 页";',
+      '}',
+      'function hideBoot() {',
+      '  if (!bootEl) return;',
+      '  /* 最短 350ms：素材很快就绪时也别「闪一下就没」 */',
+      '  var wait = Math.max(0, 350 - (Date.now() - _bootAt));',
+      '  setTimeout(function () {',
+      '    bootEl.style.opacity = "0";',
+      '    setTimeout(function () {',
+      '      if (bootEl && bootEl.parentNode) bootEl.parentNode.removeChild(bootEl);',
+      '      bootEl = null;',
+      '    }, 420);',
+      '  }, wait);',
+      '}',
       '/* 这里原本还有个 RATIO（页面宽高比）变量 —— 那是喂给 CI360 的 aspectRatio 用的；',
       '   画布比例现在由 .book-shell 的 CSS 决定（buildCss 里按封面比例算好），',
       '   运行时用不到它，已删除。 */',
@@ -2512,14 +2570,22 @@ SD.BookPage = (function () {
       '   翻页库要等所有页 decode 完才会 ready，坏图会让它一直等下去（翻页停住）——',
       '   而缺素材是很常见的情况。过滤完再建翻页器。 */',
       'function bootFlip() {',
-      '  if (!PAGES.length) { initFlip(); return; }',
+      '  if (!PAGES.length) { initFlip(); hideBoot(); return; }',
       '  var keep = [], left = PAGES.length;',
+      '  bootProg(0, PAGES.length);',
       '  var fin = function (i, pg, ok) {',
       '    if (ok) { keep[i] = pg; }',
+      '    bootProg(PAGES.length - left + 1, PAGES.length);',
       '    if (--left === 0) {',
       '      PAGES = keep.filter(function (x) { return !!x; });',
       '      total = PAGES.length;',
       '      initFlip();',
+      '      /* 加载提示要等「首帧就位」再收：ready 之后再加一帧，避免看到空书 */',
+      '      if (fb && fb.ready && fb.ready.then) {',
+      '        fb.ready.then(function () { requestAnimationFrame(hideBoot); });',
+      '      } else {',
+      '        hideBoot();',
+      '      }',
       '    }',
       '  };',
       '  PAGES.forEach(function (pg, i) {',
@@ -2927,7 +2993,8 @@ window.SD = window.SD || {};
     } else if (d.type === 'list') {
       var ta = document.createElement('textarea');
       ta.value = val || '';
-      ta.placeholder = '每行一个（可留空）';
+      /* 多行文本域：列表类参数用「每行一个」，纯文案类（如加载文案）自定义提示 */
+      ta.placeholder = d.placeholder || '每行一个（可留空）';
       ta.addEventListener('change', function () { setParam(d.key, ta.value); });
       ctl.appendChild(ta);
 

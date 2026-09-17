@@ -172,7 +172,8 @@ window.SD = window.SD || {};
     } else if (d.type === 'list') {
       var ta = document.createElement('textarea');
       ta.value = val || '';
-      ta.placeholder = '每行一个（可留空）';
+      /* 多行文本域：列表类参数用「每行一个」，纯文案类（如加载文案）自定义提示 */
+      ta.placeholder = d.placeholder || '每行一个（可留空）';
       ta.addEventListener('change', function () { setParam(d.key, ta.value); });
       ctl.appendChild(ta);
 
