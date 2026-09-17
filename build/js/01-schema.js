@@ -99,7 +99,9 @@ SD.SCHEMA = [
     ]
   },
   {
-    id: 'book', name: '书籍（翻书图录）', open: false,
+    /* 默认展开：书页的那些参数（加载文案 / 示意框 / 翻页音效…）都在这一组里，
+       折叠着用户根本找不到（第一次交上去就被问「看不见新功能」）。 */
+    id: 'book', name: '书籍（翻书图录）', open: true,
     desc: '仅「翻书图录」页面类型生效（翻页引擎：@vysmo/flipbook，WebGL 卷曲）',
     params: [
       { key: 'bookW', label: '书宽', type: 'num', def: 900, min: 200, max: 3000, unit: 'px' },

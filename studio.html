@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 08:09</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 08:44</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -548,7 +548,9 @@ SD.SCHEMA = [
     ]
   },
   {
-    id: 'book', name: '书籍（翻书图录）', open: false,
+    /* 默认展开：书页的那些参数（加载文案 / 示意框 / 翻页音效…）都在这一组里，
+       折叠着用户根本找不到（第一次交上去就被问「看不见新功能」）。 */
+    id: 'book', name: '书籍（翻书图录）', open: true,
     desc: '仅「翻书图录」页面类型生效（翻页引擎：@vysmo/flipbook，WebGL 卷曲）',
     params: [
       { key: 'bookW', label: '书宽', type: 'num', def: 900, min: 200, max: 3000, unit: 'px' },
