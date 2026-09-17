@@ -414,7 +414,6 @@ SD.BookPage = (function () {
       '   #808080 直接失效，还会被父级任意 opacity/transform/filter 静默破坏。',
       '   样式走动态 <style>：这是一段自包含的小组件，集中在一处便于整体摘除或替换。 */',
       'var HINT_ON = ' + (p.bookHintOn ? 'true' : 'false') + ';',
-      'var HINT_BREATH = ' + (p.bookHintBreath === false ? 'false' : 'true') + ';',
       '/* 框只属于「第 N 张内容页」：PAGES[0] 是封面，所以第 1 张内容页就是索引 1。',
       '   而且只对访客展示一次（首次翻到这一页时作引导）。 */',
       'var HINT_PAGE = ' + (function () {
@@ -469,7 +468,7 @@ SD.BookPage = (function () {
       '     现象是「不报错、也没效果」，示意框永远不显示。踩过一次。 */',
       '  frameEl = document.createElement("div");',
       '  frameEl.id = "hintBox";',
-      '  frameEl.className = "hint" + (HINT_BREATH ? " breath" : "");',
+      '  frameEl.className = "hint breath";   /* 呼吸动画跟随示意区，总是开 */',
       '  frameEl.setAttribute("style", "left:" + HINT_BOX[0] + "%;top:" + HINT_BOX[1] + "%;" +',
       '    "width:" + HINT_BOX[2] + "%;height:" + HINT_BOX[3] + "%;");',
       '  ["tl", "tr", "bl", "br"].forEach(function (c) {',

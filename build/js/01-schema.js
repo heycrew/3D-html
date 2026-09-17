@@ -137,8 +137,9 @@ SD.SCHEMA = [
         desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
               '已保存的工程仍用它当时的值）' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
-      { key: 'bookHintOn', label: '交互示意区', type: 'bool', def: false,
-        desc: '在指定的那张内容页上淡入一个四角示意框，引导访客拖动 / 缩放（只展示一次）' },
+      { key: 'bookHintOn', label: '交互示意区', type: 'bool', def: true,
+        desc: '在指定的那张内容页上淡入一个四角示意框，引导访客拖动 / 缩放（只展示一次）。' +
+              '四角会缓慢呼吸，并尊重系统的「减少动态效果」设置' },
       { key: 'bookHintPage', label: '示意框所在页', type: 'num', def: 1, min: 1, max: 99,
         desc: '第几张内容页（1 = 第一张内容页，封面不算）。框只在这一页展示，' +
               '而且只对访客展示一次——首次翻到这一页时作引导' },
@@ -152,11 +153,9 @@ SD.SCHEMA = [
       { key: 'bookHintLen', label: '角臂长度', type: 'num', def: 12, min: 4, max: 40, unit: '%',
         desc: '每个角的两条边有多长（占框短边的百分比）' },
       { key: 'bookHintRadius', label: '角圆角', type: 'num', def: 6, min: 0, max: 24, unit: 'px' },
-      { key: 'bookHintBreath', label: '呼吸动画', type: 'bool', def: true,
-        desc: '四角缓慢呼吸（尊重系统的「减少动态效果」设置）' },
       { key: 'bookHintDelay', label: '显示延迟', type: 'num', def: 0, min: 0, max: 3000, step: 50,
         unit: 'ms', desc: '翻页动画结束后，等多久再淡入' },
-      { key: 'bookSoundOn', label: '翻页音效', type: 'bool', def: false,
+      { key: 'bookSoundOn', label: '翻页音效', type: 'bool', def: true,
         desc: '翻页时播放音效。用 <audio> 播放，所以手机的静音开关下也能听见；' +
               '但「媒体音量」被调到 0 时任何网页都发不出声' },
       { key: 'bookSoundKind', label: '音效来源', type: 'select', def: 'builtin',
