@@ -287,13 +287,30 @@ WebKit 工程师在 Bug #252746 里原话：「Web Audio 被 iOS 当作 ambient 
       存 x,y,宽,高 四个百分比），需要时也能手动改这几个数字。
 
   验证脚本（都在 build/.verify/，自包含素材、随时可重跑）：
-    verify_book.py   主回归：前进/回翻卷曲、页面方向、拖拽回翻、点内容页开 360、加载文案
-    verify_hint.py   示意框：首屏不显示、只在指定内容页且只展示一次、亮暗底可读性、
-                     点击穿透、弹层隐藏、呼吸
-    verify_pick.py   拉框：真实工作台预览里合成拖拽 → 自动跳页、参数被正确写入、预览未被重建
-    verify_sound.py  音效：内置 mp3 加载成功（readyState/duration）、音量、解锁 1 次 + 翻页 1 次、
-                     关闭无声音、自定义路径
+    verify_book.py        主回归：前进/回翻卷曲、页面方向、拖拽回翻、点内容页开 360、加载文案
+    verify_hint.py        示意框：首屏不显示、只在指定内容页且只展示一次、亮暗底可读性、
+                          点击穿透、弹层隐藏、呼吸
+    verify_pick.py        拉框：真实工作台预览里合成拖拽 → 自动跳页、参数被正确写入、预览未被重建
+    verify_sound.py       音效：内置 mp3 加载成功（readyState/duration）、音量、解锁 + 翻页播放、
+                          关闭无声音、自定义路径
+    verify_sound_race.py  音效时序：解锁的 pause 必须都在翻页播放**之前**（不能把音效掐掉）
+
+  iOS 实测暴露的问题与修法（2e2426c、以及后续这次改动）——
+  桌面 Chrome 复现不了，只能靠真机反馈 + 公开资料：
+
+  1) 「加了音效却没声音」：解锁逻辑拿**主元素**做（自己音量调 0 → play → resolve 后 pause），
+     和首次翻页抢同一个 audio → 那一声被静音或被 pause 掐掉；play() 的 promise 不 resolve 时
+     音量还会卡在 0。→ 解锁改用独立元素，且播放前每次纠正音量。
+  2) 手机「第一次翻页有声、之后全哑」：iOS 的两个特性叠在一起 ——
+     · 手势解锁是**按元素**的（不是按页面），新元素要各自解锁；
+     · 同一个 <audio> 在音频尚未播完时再次 play() 常被**静默忽略**；
+     · currentTime = 0 在 iOS 上有 INDEX_SIZE_ERR 的历史坑；load() 会把元素限制成只能播一两次。
+     → 用 **2 个 <audio> 轮换**（池化）+ currentTime 用 **0.1** + 播放被拒时换元素兜底重试；
+       解锁时池里**每个**元素在**同一手势栈内同步** play()→pause()（异步 pause 会落在翻页
+       播放之后把它掐掉）。
+     参考：SO #4799369「Reusing HTML5 Audio Object in Mobile Safari」、WebKit #287624 / #264473。
 
   仍需真机确认（自动化测不了）：
-    · iOS「静音开关」下翻页音效是否真的出声（机制上应该成立：走 <audio> 的 media 通道）
+    · iOS「静音开关」下翻页音效是否真的出声（机制上应该成立：走 <audio> 的 media 通道；
+      若某些 iOS 版本仍无声，下一步可试 Audio Session API 的组合方案）
     · iOS 上放音会打断用户正在听的音乐（media 通道独占），这是「能听见」的代价
