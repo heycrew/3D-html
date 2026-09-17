@@ -275,7 +275,7 @@ WebKit 工程师在 Bug #252746 里原话：「Web Audio 被 iOS 当作 ambient 
            首次手势静音解锁、导出时把 lib/sound/book-voice.mp3 一起打包
   6ab48cd  示意区优化：框归属「第 N 张内容页」（bookHintPage，默认第 1 张）+ 只对访客展示一次；
            工作台点「示意区」会自动跳到那一页
-  b616c56  内置音效定稿：只留一个 —— 用客户提供的 book-voice.mp3（放进 build/vendor/sound/，
+  c58dcbe  内置音效定稿：只留一个 —— 用客户提供的 book-voice.mp3（放进 build/vendor/sound/，
            lib/ 完全由 vendor/ 重建），音效来源参数简化为「内置音效 / 自定义路径」
 
   实现过程中的两处取舍（提交信息里都写了原因）：
