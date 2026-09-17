@@ -80,7 +80,7 @@ SD.BookPage = (function () {
     var _fit = (_p.bookFit !== 'manual') && _cov && _cov.w && _cov.h;
     var W = _p.bookW || 900, H = _p.bookH || 1200;
     if (_fit) { H = Math.max(1, Math.round(W * _cov.h / _cov.w)); }
-    var bg = p.bookBg || '#2a2118';
+    var bg = p.bookBg || '#000000';   /* 默认纯黑（与 schema 的 def 保持一致） */
     /* 锚点（.dot，点页面开 360 时那个脉冲圆点）的尺寸与颜色写死在这里：
        面板上没有对应参数，原先的 p.bookDotSize / p.bookDotColor 永远只会
        取到默认值 —— 「代码里像可配、界面里却改不了」的遗留，已清理成常量。 */
@@ -333,7 +333,7 @@ SD.BookPage = (function () {
       '  bootEl.setAttribute("style",',
       '    "position:fixed;inset:0;z-index:200;display:grid;place-items:center;' + 
       'text-align:center;white-space:pre-line;box-sizing:border-box;padding:24px;" +',
-      '    "background:' + (p.bookBg || '#2a2118') + ';color:#b9ae9c;font-size:15px;' + 
+      '    "background:' + (p.bookBg || '#000000') + ';color:#b9ae9c;font-size:15px;' + 
       'letter-spacing:2px;transition:opacity .35s ease");',
       '  var _btw = document.createElement("div");',
       '  var _bpw = document.createElement("div");',

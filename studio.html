@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 11:01</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 14:05</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -578,7 +578,9 @@ SD.SCHEMA = [
         desc: '首次加载时显示的文字，可留空（回退默认）' },
       { key: 'bookLoadProg', label: '显示加载进度', type: 'bool', def: true,
         desc: '文案下面显示「已加载 x / y 页」' },
-      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#2a2118' },
+      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#000000',
+        desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
+              '已保存的工程仍用它当时的值）' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
       { key: 'bookHintOn', label: '交互示意区', type: 'bool', def: false,
         desc: '在指定的那张内容页上淡入一个四角示意框，引导访客拖动 / 缩放（只展示一次）' },
@@ -2042,7 +2044,7 @@ SD.BookPage = (function () {
     var _fit = (_p.bookFit !== 'manual') && _cov && _cov.w && _cov.h;
     var W = _p.bookW || 900, H = _p.bookH || 1200;
     if (_fit) { H = Math.max(1, Math.round(W * _cov.h / _cov.w)); }
-    var bg = p.bookBg || '#2a2118';
+    var bg = p.bookBg || '#000000';   /* 默认纯黑（与 schema 的 def 保持一致） */
     /* 锚点（.dot，点页面开 360 时那个脉冲圆点）的尺寸与颜色写死在这里：
        面板上没有对应参数，原先的 p.bookDotSize / p.bookDotColor 永远只会
        取到默认值 —— 「代码里像可配、界面里却改不了」的遗留，已清理成常量。 */
@@ -2295,7 +2297,7 @@ SD.BookPage = (function () {
       '  bootEl.setAttribute("style",',
       '    "position:fixed;inset:0;z-index:200;display:grid;place-items:center;' + 
       'text-align:center;white-space:pre-line;box-sizing:border-box;padding:24px;" +',
-      '    "background:' + (p.bookBg || '#2a2118') + ';color:#b9ae9c;font-size:15px;' + 
+      '    "background:' + (p.bookBg || '#000000') + ';color:#b9ae9c;font-size:15px;' + 
       'letter-spacing:2px;transition:opacity .35s ease");',
       '  var _btw = document.createElement("div");',
       '  var _bpw = document.createElement("div");',

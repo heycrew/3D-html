@@ -129,7 +129,9 @@ SD.SCHEMA = [
         desc: '首次加载时显示的文字，可留空（回退默认）' },
       { key: 'bookLoadProg', label: '显示加载进度', type: 'bool', def: true,
         desc: '文案下面显示「已加载 x / y 页」' },
-      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#2a2118' },
+      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#000000',
+        desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
+              '已保存的工程仍用它当时的值）' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
       { key: 'bookHintOn', label: '交互示意区', type: 'bool', def: false,
         desc: '在指定的那张内容页上淡入一个四角示意框，引导访客拖动 / 缩放（只展示一次）' },
