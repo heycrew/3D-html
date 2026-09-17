@@ -1,0 +1,39 @@
+{
+  "name": "studio-360-desktop",
+  "productName": "360全景展示工作台",
+  "version": "1.0.0",
+  "description": "360° 全景展示工作台 —— 绿色版桌面应用（内置本地服务 + 窗口，免安装、拷走即用）",
+  "main": "main.js",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "sync": "node sync.js",
+    "start": "electron .",
+    "dist": "node sync.js && electron-builder --win dir",
+    "dist-portable": "node sync.js && electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.reasonix.studio360",
+    "productName": "360全景展示工作台",
+    "directories": {
+      "output": "dist"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "main.js",
+      "app/**/*",
+      "icon.ico"
+    ],
+    "win": {
+      "target": [
+        "dir"
+      ],
+      "icon": "icon.ico"
+    },
+    "compression": "normal"
+  }
+}

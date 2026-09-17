@@ -16,6 +16,13 @@ _test*.*
 # ===== 打包依赖（可随时重装：node build/mkvysmo.js）=====
 build/vysmo-src/node_modules/
 
+# ===== 桌面应用（Electron）=====
+# node_modules 可重装、dist 可重出；desktop/app/ 是 sync.js 从项目根同步出来的副本，
+# 都不入库（免得和 studio.html / lib/ 的源版本不一致）。
+desktop/node_modules/
+desktop/dist/
+desktop/app/
+
 # ===== 系统文件 =====
 Thumbs.db
 desktop.ini
