@@ -451,6 +451,10 @@ window.SD = window.SD || {};
     if (SD.Store) SD.Store.autoSave();
     var hc = $('hsCount');
     if (hc) hc.textContent = SD.Hotspots ? SD.Hotspots.count() : 0;
+    /* 「本页 360 素材」得跟着当前页走：切页（左栏点某一行、新增/删除页、
+       导入页面图）都会走到这里。以前只有动素材本身时才刷新它，所以换到
+       另一页之后，下面那栏还显示着上一页的素材。 */
+    page360Render();
     SD.Preview.schedule(STATE);
 
     if (codeTimer) clearTimeout(codeTimer);
@@ -884,11 +888,20 @@ window.SD = window.SD || {};
   /* ================= 本页 360 素材 =================
      书模式下每个内容页自带一组 360 素材，成品里点这一页就弹出。
      比原来「逐页建条目」少两步，更贴近真实素材组织方式。 */
-  function page360Render() {
+  var _p360Key = '';
+  function page360Render(force) {
     var host = $('page360List'), hint = $('page360Hint');
     if (!host) return;
     var sh = SD.Book ? SD.Book.activeSheet() : null;
     var list = (sh && sh.kind === 'page') ? SD.Book.itemsOf(sh) : null;
+    /* 内容没变就别重建：参数滑杆会高频调 refresh，重建这排缩略图会闪一下 */
+    var key = (sh ? sh.kind + '#' + sh.index : 'none') + '/' +
+              (list ? list.length : -1) + '/' +
+              (list ? list.map(function (it) {
+                return (it.url || it.name || '') + (it.off ? '*' : '');
+              }).join(',') : '');
+    if (!force && key === _p360Key) return;
+    _p360Key = key;
     host.innerHTML = '';
     if (!list) {
       if (hint) hint.textContent = '先选一张内容页（封面 / 封底不需要 360 素材）';
