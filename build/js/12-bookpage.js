@@ -153,25 +153,48 @@ SD.BookPage = (function () {
       '.corner.prev{left:0;}',
       '.corner.next{right:0;}',
 
-      '/* 页码导航 */',
-      '.book-nav{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:70;',
-      '  display:flex;align-items:center;gap:14px;color:#e8dccb;font-size:14px;',
+      '/* 底部导航条：左边「缩略图」、中间页码、右边「自动翻页」。',
+      '   点页码 → 整条上移、下方展开一条拖动进度条；松手缩回并跳到那一页。 */',
+      '.nav-wrap{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:70;',
+      '  display:flex;flex-direction:column;align-items:center;gap:10px;}',
+      '.book-nav{display:grid;align-items:center;color:#e8dccb;font-size:14px;',
+      '  grid-template-columns:1fr auto 1fr;gap:10px;',
       '  background:rgba(0,0,0,.42);padding:8px 16px;border-radius:999px;',
       '  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);}',
-      '.book-nav button{border:0;background:rgba(255,255,255,.14);color:#fff;width:32px;',
-      '  height:32px;border-radius:50%;cursor:pointer;font-size:16px;line-height:1;}',
-      '.book-nav button:hover{background:rgba(255,255,255,.3);}',
-      '.book-nav button:disabled{opacity:.3;cursor:not-allowed;}',
-      '/* 页码可以点：点一下变成输入框，输入数字回车跳页 */',
+      '/* 两边那两个文字按钮：跟页码同一套观感（透明底 + 悬停变亮）*/',
+      '.book-nav .nav-btn{border:0;background:none;color:inherit;font:inherit;cursor:pointer;',
+      '  padding:3px 8px;border-radius:999px;white-space:nowrap;',
+      '  transition:background .15s,color .15s;}',
+      '.book-nav .nav-btn:hover{background:rgba(255,255,255,.14);}',
+      '.book-nav .nav-btn.nav-l{justify-self:start;}',
+      '.book-nav .nav-btn.nav-r{justify-self:end;}',
+      '/* 自动翻页进行中：按钮变明显，文案换成「停止翻页」*/',
+      '.book-nav .nav-btn.on{background:rgba(255,179,64,.9);color:#2a2118;font-weight:600;}',
+      '.book-nav .nav-btn.on:hover{background:rgba(255,196,102,.95);}',
+      '/* 页码：点它可以拉开下面那条进度条 */',
       '.book-nav .nav-num{cursor:pointer;border-radius:6px;padding:2px 6px;',
-      '  transition:background .15s;white-space:nowrap;}',
+      '  transition:background .15s;white-space:nowrap;text-align:center;}',
       '.book-nav .nav-num:hover{background:rgba(255,255,255,.14);}',
-      '.book-nav .nav-input{width:3.4em;text-align:center;font:inherit;color:inherit;',
-      '  background:rgba(255,255,255,.18);border:0;border-radius:6px;padding:2px 4px;',
-      '  outline:2px solid rgba(255,179,64,.9);outline-offset:1px;}',
-      '/* 缩略图目录按钮（就在页码旁边）：点开是一面黑色半透明的「图墙」 */',
-      '.book-nav button.nav-thumb{padding:0;display:grid;place-items:center;}',
-      '.book-nav button.nav-thumb svg{width:15px;height:15px;display:block;}',
+      '.book-nav .nav-num:focus-visible{outline:2px solid rgba(255,179,64,.9);outline-offset:2px;}',
+      '/* 拖动进度条那一行：默认收着（高度 0），点页码后展开 */',
+      '.nav-seek{width:min(72vw,560px);display:flex;align-items:center;gap:10px;',
+      '  background:rgba(0,0,0,.42);border-radius:999px;overflow:hidden;box-sizing:border-box;',
+      '  -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);',
+      '  max-height:0;opacity:0;padding:0 16px;',
+      '  transition:max-height .22s ease,opacity .22s ease,padding .22s ease;}',
+      '.nav-seek.on{max-height:60px;opacity:1;padding:9px 16px;}',
+      '.nav-seek[hidden]{display:none;}',
+      '.seek-tip{flex:0 0 auto;font-size:13px;color:#e8dccb;white-space:nowrap;min-width:4.8em;}',
+      '.seek-range{flex:1 1 auto;width:100%;margin:0;height:22px;background:none;',
+      '  -webkit-appearance:none;appearance:none;cursor:pointer;}',
+      '.seek-range::-webkit-slider-runnable-track{height:4px;border-radius:2px;',
+      '  background:rgba(255,255,255,.3);}',
+      '.seek-range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;',
+      '  width:16px;height:16px;margin-top:-6px;border-radius:50%;background:#ffb340;border:0;}',
+      '.seek-range::-moz-range-track{height:4px;border-radius:2px;background:rgba(255,255,255,.3);}',
+      '.seek-range::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;',
+      '  background:#ffb340;}',
+      '.seek-range:focus{outline:none;}',
       '.thumb-sheet{position:fixed;inset:0;z-index:9990;display:flex;flex-direction:column;',
       '  background:rgba(0,0,0,.82);color:#fff;opacity:0;transition:opacity .22s ease;',
       '  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}',
@@ -239,13 +262,13 @@ SD.BookPage = (function () {
       '  color:rgba(255,255,255,.6);font-size:12px;letter-spacing:1px;z-index:9999;}',
 
       '@media (max-width:820px){',
-      '  /* 手机上靠手势操作 —— 按钮都收起来，但底部那条操作说明要保留：',
-      '     它写的就是手机手势，正是给手机用户看的 */',
-      '  /* 窄屏上去掉上一页/下一页按钮（有左右热区），但缩略图按钮要留着 */',
-      '  .book-nav button:not(.nav-thumb){display:none;}',
+      '  /* 手机上靠手势操作 —— 两边热区收起来，但底部那条导航条要保留：',
+      '     现在它是纯文字按钮（缩略图 / 页码 / 自动翻页），不占地方 */',
+      '  .nav-wrap{bottom:12px;}',
+      '  .book-nav{font-size:13px;padding:6px 12px;gap:6px;}',
+      '  .nav-seek{width:88vw;}',
       '  .lot-close{width:34px;height:34px;font-size:17px;top:14px;right:14px;}',
-      '  .book-nav{bottom:12px;font-size:13px;padding:6px 14px;}',
-      '  .corner{display:none;}         /* 也去掉左右点击热区，避免误触 */',
+      '  .corner{display:none;}         /* 去掉左右点击热区，避免误触 */',
       '  .lot-hint{font-size:11px;}',
       '}'
     ].join('\n');
@@ -255,7 +278,6 @@ SD.BookPage = (function () {
   function buildBody(state, mode) {
     var sheets = sheetList(state, mode);
     var out = [];
-    var thumbOn = (state.params || {}).bookThumbOn !== false;   /* 缩略图目录，默认开 */
 
     out.push('<div class="desk"></div>');
     out.push('<div class="book-wrap">');
@@ -271,32 +293,30 @@ SD.BookPage = (function () {
     out.push('<div class="corner next" id="cNext"></div>');
 
     if ((state.params || {}).bookShowNav !== false) {
-      out.push('<div class="book-nav">');
-      out.push('  <button id="navPrev" title="上一页">‹</button>');
-      out.push('  <span id="navText">1 / ' + sheets.length + '</span>');
-      if (thumbOn) {                     /* 缩略图目录按钮：就贴在页码旁边 */
-        out.push('  <button id="navThumb" class="nav-thumb" title="目录（缩略图）">');
-        out.push('    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">' +
-          '<rect x="1" y="1" width="6" height="6" rx="1.4"/>' +
-          '<rect x="9" y="1" width="6" height="6" rx="1.4"/>' +
-          '<rect x="1" y="9" width="6" height="6" rx="1.4"/>' +
-          '<rect x="9" y="9" width="6" height="6" rx="1.4"/></svg>');
-        out.push('  </button>');
-      }
-      out.push('  <button id="navNext" title="下一页">›</button>');
+      out.push('<div class="nav-wrap" id="navWrap">');
+      out.push('  <div class="book-nav">');
+      out.push('    <button id="navThumb" class="nav-btn nav-l">缩略图</button>');
+      out.push('    <span id="navText" class="nav-num" role="button" tabindex="0">1 / ' +
+        sheets.length + '</span>');
+      out.push('    <button id="navAuto" class="nav-btn nav-r">自动翻页</button>');
+      out.push('  </div>');
+      /* 拖动进度条那一行：平时收着，点页码才展开（见脚本里的 toggleSeek）*/
+      out.push('  <div class="nav-seek" id="navSeek" hidden>');
+      out.push('    <span class="seek-tip" id="seekTip">第 1 页</span>');
+      out.push('    <input type="range" class="seek-range" id="seekRange" min="1" max="' +
+        Math.max(1, sheets.length) + '" step="1" value="1" aria-label="拖动选择页码">');
+      out.push('  </div>');
       out.push('</div>');
     }
 
-    if (thumbOn) {
-      /* 缩略图「图墙」：黑色半透明盖住当前页；三张一行、按顺序，每张图下面标页码 */
-      out.push('<div class="thumb-sheet" id="thumbSheet" hidden>');
-      out.push('  <div class="ts-head">');
-      out.push('    <span class="ts-title">目录</span>');
-      out.push('    <button class="ts-close" id="thumbClose" title="关闭（Esc）">×</button>');
-      out.push('  </div>');
-      out.push('  <div class="ts-grid" id="thumbGrid"></div>');
-      out.push('</div>');
-    }
+    /* 缩略图「图墙」：黑色半透明盖住当前页；三张一行、按顺序，每张图下面标页码 */
+    out.push('<div class="thumb-sheet" id="thumbSheet" hidden>');
+    out.push('  <div class="ts-head">');
+    out.push('    <span class="ts-title">目录</span>');
+    out.push('    <button class="ts-close" id="thumbClose" title="关闭（Esc）">×</button>');
+    out.push('  </div>');
+    out.push('  <div class="ts-grid" id="thumbGrid"></div>');
+    out.push('</div>');
 
     out.push('<div class="lot-modal" id="lotModal">');
     out.push('  <button class="lot-close" id="lotClose" title="关闭（Esc）">×</button>');
@@ -392,7 +412,7 @@ SD.BookPage = (function () {
       'var LOAD_TXT = ' + JSON.stringify(
         String(p.bookLoadText || '').replace(/\r\n?/g, '\n').trim() || '正在装帧…') + ';',
       'var LOAD_TOP = ' + JSON.stringify(
-        String(p.bookLoadTopText || '').replace(/\r\n?/g, '\n').trim() || '点击页码可跳转指定页') + ';',
+        String(p.bookLoadTopText || '').replace(/\r\n?/g, '\n').trim() || '点页码可拖动跳页') + ';',
       'var bootEl = null;',
       'var _bootAt = Date.now();',
       'if (LOAD_ON) {',
@@ -724,15 +744,13 @@ SD.BookPage = (function () {
       '   画布比例现在由 .book-shell 的 CSS 决定（buildCss 里按封面比例算好），',
       '   运行时用不到它，已删除。 */',
       '',
-      '/* 页码、翻页按钮可用状态 */',
+      '/* 页码、进度条、自动翻页的执行状态 */',
       'function syncNav() {',
       '  dotsLayer.innerHTML = (PAGES[cur] && PAGES[cur].dots) ? PAGES[cur].dots : "";',
-      '  /* 正在输入页码时别覆盖它（用户可能一边输一边点了翻页按钮） */',
-      '  if (navText && !navEditing) navText.textContent = (cur + 1) + " / " + total;',
-      '  var pv = document.getElementById("navPrev"), nx = document.getElementById("navNext");',
-      '  /* 循环翻页时首尾不锁 —— 按钮永远可点 */',
-      '  if (pv) pv.disabled = (!LOOP && cur === 0);',
-      '  if (nx) nx.disabled = (!LOOP && cur === total - 1);',
+      '  if (navText) navText.textContent = (cur + 1) + " / " + total;',
+      '  syncSeek();                       /* 进度条位置 + 「第 N 页」提示 */',
+      '  /* 自动翻页走到最后一页就自己停下来（不绕回第一页，免得像卡住） */',
+      '  if (autoTimer && cur >= total - 1 && !LOOP) stopAuto();',
       '}',
       '',
       '/* 两个方向都走库的 next() / prev()：同一条卷曲管道，没有「回翻不卷」的坑。',
@@ -877,53 +895,98 @@ SD.BookPage = (function () {
       '  })();',
       '}',
       '',
-      '/* ---------- 点页码可以直接输入数字跳页 ---------- */',
-      'var navEditing = false;',
+      '/* ---------- 点页码：整条上移、下面展开一条拖动进度条 ----------',
+      '   拖动过程中只更新「第 N 页」的提示，松手（change）才真的跳过去，然后缩回去。 */',
+      'var seekEl = document.getElementById("navSeek");',
+      'var seekRange = document.getElementById("seekRange");',
+      'var seekTip = document.getElementById("seekTip");',
+      'var navAuto = document.getElementById("navAuto");',
+      'var seekOpen = false;',
+      'var AUTO_MS = ' + Math.max(1000, Number((state.params || {}).bookAutoMs) || 3000) + ';',
+      'function syncSeek() {',
+      '  if (seekRange && seekRange.value !== String(cur + 1)) seekRange.value = String(cur + 1);',
+      '  if (seekTip) seekTip.textContent = "第 " + (cur + 1) + " 页";',
+      '}',
+      'function openSeek() {',
+      '  if (!seekEl || seekOpen) return;',
+      '  seekOpen = true;',
+      '  syncSeek();',
+      '  seekEl.hidden = false;',
+      '  void seekEl.offsetWidth;          /* 先落地再上过渡，否则动画不跑 */',
+      '  seekEl.classList.add("on");',
+      '}',
+      'function closeSeek() {',
+      '  if (!seekEl || !seekOpen) return;',
+      '  seekOpen = false;',
+      '  seekEl.classList.remove("on");',
+      '  setTimeout(function () {',
+      '    if (!seekEl.classList.contains("on")) seekEl.hidden = true;',
+      '  }, 240);',
+      '}',
+      '/* 只接受 1..total，越界的拖动值不会把书翻坏 */',
+      'function goToPage(n) {',
+      '  var want = Math.max(1, Math.min(total, n));',
+      '  if (!fb || want - 1 === cur) { syncSeek(); return; }',
+      '  try { fb.goTo(want - 1); } catch (e) {}',
+      '}',
       'if (navText) {',
       '  navText.classList.add("nav-num");',
-      '  navText.title = "点击输入页码";',
+      '  navText.title = "点一下可以拖动跳页";',
       '  navText.addEventListener("click", function () {',
-      '    if (navEditing || busy || !fb) return;',
-      '    navEditing = true;',
-      '    var inp = document.createElement("input");',
-      '    /* 用 text + inputmode=numeric：手机上唤起数字键盘，又不会出现 number 的加减箭头 */',
-      '    inp.type = "text";',
-      '    inp.setAttribute("inputmode", "numeric");',
-      '    inp.maxLength = 4;',
-      '    inp.className = "nav-input";',
-      '    inp.value = String(cur + 1);',
-      '    navText.textContent = "";',
-      '    navText.appendChild(inp);',
-      '    try { inp.focus(); inp.select(); } catch (e) {}',
-      '    var finish = function (commit) {',
-      '      if (!navEditing) return;',
-      '      navEditing = false;',
-      '      var want = parseInt(inp.value, 10);',
-      '      if (inp.parentNode) inp.parentNode.removeChild(inp);',
-      '      if (commit && isFinite(want)) {',
-      '        want = Math.max(1, Math.min(total, want));',
-      '        if (want - 1 !== cur) { try { fb.goTo(want - 1); } catch (e) {} }',
-      '      }',
-      '      syncNav();                       /* 恢复成「x / y」*/',
-      '    };',
-      '    inp.addEventListener("keydown", function (e) {',
-      '      /* 别让文档级的左右方向键把输入框变成翻页 */',
-      '      e.stopPropagation();',
-      '      if (e.key === "Enter") { e.preventDefault(); finish(true); }',
-      '      else if (e.key === "Escape") { e.preventDefault(); finish(false); }',
-      '    });',
-      '    inp.addEventListener("blur", function () { finish(true); });',
-      '    inp.addEventListener("pointerdown", function (e) { e.stopPropagation(); });',
-      '    inp.addEventListener("click", function (e) { e.stopPropagation(); });',
+      '    if (seekOpen) closeSeek(); else openSeek();',
+      '  });',
+      '  navText.addEventListener("keydown", function (e) {',
+      '    if (e.key === "Enter" || e.key === " ") {',
+      '      e.preventDefault();',
+      '      if (seekOpen) closeSeek(); else openSeek();',
+      '    }',
+      '  });',
+      '}',
+      'if (seekRange) {',
+      '  /* input 在拖动过程中连续触发 → 只更新提示，不跳页 */',
+      '  seekRange.addEventListener("input", function () {',
+      '    var v = parseInt(seekRange.value, 10);',
+      '    if (seekTip && isFinite(v)) seekTip.textContent = "第 " + v + " 页";',
+      '  });',
+      '  /* change 在松手时触发 → 这才是「跳到那一页」，随后缩回去 */',
+      '  seekRange.addEventListener("change", function () {',
+      '    var v = parseInt(seekRange.value, 10);',
+      '    try { seekRange.blur(); } catch (e) {}',
+      '    closeSeek();',
+      '    if (isFinite(v)) goToPage(v);',
+      '  });',
+      '  /* 别让这一行的指针事件漏到书页上（不然会顺手翻页或弹出 360） */',
+      '  seekRange.addEventListener("pointerdown", function (e) { e.stopPropagation(); });',
+      '  seekRange.addEventListener("click", function (e) { e.stopPropagation(); });',
+      '}',
+      '',
+      '/* ---------- 自动翻页 ----------',
+      '   点一下开始（按钮变成「停止翻页」），再点一下停；翻到最后一页也会自己停。 */',
+      'var autoTimer = null;',
+      'function stopAuto() {',
+      '  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }',
+      '  if (navAuto) { navAuto.textContent = "自动翻页"; navAuto.classList.remove("on"); }',
+      '}',
+      'function startAuto() {',
+      '  if (autoTimer || !total) return;',
+      '  closeSeek();                      /* 自动翻页时把进度条收起来，免得挡着 */',
+      '  if (navAuto) { navAuto.textContent = "停止翻页"; navAuto.classList.add("on"); }',
+      '  autoTimer = setInterval(function () {',
+      '    if (busy) return;               /* 翻页动画还没结束 → 这一步跳过 */',
+      '    if (cur >= total - 1) { stopAuto(); return; }',
+      '    flipNext();',
+      '  }, AUTO_MS);',
+      '}',
+      'if (navAuto) {',
+      '  navAuto.addEventListener("click", function (e) {',
+      '    e.stopPropagation();',
+      '    if (autoTimer) stopAuto(); else startAuto();',
       '  });',
       '}',
       '',
       'var cp = document.getElementById("cPrev"), cn = document.getElementById("cNext");',
       'if (cp) cp.addEventListener("click", flipPrev);',
       'if (cn) cn.addEventListener("click", flipNext);',
-      'var np = document.getElementById("navPrev"), nn = document.getElementById("navNext");',
-      'if (np) np.addEventListener("click", flipPrev);',
-      'if (nn) nn.addEventListener("click", flipNext);',
       'document.addEventListener("keydown", function (e) {',
       '  if (e.key === "ArrowRight") flipNext();',
       '  if (e.key === "ArrowLeft") flipPrev();',
@@ -1101,7 +1164,7 @@ SD.BookPage = (function () {
       '  var t = e.target;',
       '  if (t && t.closest) {',
       '    if (t.closest(".corner") || t.closest(".book-nav") || t.closest(".dot") ||',
-      '        t.closest(".thumb-sheet")) return;',
+      '        t.closest(".thumb-sheet") || t.closest(".nav-seek")) return;',
       '  }',
       '  if (modal.classList.contains("on")) return;',
       '  var sh = PAGES[cur];',

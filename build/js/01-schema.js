@@ -129,17 +129,19 @@ SD.SCHEMA = [
         desc: '首次加载时显示的文字，可留空（回退默认）' },
       { key: 'bookLoadProg', label: '显示加载进度', type: 'bool', def: true,
         desc: '文案下面显示「已加载 x / y 页」' },
-      { key: 'bookLoadTopText', label: '加载页说明文字', type: 'text', def: '点击页码可跳转指定页',
+      { key: 'bookLoadTopText', label: '加载页说明文字', type: 'text', def: '点页码可拖动跳页',
         desc: '显示在加载页底部「模拟页码」的上方（那句话就是解释页码能点的）；留空则不显示' },
       { key: 'bookLoadMinMs', label: '最短停留', type: 'num', def: 3000, min: 0, max: 10000, step: 100,
         unit: 'ms', desc: '加载页至少停留多久 —— 实际时长取「真实加载耗时」与它的较大者' },
       { key: 'bookBg', label: '桌面背景', type: 'color', def: '#000000',
         desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
               '已保存的工程仍用它当时的值）' },
-      { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
-      { key: 'bookThumbOn', label: '缩略图目录', type: 'bool', def: true,
-        desc: '在页码旁多一个缩略图按钮：点开是黑色半透明的「图墙」（三张一行、按顺序，' +
-              '每张图下面标着页码），点其中一张就直接跳到那一页（需开「显示页码导航」）' },
+      { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true,
+        desc: '底部那条：左边「缩略图」、中间页码、右边「自动翻页」。' +
+              '点页码会展开一条拖动进度条（拖动时显示第几页，松手跳过去）' },
+      { key: 'bookAutoMs', label: '自动翻页间隔', type: 'num', def: 3000, min: 1000, max: 20000,
+        step: 500, unit: 'ms',
+        desc: '点「自动翻页」后每隔多久翻一页；翻到最后一页会自动停下' },
       { key: 'bookHintOn', label: '交互示意区', type: 'bool', def: true,
         desc: '在指定的那张内容页上淡入一个四角示意框，引导访客拖动 / 缩放（只展示一次）。' +
               '四角会缓慢呼吸，并尊重系统的「减少动态效果」设置' },
