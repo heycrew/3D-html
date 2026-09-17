@@ -169,6 +169,34 @@ SD.BookPage = (function () {
       '.book-nav .nav-input{width:3.4em;text-align:center;font:inherit;color:inherit;',
       '  background:rgba(255,255,255,.18);border:0;border-radius:6px;padding:2px 4px;',
       '  outline:2px solid rgba(255,179,64,.9);outline-offset:1px;}',
+      '/* 缩略图目录按钮（就在页码旁边）：点开是一面黑色半透明的「图墙」 */',
+      '.book-nav button.nav-thumb{padding:0;display:grid;place-items:center;}',
+      '.book-nav button.nav-thumb svg{width:15px;height:15px;display:block;}',
+      '.thumb-sheet{position:fixed;inset:0;z-index:9990;display:flex;flex-direction:column;',
+      '  background:rgba(0,0,0,.82);color:#fff;opacity:0;transition:opacity .22s ease;',
+      '  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}',
+      '.thumb-sheet[hidden]{display:none;}',
+      '.thumb-sheet.on{opacity:1;}',
+      '.ts-head{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;',
+      '  padding:14px 18px;font-size:15px;letter-spacing:1px;}',
+      '.ts-title{opacity:.85;}',
+      '.ts-close{border:0;background:rgba(255,255,255,.14);color:#fff;width:34px;height:34px;',
+      '  border-radius:50%;font-size:20px;line-height:1;cursor:pointer;}',
+      '.ts-close:hover{background:rgba(255,255,255,.3);}',
+      '/* 图墙：三张一行、按顺序排，每张图下面一行页码 */',
+      '.ts-grid{flex:1 1 auto;overflow:auto;display:grid;align-content:start;',
+      '  grid-template-columns:repeat(3,1fr);gap:14px;padding:4px 18px 26px;',
+      '  -webkit-overflow-scrolling:touch;}',
+      '.ts-item{border:0;background:none;padding:0;margin:0;cursor:pointer;color:#fff;',
+      '  font:inherit;display:flex;flex-direction:column;align-items:center;gap:6px;}',
+      '.ts-item img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;',
+      '  border-radius:6px;background:rgba(255,255,255,.08);',
+      '  border:1px solid rgba(255,255,255,.16);transition:transform .16s ease;}',
+      '.ts-item:hover img{transform:translateY(-2px);}',
+      '.ts-item.is-cur img{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.5);}',
+      '.ts-num{font-size:12px;letter-spacing:1px;opacity:.8;}',
+      '.ts-item.is-cur .ts-num{opacity:1;font-weight:600;}',
+      'body.thumb-open{overflow:hidden;}',
 
       '/* 360 弹层：盖在书页位置上，按书尺寸同比例适配 */',
       '.lot-modal{position:fixed;inset:0;z-index:9998;display:none;',
@@ -213,7 +241,8 @@ SD.BookPage = (function () {
       '@media (max-width:820px){',
       '  /* 手机上靠手势操作 —— 按钮都收起来，但底部那条操作说明要保留：',
       '     它写的就是手机手势，正是给手机用户看的 */',
-      '  .book-nav button{display:none;}',
+      '  /* 窄屏上去掉上一页/下一页按钮（有左右热区），但缩略图按钮要留着 */',
+      '  .book-nav button:not(.nav-thumb){display:none;}',
       '  .lot-close{width:34px;height:34px;font-size:17px;top:14px;right:14px;}',
       '  .book-nav{bottom:12px;font-size:13px;padding:6px 14px;}',
       '  .corner{display:none;}         /* 也去掉左右点击热区，避免误触 */',
@@ -226,6 +255,7 @@ SD.BookPage = (function () {
   function buildBody(state, mode) {
     var sheets = sheetList(state, mode);
     var out = [];
+    var thumbOn = (state.params || {}).bookThumbOn !== false;   /* 缩略图目录，默认开 */
 
     out.push('<div class="desk"></div>');
     out.push('<div class="book-wrap">');
@@ -244,7 +274,27 @@ SD.BookPage = (function () {
       out.push('<div class="book-nav">');
       out.push('  <button id="navPrev" title="上一页">‹</button>');
       out.push('  <span id="navText">1 / ' + sheets.length + '</span>');
+      if (thumbOn) {                     /* 缩略图目录按钮：就贴在页码旁边 */
+        out.push('  <button id="navThumb" class="nav-thumb" title="目录（缩略图）">');
+        out.push('    <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">' +
+          '<rect x="1" y="1" width="6" height="6" rx="1.4"/>' +
+          '<rect x="9" y="1" width="6" height="6" rx="1.4"/>' +
+          '<rect x="1" y="9" width="6" height="6" rx="1.4"/>' +
+          '<rect x="9" y="9" width="6" height="6" rx="1.4"/></svg>');
+        out.push('  </button>');
+      }
       out.push('  <button id="navNext" title="下一页">›</button>');
+      out.push('</div>');
+    }
+
+    if (thumbOn) {
+      /* 缩略图「图墙」：黑色半透明盖住当前页；三张一行、按顺序，每张图下面标页码 */
+      out.push('<div class="thumb-sheet" id="thumbSheet" hidden>');
+      out.push('  <div class="ts-head">');
+      out.push('    <span class="ts-title">目录</span>');
+      out.push('    <button class="ts-close" id="thumbClose" title="关闭（Esc）">×</button>');
+      out.push('  </div>');
+      out.push('  <div class="ts-grid" id="thumbGrid"></div>');
       out.push('</div>');
     }
 
@@ -751,6 +801,80 @@ SD.BookPage = (function () {
       '  }',
       '  window.__fb = fb;   /* 诊断用：控制台可直接调 next/prev/goTo/seek */',
       '  syncNav();',
+      '',
+      '  /* ---------- 缩略图目录 ----------',
+      '     页码旁边那个小方块按钮点开的东西：黑色半透明盖住当前页，三张一行、按顺序排，',
+      '     每张图下面标着它的页码；点其中一张就关掉图墙并跳到那一页。 */',
+      '  (function () {',
+      '    var sheet = document.getElementById("thumbSheet");',
+      '    if (!sheet) return;                      /* 参数关掉了 → 页面上根本没这东西 */',
+      '    var grid = document.getElementById("thumbGrid");',
+      '    var built = false;',
+      '    function build() {',
+      '      if (built) return;',
+      '      built = true;',
+      '      PAGES.forEach(function (pg, i) {',
+      '        var b = document.createElement("button");',
+      '        b.type = "button";',
+      '        b.className = "ts-item";',
+      '        b.setAttribute("data-i", String(i));',
+      '        var im = document.createElement("img");',
+      '        /* 图本来就在页面上加载过，直接拿原图当缩略图，不再多生成一份小图 */',
+      '        im.src = pg.src;',
+      '        im.alt = "第 " + (i + 1) + " 页";',
+      '        im.loading = "lazy";',
+      '        b.appendChild(im);',
+      '        var n = document.createElement("span");',
+      '        n.className = "ts-num";',
+      '        n.textContent = String(i + 1);',
+      '        b.appendChild(n);',
+      '        b.addEventListener("click", function () { pick(i); });',
+      '        grid.appendChild(b);',
+      '      });',
+      '    }',
+      '    function mark() {                        /* 当前页高亮，并滚进可见范围 */',
+      '      Array.prototype.forEach.call(grid.children, function (el) {',
+      '        el.classList.toggle("is-cur", Number(el.getAttribute("data-i")) === cur);',
+      '      });',
+      '      var me = grid.querySelector(".is-cur");',
+      '      if (me && me.scrollIntoView) {',
+      '        try { me.scrollIntoView({ block: "nearest" }); } catch (e) { me.scrollIntoView(); }',
+      '      }',
+      '    }',
+      '    function open() {',
+      '      build();',
+      '      mark();',
+      '      sheet.hidden = false;',
+      '      void sheet.offsetWidth;   /* 先让它落地，否则过渡动画不会跑 */',
+      '      sheet.classList.add("on");',
+      '      document.body.classList.add("thumb-open");',
+      '    }',
+      '    var dismiss = function () {',
+      '      if (sheet.hidden) return;',
+      '      sheet.classList.remove("on");',
+      '      document.body.classList.remove("thumb-open");',
+      '      setTimeout(function () {',
+      '        if (!sheet.classList.contains("on")) sheet.hidden = true;',
+      '      }, 240);',
+      '    };',
+      '    function pick(i) {',
+      '      dismiss();',
+      '      cur = i;',
+      '      syncNav();',
+      '      if (fb && fb.goTo) { try { fb.goTo(i); } catch (e) {} }',
+      '    }',
+      '    var btn = document.getElementById("navThumb");',
+      '    if (btn) btn.addEventListener("click", function (e) { e.stopPropagation(); open(); });',
+      '    var cb = document.getElementById("thumbClose");',
+      '    if (cb) cb.addEventListener("click", function (e) { e.stopPropagation(); dismiss(); });',
+      '    sheet.addEventListener("click", function (e) {',
+      '      if (e.target === sheet) dismiss();      /* 点空白处也能关 */',
+      '    });',
+      '    document.addEventListener("keydown", function (e) {',
+      '      if (e.key === "Escape" || e.keyCode === 27) dismiss();',
+      '    });',
+      '    window.__thumbs = { open: open, close: dismiss };   /* 诊断用 */',
+      '  })();',
       '}',
       '',
       '/* ---------- 点页码可以直接输入数字跳页 ---------- */',
@@ -976,7 +1100,8 @@ SD.BookPage = (function () {
       '  if (busy) return;                                 /* 翻页动画进行中 → 忽略 */',
       '  var t = e.target;',
       '  if (t && t.closest) {',
-      '    if (t.closest(".corner") || t.closest(".book-nav") || t.closest(".dot")) return;',
+      '    if (t.closest(".corner") || t.closest(".book-nav") || t.closest(".dot") ||',
+      '        t.closest(".thumb-sheet")) return;',
       '  }',
       '  if (modal.classList.contains("on")) return;',
       '  var sh = PAGES[cur];',
