@@ -40,15 +40,26 @@
   python3 build/build.py
   # 2. 同步发布文件
   cd desktop && npm install      # 首次需要（会下载 Electron，约 100MB）
-  npm run dist                   # = node sync.js + electron-builder --win dir
-  # 想要「单个 exe」版本（每次启动会自解压，慢一点）：
+  npm run dist                   # = sync.js + electron-builder --win dir + seticon.js
+  # 想要「单个 exe」版本（每次启动会自解压，慢一点；这一版没接 seticon，图标是默认的）：
   npm run dist-portable
 
   只调前端（studio.html / lib / 桌面应用代码）时，改完重跑上面两步即可。
 
+【关于图标 / 版本信息（seticon.js）】
+  默认 electron-builder 会自己用 rcedit 往 exe 里写图标和版本信息 —— 但这一步要先联网
+  下载 winCodeSign-2.6.0 包，而包里含 macOS 的 .dylib 符号链接，Windows 上解压需要额外
+  特权，经常整包解压失败（ERROR: Cannot create symbolic link ...）。结果是：网络不通或
+  权限受限时**根本打不出包**。
+  现在的做法：package.json 里关掉 win.signAndEditExecutable，改由打包后的 seticon.js
+  调 tools/rcedit-x64.exe 来写（rcedit 是从同一个包里单独抠出来的，随仓库提交）——
+  这样断网也能打。想换图标就改 icon.ico，重跑 npm run dist。
+
 【注意】
   · 用户导入的素材存在浏览器（Electron 内置 Chromium）的本地库里，换机器不会带走；
     要迁移工程请用工作台的「导出配置 / 导入配置」或重新选素材。
+  · 桌面应用的内置服务必须实现 /@ping、/@upload、/@mat 这几个端点（见「本地服务」一节），
+    否则工作台会判定「预览不可用」并拒绝导入素材。
   · 打包产物约 200MB（自带 Chromium），这是「在任何 Win10/Win11 上都能跑」的代价；
     若目标机器确定都装了 WebView2 运行时，可改用 C# + WebView2 方案把体积压到 ~15MB。
   · 库与音效都在 app/lib/ 下，与命令行版共用同一套文件 —— 升级翻页库 / 换音效后，
