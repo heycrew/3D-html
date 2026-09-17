@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 16:30</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 16:46</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -2944,11 +2944,14 @@ SD.BookPage = (function () {
       '  if (autoTimer || !total) return;',
       '  closeSeek();                      /* 自动翻页时把进度条收起来，免得挡着 */',
       '  if (navAuto) { navAuto.textContent = "停止翻页"; navAuto.classList.add("on"); }',
-      '  autoTimer = setInterval(function () {',
-      '    if (busy) return;               /* 翻页动画还没结束 → 这一步跳过 */',
-      '    if (cur >= total - 1) { stopAuto(); return; }',
-      '    flipNext();',
-      '  }, AUTO_MS);',
+      '  autoTimer = setInterval(autoTick, AUTO_MS);',
+      '  /* 点下去先立刻翻一页，别让访客对着第一页干等一个间隔 */',
+      '  autoTick();',
+      '}',
+      'function autoTick() {',
+      '  if (busy) return;                 /* 翻页动画还没结束 → 这一步跳过 */',
+      '  if (cur >= total - 1) { stopAuto(); return; }',
+      '  flipNext();',
       '}',
       'if (navAuto) {',
       '  navAuto.addEventListener("click", function (e) {',
