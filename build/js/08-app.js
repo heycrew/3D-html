@@ -1322,8 +1322,8 @@ window.SD = window.SD || {};
   function boot() {
     installErrorBar();
     SD.Preview.mount($('stage-host'));
-    buildTemplateSelect();
-    buildPresetSelect();
+    /* 顶栏的「页面模板 / 参数预设」已按需求去掉，不再初始化它们
+       （模板/预设的代码仍在，只是没有入口；产物默认走 templates 里的第一个） */
     buildParams();
     bindTitle();
     bindEvents();

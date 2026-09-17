@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 14:13</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 15:09</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -288,11 +288,6 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <option value="single">单品 360 展示</option>
     <option value="book">翻书图录（电子图册）</option>
   </select>
-  <div class="topbar-sep"></div>
-  <label style="color:var(--sd-fg2);font-size:12px">页面模板</label>
-  <select id="tplSelect" style="width:150px"></select>
-  <label style="color:var(--sd-fg2);font-size:12px">参数预设</label>
-  <select id="presetSelect" style="width:190px"></select>
   <div class="topbar-sep"></div>
   <!-- 页面标题：写进导出产物的 <title>，也就是手机打开链接时顶部/微信分享栏显示的那行 -->
   <label style="color:var(--sd-fg2);font-size:12px">页面标题</label>
@@ -582,8 +577,8 @@ SD.SCHEMA = [
         desc: '首次加载时显示的文字，可留空（回退默认）' },
       { key: 'bookLoadProg', label: '显示加载进度', type: 'bool', def: true,
         desc: '文案下面显示「已加载 x / y 页」' },
-      { key: 'bookLoadTopText', label: '顶部说明文字', type: 'text', def: '点击页码可跳转指定页面',
-        desc: '加载引导页顶部那句（留空则用默认值）' },
+      { key: 'bookLoadTopText', label: '加载页说明文字', type: 'text', def: '点击页码可跳转指定页',
+        desc: '显示在加载页底部「模拟页码」的上方（那句话就是解释页码能点的）；留空则不显示' },
       { key: 'bookLoadMinMs', label: '最短停留', type: 'num', def: 3000, min: 0, max: 10000, step: 100,
         unit: 'ms', desc: '加载页至少停留多久 —— 实际时长取「真实加载耗时」与它的较大者' },
       { key: 'bookBg', label: '桌面背景', type: 'color', def: '#000000',
@@ -2316,11 +2311,7 @@ SD.BookPage = (function () {
       'var LOAD_TXT = ' + JSON.stringify(
         String(p.bookLoadText || '').replace(/\r\n?/g, '\n').trim() || '正在装帧…') + ';',
       'var LOAD_TOP = ' + JSON.stringify(
-        String(p.bookLoadTopText || '').replace(/\r\n?/g, '\n').trim() || '点击页码可跳转指定页面') + ';',
-      'var LOAD_CAP = ' + JSON.stringify((function () {
-        var t = (p.bookHintCaption === undefined ? '点击查看360全景图' : p.bookHintCaption);
-        return String(t).replace(/\r\n?/g, '\n').trim();
-      })()) + ';',
+        String(p.bookLoadTopText || '').replace(/\r\n?/g, '\n').trim() || '点击页码可跳转指定页') + ';',
       'var bootEl = null;',
       'var _bootAt = Date.now();',
       'if (LOAD_ON) {',
@@ -2330,29 +2321,19 @@ SD.BookPage = (function () {
       '    "align-items:center;justify-content:center;box-sizing:border-box;padding:24px;" +',
       '    "background:' + (p.bookBg || '#000000') + ';color:#b9ae9c;font-size:15px;" +',
       '    "letter-spacing:2px;transition:opacity .35s ease;overflow:hidden;}" +',
-      '    "#bootLoad .bl-top{position:absolute;top:9%;left:50%;transform:translateX(-50%);" +',
-      '    "width:88%;text-align:center;white-space:pre-line;font-size:15px;opacity:.92;}" +',
-      '    "#bootLoad .bl-frame{position:relative;width:190px;height:190px;margin-bottom:24px;" +',
-      '    "flex:0 0 auto;}" +',
-      '    "#bootLoad .bl-frame .hc{position:absolute;width:26px;height:26px;" +',
-      '    "border:3px solid ' + (p.bookHintColor || '#ffffff') + ';border-radius:6px;}" +',
-      '    "#bootLoad .bl-frame .hc.tl{left:0;top:0;border-right:0;border-bottom:0;}" +',
-      '    "#bootLoad .bl-frame .hc.tr{right:0;top:0;border-left:0;border-bottom:0;}" +',
-      '    "#bootLoad .bl-frame .hc.bl{left:0;bottom:0;border-right:0;border-top:0;}" +',
-      '    "#bootLoad .bl-frame .hc.br{right:0;bottom:0;border-left:0;border-top:0;}" +',
-      '    "#bootLoad .bl-360{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);" +',
-      '    "width:74px;height:74px;border-radius:50%;display:grid;place-items:center;" +',
-      '    "border:2px solid rgba(255,255,255,.72);background:rgba(0,0,0,.28);color:#fff;" +',
-      '    "font-size:15px;letter-spacing:0;font-weight:600;}" +',
-      '    "#bootLoad .bl-cap{position:absolute;left:50%;bottom:0;transform:translateX(-50%);" +',
-      '    "white-space:nowrap;font-size:14px;letter-spacing:1px;line-height:1;" +',
-      '    "color:' + (p.bookHintColor || '#ffffff') + ';" +',
-      '    "text-shadow:0 0 2px rgba(0,0,0,.95),0 0 7px rgba(0,0,0,.6),0 1px 2px rgba(0,0,0,.85);}" +',
       '    "#bootLoad .bl-txt{text-align:center;white-space:pre-line;}" +',
-      '    "#bootLoad .bl-prog{margin-top:10px;font-size:13px;opacity:.7;text-align:center;}" +',
-      '    "#bootLoad .bl-nav{position:absolute;bottom:8%;left:50%;transform:translateX(-50%);" +',
-      '    "padding:8px 18px;border-radius:999px;background:rgba(255,255,255,.12);" +',
-      '    "font-size:14px;letter-spacing:1px;}";',
+      '    "#bootLoad .bl-prog{margin-top:10px;font-size:13px;opacity:.75;text-align:center;}" +',
+      '    /* 底部：模拟页码 + 它的使用说明。说明贴在页码上方 —— 那句话本来就是',
+      '       解释页码能点的。所有文字统一用加载文案那套颜色与字距（不再有白色/描边的',
+      '       特殊样式），整页看起来是一套东西。 */',
+      '    "#bootLoad .bl-bottom{position:absolute;bottom:8%;left:50%;transform:translateX(-50%);" +',
+      '    "display:flex;flex-direction:column;align-items:center;gap:6px;}" +',
+      '    "#bootLoad .bl-nav{padding:8px 18px;border-radius:999px;background:rgba(255,255,255,.12);" +',
+      '    "font-size:14px;letter-spacing:1px;color:inherit;}" +',
+      '    "#bootLoad .bl-tip{font-size:12px;letter-spacing:1px;opacity:.8;color:inherit;" +',
+      '    "text-align:center;white-space:pre-line;}" +',
+      '    /* 加载页盖着的时候，先藏起预览里那个「示意区」按钮（它属于编辑器，不属于加载页）*/',
+      '    "body:has(#bootLoad) .book-shell button{visibility:hidden;}";',
       '  document.head.appendChild(_bs);',
       '  function _bEl(tag, cls, txt) {',
       '    var e = document.createElement(tag);',
@@ -2362,19 +2343,15 @@ SD.BookPage = (function () {
       '  }',
       '  bootEl = _bEl("div");',
       '  bootEl.id = "bootLoad";',
-      '  bootEl.appendChild(_bEl("div", "bl-top", LOAD_TOP));',
-      '  var _bFrame = _bEl("div", "bl-frame");',
-      '  ["tl", "tr", "bl", "br"].forEach(function (c) { _bFrame.appendChild(_bEl("i", "hc " + c)); });',
-      '  _bFrame.appendChild(_bEl("div", "bl-360", "360°"));',
-      '  if (LOAD_CAP) _bFrame.appendChild(_bEl("div", "bl-cap", LOAD_CAP));',
-      '  bootEl.appendChild(_bFrame);',
       '  var _bBox = _bEl("div");',
       '  _bBox.appendChild(_bEl("div", "bl-txt", LOAD_TXT));',
       '  /* 进度元素同时带 .bp 类：老脚本/老断言读的就是 .bp */',
-      '  var _bProg = _bEl("div", "bl-prog bp");',
-      '  _bBox.appendChild(_bProg);',
+      '  _bBox.appendChild(_bEl("div", "bl-prog bp"));',
       '  bootEl.appendChild(_bBox);',
-      '  bootEl.appendChild(_bEl("div", "bl-nav", "1 / " + (total || 1)));',
+      '  var _bBot = _bEl("div", "bl-bottom");',
+      '  if (LOAD_TOP) _bBot.appendChild(_bEl("div", "bl-tip", LOAD_TOP));   /* 说明在页码上方 */',
+      '  _bBot.appendChild(_bEl("div", "bl-nav", "1 / " + (total || 1)));',
+      '  bootEl.appendChild(_bBot);',
       '  document.body.appendChild(bootEl);',
       '}',
       'function bootProg(done, all) {',
@@ -4565,8 +4542,8 @@ window.SD = window.SD || {};
   function boot() {
     installErrorBar();
     SD.Preview.mount($('stage-host'));
-    buildTemplateSelect();
-    buildPresetSelect();
+    /* 顶栏的「页面模板 / 参数预设」已按需求去掉，不再初始化它们
+       （模板/预设的代码仍在，只是没有入口；产物默认走 templates 里的第一个） */
     buildParams();
     bindTitle();
     bindEvents();
