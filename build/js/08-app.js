@@ -59,6 +59,23 @@ window.SD = window.SD || {};
     bookBg: function (doc, v) {
       doc.documentElement.style.background = v;
       if (doc.body) doc.body.style.background = v;
+    },
+    /* 示意框位置：就地挪框，不重建预览（重建会闪一下、还会跳回首页）。
+       角臂长度交给产物里暴露的 __layoutHint 重算。
+       框还不存在（没开「交互示意区」）时返回 false → 走正常重建路径。 */
+    bookHintBox: function (doc, v) {
+      var e = doc.getElementById('hintBox');
+      if (!e) return false;
+      var a = String(v).split(',').map(function (s) { return Number(String(s).trim()); });
+      if (a.length !== 4 || !a.every(function (n) { return isFinite(n); })) return false;
+      e.style.left = a[0] + '%';
+      e.style.top = a[1] + '%';
+      e.style.width = a[2] + '%';
+      e.style.height = a[3] + '%';
+      try {
+        if (doc.defaultView && doc.defaultView.__layoutHint) doc.defaultView.__layoutHint();
+      } catch (err) { /* 预览里没暴露就只挪位置，角臂下次重建时再算 */ }
+      return true;
     }
     /* 这里原本还有一项 bookDotColor（改锚点颜色），但面板上从来没有这个参数，
        那段永远不会被触发 —— 已随锚点样式改成常量一并删除。 */
@@ -1272,6 +1289,19 @@ window.SD = window.SD || {};
   }
 
   /* ================= 启动 ================= */
+  /* 预览里「鼠标拉取示意框」的回传：
+     preview 文档是同源 blob，拖拽结束后用 postMessage 把百分比坐标发过来。
+     这里只写参数 + 同步参数面板（不重建 iframe —— 预览里已经就地更新过框了，
+     重建会闪一下还跳回首页）。 */
+  window.addEventListener('message', function (e) {
+    var d = e.data || {};
+    if (!d || d.type !== 'sd-hint-box' || !d.box) return;
+    if (e.origin && location.origin && e.origin !== location.origin) return;
+    setParam('bookHintBox', d.box.join(','));
+    buildParams();
+    status('示意框已记录：' + d.box.join(', ') + '（开启「交互示意区」后展示）');
+  });
+
   function boot() {
     installErrorBar();
     SD.Preview.mount($('stage-host'));

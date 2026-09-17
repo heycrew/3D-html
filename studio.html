@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 08:05</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 08:07</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -2378,6 +2378,89 @@ SD.BookPage = (function () {
       '  frameEl.style.setProperty("--hl", len + "px");',
       '}',
       'function showHint(on) { if (frameEl) frameEl.classList.toggle("on", !!on); }',
+      '',
+      (mode === 'preview' ? [
+        '/* ---------- 预览专用：鼠标拉取示意框（只在预览里生成，导出产物不带）----------',
+        '   工作台要的是「在书上拖一下就把框拉出来」。这里用小按钮进入框选模式，',
+        '   拖拽时用 capture + stopPropagation 抢在翻页库之前拦下指针事件（否则会变成翻页），',
+        '   松手把百分比坐标 postMessage 回工作台（预览是同源 blob 文档，能直接收）。 */',
+        '(function () {',
+        '  var shell = bookEl.parentNode;',
+        '  if (!shell) return;',
+        '  /* 给工作台一个重算角臂长度的入口：工作台改「示意框位置」时会就地更新',
+        '     框的位置/尺寸（不重建预览），角臂得跟着重算。只在这个预览文档里暴露。 */',
+        '  window.__layoutHint = layoutHint;',
+        '  var picking = false, sx = 0, sy = 0, ghost = null;',
+        '',
+        '  var btn = document.createElement("button");',
+        '  btn.type = "button";',
+        '  btn.textContent = "示意区";',
+        '  btn.setAttribute("style", "position:absolute;right:8px;top:8px;z-index:120;" +',
+        '    "font:12px/1.6 inherit;padding:3px 10px;border:0;border-radius:999px;cursor:pointer;" +',
+        '    "background:rgba(0,0,0,.55);color:#fff;letter-spacing:1px");',
+        '  var tip = document.createElement("div");',
+        '  tip.setAttribute("style", "position:absolute;left:8px;bottom:8px;z-index:120;display:none;" +',
+        '    "font:12px/1.6 inherit;padding:3px 10px;border-radius:6px;" +',
+        '    "background:rgba(0,0,0,.65);color:#fff;pointer-events:none");',
+        '  tip.textContent = "在书上拖拽画出示意框（松手即记录）";',
+        '  shell.appendChild(btn);',
+        '  shell.appendChild(tip);',
+        '',
+        '  function pct(e) {',
+        '    var r = shell.getBoundingClientRect();',
+        '    return { x: (e.clientX - r.left) / r.width * 100, y: (e.clientY - r.top) / r.height * 100 };',
+        '  }',
+        '  function setPick(on) {',
+        '    picking = !!on;',
+        '    btn.textContent = picking ? "退出框选" : "示意区";',
+        '    btn.style.background = picking ? "rgba(255,170,60,.92)" : "rgba(0,0,0,.55)";',
+        '    tip.style.display = picking ? "" : "none";',
+        '  }',
+        '  btn.addEventListener("pointerdown", function (e) { e.stopPropagation(); });',
+        '  btn.addEventListener("click", function (e) { e.stopPropagation(); setPick(!picking); });',
+        '',
+        '  shell.addEventListener("pointerdown", function (e) {',
+        '    if (!picking) return;',
+        '    e.preventDefault(); e.stopPropagation();',
+        '    var p = pct(e);',
+        '    sx = p.x; sy = p.y;',
+        '    ghost = document.createElement("div");',
+        '    ghost.setAttribute("style", "position:absolute;z-index:119;pointer-events:none;" +',
+        '      "border:1px dashed #ffb340;background:rgba(255,179,64,.16)");',
+        '    shell.appendChild(ghost);',
+        '  }, true);',
+        '  shell.addEventListener("pointermove", function (e) {',
+        '    if (!picking || !ghost) return;',
+        '    e.stopPropagation();',
+        '    var p = pct(e);',
+        '    ghost.style.left = Math.min(sx, p.x) + "%";',
+        '    ghost.style.top = Math.min(sy, p.y) + "%";',
+        '    ghost.style.width = Math.abs(p.x - sx) + "%";',
+        '    ghost.style.height = Math.abs(p.y - sy) + "%";',
+        '  }, true);',
+        '  shell.addEventListener("pointerup", function (e) {',
+        '    if (!picking || !ghost) return;',
+        '    e.stopPropagation();',
+        '    var p = pct(e);',
+        '    var x = Math.min(sx, p.x), y = Math.min(sy, p.y);',
+        '    var w = Math.abs(p.x - sx), h = Math.abs(p.y - sy);',
+        '    if (ghost.parentNode) ghost.parentNode.removeChild(ghost);',
+        '    ghost = null;',
+        '    if (w < 3 || h < 3) return;              /* 太小当误触，丢弃 */',
+        '    var r = [x, y, w, h].map(function (n) { return Math.round(n * 10) / 10; });',
+        '    /* 立刻按新框在预览里显示，不重建 iframe（重建会闪、还会跳回首页） */',
+        '    if (frameEl) {',
+        '      frameEl.style.left = r[0] + "%";',
+        '      frameEl.style.top = r[1] + "%";',
+        '      frameEl.style.width = r[2] + "%";',
+        '      frameEl.style.height = r[3] + "%";',
+        '      layoutHint();',
+        '    }',
+        '    try { parent.postMessage({ type: "sd-hint-box", box: r }, "*"); } catch (err) {}',
+        '    setPick(false);',
+        '  }, true);',
+        '})();'
+      ].join('\n') : ''),
       '/* 这里原本还有个 RATIO（页面宽高比）变量 —— 那是喂给 CI360 的 aspectRatio 用的；',
       '   画布比例现在由 .book-shell 的 CSS 决定（buildCss 里按封面比例算好），',
       '   运行时用不到它，已删除。 */',
@@ -2971,6 +3054,23 @@ window.SD = window.SD || {};
     bookBg: function (doc, v) {
       doc.documentElement.style.background = v;
       if (doc.body) doc.body.style.background = v;
+    },
+    /* 示意框位置：就地挪框，不重建预览（重建会闪一下、还会跳回首页）。
+       角臂长度交给产物里暴露的 __layoutHint 重算。
+       框还不存在（没开「交互示意区」）时返回 false → 走正常重建路径。 */
+    bookHintBox: function (doc, v) {
+      var e = doc.getElementById('hintBox');
+      if (!e) return false;
+      var a = String(v).split(',').map(function (s) { return Number(String(s).trim()); });
+      if (a.length !== 4 || !a.every(function (n) { return isFinite(n); })) return false;
+      e.style.left = a[0] + '%';
+      e.style.top = a[1] + '%';
+      e.style.width = a[2] + '%';
+      e.style.height = a[3] + '%';
+      try {
+        if (doc.defaultView && doc.defaultView.__layoutHint) doc.defaultView.__layoutHint();
+      } catch (err) { /* 预览里没暴露就只挪位置，角臂下次重建时再算 */ }
+      return true;
     }
     /* 这里原本还有一项 bookDotColor（改锚点颜色），但面板上从来没有这个参数，
        那段永远不会被触发 —— 已随锚点样式改成常量一并删除。 */
@@ -4184,6 +4284,19 @@ window.SD = window.SD || {};
   }
 
   /* ================= 启动 ================= */
+  /* 预览里「鼠标拉取示意框」的回传：
+     preview 文档是同源 blob，拖拽结束后用 postMessage 把百分比坐标发过来。
+     这里只写参数 + 同步参数面板（不重建 iframe —— 预览里已经就地更新过框了，
+     重建会闪一下还跳回首页）。 */
+  window.addEventListener('message', function (e) {
+    var d = e.data || {};
+    if (!d || d.type !== 'sd-hint-box' || !d.box) return;
+    if (e.origin && location.origin && e.origin !== location.origin) return;
+    setParam('bookHintBox', d.box.join(','));
+    buildParams();
+    status('示意框已记录：' + d.box.join(', ') + '（开启「交互示意区」后展示）');
+  });
+
   function boot() {
     installErrorBar();
     SD.Preview.mount($('stage-host'));
