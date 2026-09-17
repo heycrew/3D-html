@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 08:44</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 08:50</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -581,9 +581,13 @@ SD.SCHEMA = [
       { key: 'bookBg', label: '桌面背景', type: 'color', def: '#2a2118' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
       { key: 'bookHintOn', label: '交互示意区', type: 'bool', def: false,
-        desc: '翻页结束后，在内容页上层淡入一个四角示意框（引导用户拖动/缩放）' },
+        desc: '在指定的那张内容页上淡入一个四角示意框，引导访客拖动 / 缩放（只展示一次）' },
+      { key: 'bookHintPage', label: '示意框所在页', type: 'num', def: 1, min: 1, max: 99,
+        desc: '第几张内容页（1 = 第一张内容页，封面不算）。框只在这一页展示，' +
+              '而且只对访客展示一次——首次翻到这一页时作引导' },
       { key: 'bookHintBox', label: '示意框位置', type: 'text', def: '20,25,60,50',
-        desc: 'x,y,宽,高（百分比，相对书页）。在工作台预览里拖拽可以直接拉取' },
+        desc: 'x,y,宽,高（百分比，相对书页）。在工作台预览里点「示意区」会自动跳到上面' +
+              '那张内容页，直接在图上拖拽就能拉取' },
       { key: 'bookHintColor', label: '示意框颜色', type: 'color', def: '#ffffff',
         desc: '四角的描边色（外面会自动加一层深色描边，保证任何底色上都看得清）' },
       { key: 'bookHintLen', label: '角臂长度', type: 'num', def: 12, min: 4, max: 40, unit: '%',
@@ -2335,6 +2339,14 @@ SD.BookPage = (function () {
       '   样式走动态 <style>：这是一段自包含的小组件，集中在一处便于整体摘除或替换。 */',
       'var HINT_ON = ' + (p.bookHintOn ? 'true' : 'false') + ';',
       'var HINT_BREATH = ' + (p.bookHintBreath === false ? 'false' : 'true') + ';',
+      '/* 框只属于「第 N 张内容页」：PAGES[0] 是封面，所以第 1 张内容页就是索引 1。',
+      '   而且只对访客展示一次（首次翻到这一页时作引导）。 */',
+      'var HINT_PAGE = ' + (function () {
+        var n = Number(p.bookHintPage);
+        if (!isFinite(n) || n < 1) n = 1;
+        return Math.round(n);
+      })() + ';',
+      'var _hintShown = false;',
       'var HINT_DELAY = ' + (p.bookHintDelay === undefined ? 0 : Number(p.bookHintDelay) || 0) + ';',
       'var HINT_LEN = ' + (p.bookHintLen === undefined ? 12 : Number(p.bookHintLen) || 12) + ';',
       'var HINT_BOX = ' + JSON.stringify((function () {
@@ -2428,7 +2440,20 @@ SD.BookPage = (function () {
         '    picking = !!on;',
         '    btn.textContent = picking ? "退出框选" : "示意区";',
         '    btn.style.background = picking ? "rgba(255,170,60,.92)" : "rgba(0,0,0,.55)";',
+        '    tip.textContent = "在第 " + HINT_PAGE + " 张内容页上拖拽画框（松手即记录）";',
         '    tip.style.display = picking ? "" : "none";',
+        '    if (picking) {',
+        '      /* 进入框选就把画面挪到「示意框所在页」，并把现有框显示出来，',
+        '         管理员可以对着它微调重拉（这里显示不代表访客会看到 —— 访客那边',
+        '         仍然只在首次翻到这一页时展示一次）。 */',
+        '      if (fb && fb.goTo) {',
+        '        try { fb.goTo(Math.min(HINT_PAGE, Math.max(0, total - 1)), { instant: true }); } catch (err) {}',
+        '      }',
+        '      _hintShown = true;',
+        '      showHint(true);',
+        '    } else {',
+        '      showHint(false);',
+        '    }',
         '  }',
         '  btn.addEventListener("pointerdown", function (e) { e.stopPropagation(); });',
         '  btn.addEventListener("click", function (e) { e.stopPropagation(); setPick(!picking); });',
@@ -2588,6 +2613,10 @@ SD.BookPage = (function () {
       '    syncNav();',
       '    layoutHint();',
       '    if (!HINT_ON) return;',
+      '    /* 只在「指定的那张内容页」上展示，而且只对访客展示一次：',
+      '       首次翻到这一页时作引导，之后翻回来/翻别的页都不再打扰。 */',
+      '    if (cur !== HINT_PAGE || _hintShown) return;',
+      '    _hintShown = true;',
       '    if (HINT_DELAY > 0) {',
       '      if (hintTimer) clearTimeout(hintTimer);',
       '      hintTimer = setTimeout(function () { showHint(true); }, HINT_DELAY);',

@@ -132,9 +132,13 @@ SD.SCHEMA = [
       { key: 'bookBg', label: '桌面背景', type: 'color', def: '#2a2118' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true },
       { key: 'bookHintOn', label: '交互示意区', type: 'bool', def: false,
-        desc: '翻页结束后，在内容页上层淡入一个四角示意框（引导用户拖动/缩放）' },
+        desc: '在指定的那张内容页上淡入一个四角示意框，引导访客拖动 / 缩放（只展示一次）' },
+      { key: 'bookHintPage', label: '示意框所在页', type: 'num', def: 1, min: 1, max: 99,
+        desc: '第几张内容页（1 = 第一张内容页，封面不算）。框只在这一页展示，' +
+              '而且只对访客展示一次——首次翻到这一页时作引导' },
       { key: 'bookHintBox', label: '示意框位置', type: 'text', def: '20,25,60,50',
-        desc: 'x,y,宽,高（百分比，相对书页）。在工作台预览里拖拽可以直接拉取' },
+        desc: 'x,y,宽,高（百分比，相对书页）。在工作台预览里点「示意区」会自动跳到上面' +
+              '那张内容页，直接在图上拖拽就能拉取' },
       { key: 'bookHintColor', label: '示意框颜色', type: 'color', def: '#ffffff',
         desc: '四角的描边色（外面会自动加一层深色描边，保证任何底色上都看得清）' },
       { key: 'bookHintLen', label: '角臂长度', type: 'num', def: 12, min: 4, max: 40, unit: '%',
