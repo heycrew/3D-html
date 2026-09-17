@@ -142,6 +142,16 @@ SD.SCHEMA = [
         desc: '四角缓慢呼吸（尊重系统的「减少动态效果」设置）' },
       { key: 'bookHintDelay', label: '显示延迟', type: 'num', def: 0, min: 0, max: 3000, step: 50,
         unit: 'ms', desc: '翻页动画结束后，等多久再淡入' },
+      { key: 'bookSoundOn', label: '翻页音效', type: 'bool', def: false,
+        desc: '翻页时播放音效。用 <audio> 播放，所以手机的静音开关下也能听见；' +
+              '但「媒体音量」被调到 0 时任何网页都发不出声' },
+      { key: 'bookSoundKind', label: '音效音色', type: 'select', def: 'light',
+        options: [['light', '轻纸页'], ['heavy', '厚书页'], ['custom', '自定义路径']],
+        desc: '内置两个音效（合成生成，无版权顾虑）；想换成自己的录音选「自定义路径」' },
+      { key: 'bookSoundCustom', label: '自定义音效路径', type: 'text', def: '',
+        placeholder: '如 ./sound/my-turn.mp3 或 https://…',
+        desc: '选「自定义路径」时生效；导出产物请把文件放进导出目录再填相对路径' },
+      { key: 'bookSoundVolume', label: '音效音量', type: 'num', def: 0.7, min: 0, max: 1, step: 0.05 },
       { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.72, min: 0.2, max: 0.98, step: 0.02,
         desc: '越小越透，底下的内容页看得越清楚' }
     ]

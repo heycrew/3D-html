@@ -125,14 +125,22 @@ def main():
     with open(out_html, 'w', encoding='utf-8', newline='\n') as f:
         f.write(html)
 
-    # 第三方库（360 查看器 + 翻页库）：都是 vendor/ 下打好的产物，直接复制。
-    #   翻页库升级版本时跑 node build/mkvysmo.js 重新打包；日常构建不需要
-    #   node / npm —— 绿色版构建仍然只要一个 python。
+    # 第三方库与素材：vendor/ 下打好的产物，按目录结构整份复制过去
+    #   （360 查看器、翻页库、sound/ 下的内置音效）。
+    #   翻页库升级版本时跑 node build/mkvysmo.js 重新打包；音效要重生成跑
+    #   python3 build/mksound.py；日常构建不需要 node / npm —— 绿色版仍只要 python。
     lib_dest_dir = os.path.join(DEST, 'lib')
     os.makedirs(lib_dest_dir, exist_ok=True)
-    for _lib in ('360-view.min.js', 'vysmo-flipbook.min.js'):
-        shutil.copyfile(os.path.join(ROOT, 'vendor', _lib),
-                        os.path.join(lib_dest_dir, _lib))
+    vendor_dir = os.path.join(ROOT, 'vendor')
+    _copied = 0
+    for _root, _dirs, _files in os.walk(vendor_dir):
+        _rel = os.path.relpath(_root, vendor_dir)
+        _dest = lib_dest_dir if _rel == '.' else os.path.join(lib_dest_dir, _rel)
+        os.makedirs(_dest, exist_ok=True)
+        for _fn in _files:
+            shutil.copyfile(os.path.join(_root, _fn), os.path.join(_dest, _fn))
+            _copied += 1
+    print('  第三方库/素材: 已复制 %d 个文件到 lib/' % _copied)
 
     # 清掉上一版遗留的翻页库（引擎已换成 vysmo，留着会让人以为还在用 StPageFlip）
     _old_flip = os.path.join(lib_dest_dir, 'page-flip.browser.js')

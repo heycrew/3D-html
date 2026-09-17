@@ -280,7 +280,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 08:07</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-17 08:09</span>
   </div>
   <div class="topbar-sep"></div>
   <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
@@ -591,6 +591,16 @@ SD.SCHEMA = [
         desc: '四角缓慢呼吸（尊重系统的「减少动态效果」设置）' },
       { key: 'bookHintDelay', label: '显示延迟', type: 'num', def: 0, min: 0, max: 3000, step: 50,
         unit: 'ms', desc: '翻页动画结束后，等多久再淡入' },
+      { key: 'bookSoundOn', label: '翻页音效', type: 'bool', def: false,
+        desc: '翻页时播放音效。用 <audio> 播放，所以手机的静音开关下也能听见；' +
+              '但「媒体音量」被调到 0 时任何网页都发不出声' },
+      { key: 'bookSoundKind', label: '音效音色', type: 'select', def: 'light',
+        options: [['light', '轻纸页'], ['heavy', '厚书页'], ['custom', '自定义路径']],
+        desc: '内置两个音效（合成生成，无版权顾虑）；想换成自己的录音选「自定义路径」' },
+      { key: 'bookSoundCustom', label: '自定义音效路径', type: 'text', def: '',
+        placeholder: '如 ./sound/my-turn.mp3 或 https://…',
+        desc: '选「自定义路径」时生效；导出产物请把文件放进导出目录再填相对路径' },
+      { key: 'bookSoundVolume', label: '音效音量', type: 'num', def: 0.7, min: 0, max: 1, step: 0.05 },
       { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.72, min: 0.2, max: 0.98, step: 0.02,
         desc: '越小越透，底下的内容页看得越清楚' }
     ]
@@ -1730,9 +1740,11 @@ SD.Export = (function () {
       }
     }
 
-    /* 3) lib/ —— 360 查看器 + 翻页库，两个都得在：书页靠翻页库、360 靠查看器。
+    /* 3) lib/ —— 360 查看器 + 翻页库 + 内置音效，都得在：书页靠翻页库、
+       360 靠查看器、开了翻页音效时靠 sound/ 下那两个 wav。
        少一个就有一半功能是坏的（之前这里只复制了 360，导出的书页翻不动）。 */
-    var LIBS = ['360-view.min.js', 'vysmo-flipbook.min.js'];
+    var LIBS = ['360-view.min.js', 'vysmo-flipbook.min.js',
+                'sound/flip-light.wav', 'sound/flip-heavy.wav'];
     for (var li = 0; li < LIBS.length; li++) {
       var libBytes = await fetchBytes('lib/' + LIBS[li]);
       await writeIn(dir, 'lib/' + LIBS[li], libBytes);
@@ -2461,6 +2473,59 @@ SD.BookPage = (function () {
         '  }, true);',
         '})();'
       ].join('\n') : ''),
+      '',
+      '/* ---------- 翻页音效（参数：翻页音效 / 音色 / 自定义路径 / 音量）----------',
+      '   为什么用 <audio> 元素而不是 Web Audio API：iOS 把 audio/video 归到 media 通道，',
+      '   它**忽略静音开关**；Web Audio 属于 ambient 通道，会被静音开关掐掉。所以',
+      '   「静音下也能听见」用 <audio> 天然成立，不必上社区那套「循环播一段静音 audio',
+      '   把 Web Audio 顶到 media 通道」的 hack（代价是锁屏媒体控件与部分机型掉帧）。',
+      '   Safari 16.4+ 还可以用 Audio Session API 显式声明成 media 类输出，有就设一下。',
+      '   边界：媒体音量被调到 0 时任何网页都发不出声 —— 那是系统级的，绕不过去。 */',
+      'var SOUND_ON = ' + (p.bookSoundOn ? 'true' : 'false') + ';',
+      'var SOUND_SRC = ' + JSON.stringify((function () {
+        var k = p.bookSoundKind || 'light';
+        if (k === 'custom') {
+          var c = String(p.bookSoundCustom || '').trim();
+          if (c) return c;
+        }
+        return './lib/sound/' + (k === 'heavy' ? 'flip-heavy.wav' : 'flip-light.wav');
+      })()) + ';',
+      'var SOUND_VOL = ' + (p.bookSoundVolume === undefined ? 0.7 : Number(p.bookSoundVolume) || 0) + ';',
+      'var sndEl = null;',
+      'var _sndAt = 0;',
+      'if (SOUND_ON) {',
+      '  sndEl = document.createElement("audio");',
+      '  sndEl.preload = "auto";',
+      '  sndEl.src = SOUND_SRC;',
+      '  sndEl.volume = Math.max(0, Math.min(1, SOUND_VOL));',
+      '  document.body.appendChild(sndEl);',
+      '  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}',
+      '}',
+      'function playFlipSound() {',
+      '  if (!sndEl) return;',
+      '  var now = Date.now();',
+      '  if (now - _sndAt < 120) return;         /* 连翻节流：别叠成一串噪音 */',
+      '  _sndAt = now;',
+      '  try { sndEl.currentTime = 0; } catch (e) {}',
+      '  var pr = sndEl.play();',
+      '  if (pr && pr.catch) pr.catch(function () {});   /* 首次手势前会被拦，属正常 */',
+      '}',
+      '/* 首次指针交互时解锁：静音播一下再停。autoplay 策略要求先有用户手势，',
+      '   而翻页本身就是手势，这里只是把「第一次翻页」也覆盖上。 */',
+      'function unlockSound() {',
+      '  if (!sndEl) return;',
+      '  var v = sndEl.volume;',
+      '  sndEl.volume = 0;',
+      '  var stopIt = function () {',
+      '    sndEl.pause();',
+      '    try { sndEl.currentTime = 0; } catch (e) {}',
+      '    sndEl.volume = v;',
+      '  };',
+      '  var pr = sndEl.play();',
+      '  if (pr && pr.then) { pr.then(stopIt).catch(function () { sndEl.volume = v; }); }',
+      '  else { stopIt(); }',
+      '}',
+      'if (SOUND_ON) { document.addEventListener("pointerdown", unlockSound, { once: true }); }',
       '/* 这里原本还有个 RATIO（页面宽高比）变量 —— 那是喂给 CI360 的 aspectRatio 用的；',
       '   画布比例现在由 .book-shell 的 CSS 决定（buildCss 里按封面比例算好），',
       '   运行时用不到它，已删除。 */',
@@ -2515,7 +2580,7 @@ SD.BookPage = (function () {
       '     flipstart / flipend 管忙标志与收尾；示意框严格跟着这两个事件走：',
       '     翻页一开始就淡出，翻页结束后（按参数延迟）再淡入。 */',
       '  fb.on("change", function (i) { cur = i; syncNav(); layoutHint(); });',
-      '  fb.on("flipstart", function () { busy = true; showHint(false); });',
+      '  fb.on("flipstart", function () { busy = true; showHint(false); playFlipSound(); });',
       '  fb.on("flipend", function () {',
       '    busy = false;',
       '    syncNav();',
