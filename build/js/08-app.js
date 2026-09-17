@@ -235,7 +235,24 @@ window.SD = window.SD || {};
     });
   }
 
-  function syncParamsUI() { buildParams(); }
+  function syncParamsUI() {
+    buildParams();
+    /* 顶栏的「页面标题」也要跟着（导入配置 / 恢复工程之后 STATE.title 会变） */
+    if ($('titleInput')) $('titleInput').value = STATE.title || '';
+  }
+
+  /* 顶栏「页面标题」：写进产物的 <title> —— 手机打开链接时顶部 / 微信分享栏显示的就是它 */
+  function bindTitle() {
+    var inp = $('titleInput');
+    if (!inp) return;
+    inp.value = STATE.title || '';
+    inp.addEventListener('change', function () {
+      STATE.title = inp.value.trim();
+      if (SD.Store) SD.Store.autoSave();
+      updateCode();          /* 只影响产物的 <title>：更新右下角代码栏即可，不必重建预览 */
+      status('页面标题：' + (STATE.title || '（默认 360° 产品展示）'));
+    });
+  }
 
   /* ================= 模板 ================= */
   function buildTemplateSelect() {
@@ -1308,6 +1325,7 @@ window.SD = window.SD || {};
     buildTemplateSelect();
     buildPresetSelect();
     buildParams();
+    bindTitle();
     bindEvents();
     applyStage();
     renderMaterials();
