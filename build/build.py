@@ -125,11 +125,13 @@ def main():
     with open(out_html, 'w', encoding='utf-8', newline='\n') as f:
         f.write(html)
 
-    # 第三方库与素材：vendor/ 下打好的产物，按目录结构整份复制过去
-    #   （360 查看器、翻页库、sound/ 下的内置音效）。
-    #   翻页库升级版本时跑 node build/mkvysmo.js 重新打包；音效要重生成跑
-    #   python3 build/mksound.py；日常构建不需要 node / npm —— 绿色版仍只要 python。
+    # 第三方库与素材：lib/ 完全由 vendor/ 生成 —— 先整个清掉再按目录结构复制。
+    #   先清是为了不残留：换库（StPageFlip→vysmo）或换素材（音效）时，
+    #   旧文件会一直躺在 lib/ 里被一起发布出去，已经踩过一次。
+    #   翻页库升级版本跑 node build/mkvysmo.js；日常构建不需要 node / npm —— 绿色版仍只要 python。
     lib_dest_dir = os.path.join(DEST, 'lib')
+    if os.path.isdir(lib_dest_dir):
+        shutil.rmtree(lib_dest_dir)
     os.makedirs(lib_dest_dir, exist_ok=True)
     vendor_dir = os.path.join(ROOT, 'vendor')
     _copied = 0
@@ -140,13 +142,7 @@ def main():
         for _fn in _files:
             shutil.copyfile(os.path.join(_root, _fn), os.path.join(_dest, _fn))
             _copied += 1
-    print('  第三方库/素材: 已复制 %d 个文件到 lib/' % _copied)
-
-    # 清掉上一版遗留的翻页库（引擎已换成 vysmo，留着会让人以为还在用 StPageFlip）
-    _old_flip = os.path.join(lib_dest_dir, 'page-flip.browser.js')
-    if os.path.exists(_old_flip):
-        os.remove(_old_flip)
-        print('  已移除旧库：lib/page-flip.browser.js')
+    print('  第三方库/素材: lib/ 已由 vendor/ 重建（%d 个文件）' % _copied)
 
     # 使用说明
     with open(os.path.join(DEST, '使用说明.txt'), 'w', encoding='utf-8',

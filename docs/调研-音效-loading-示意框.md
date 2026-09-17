@@ -270,23 +270,29 @@ WebKit 工程师在 Bug #252746 里原话：「Web Audio 被 iOS 当作 ambient 
            flipstart 淡出 / flipend 淡入、pointer-events:none、弹层打开时用 :has 隐藏
   4ffd69d  【3】工作台拉框：预览里点「示意区」→ 拖拽 → 百分比坐标 postMessage 回工作台，
            写进 bookHintBox；框位置接进 LIVE_STYLE 就地更新（不重建 iframe、不跳页）
-  c8671af  【4】翻页音效：bookSoundOn / bookSoundKind / bookSoundCustom / bookSoundVolume
-           —— <audio> 播放（media 通道，静音开关下可响）、120ms 节流、首次手势静音解锁、
-           导出时把 lib/sound/*.wav 一起打包
+  c8671af  【4】翻页音效：bookSoundOn / bookSoundKind（内置 / 自定义路径）/ bookSoundCustom /
+           bookSoundVolume —— <audio> 播放（media 通道，静音开关下可响）、120ms 节流、
+           首次手势静音解锁、导出时把 lib/sound/book-voice.mp3 一起打包
+  6ab48cd  示意区优化：框归属「第 N 张内容页」（bookHintPage，默认第 1 张）+ 只对访客展示一次；
+           工作台点「示意区」会自动跳到那一页
+  b616c56  内置音效定稿：只留一个 —— 用客户提供的 book-voice.mp3（放进 build/vendor/sound/，
+           lib/ 完全由 vendor/ 重建），音效来源参数简化为「内置音效 / 自定义路径」
 
-  实现时的两处偏差（都在提交信息里写了原因）：
-    · 内置音效：原本计划从 Mixkit / Pixabay 下载免署名素材，但这个环境没有下载二进制的
-      渠道（也不该把第三方音频塞进仓库）→ 改为 build/mksound.py **程序合成**两个音色
-      （轻纸页 / 厚书页，共 32KB，零版权顾虑）。想换成真实录音，覆盖 lib/sound/ 下同名
-      文件即可，面板里也能填自定义路径。
+  实现过程中的两处取舍（提交信息里都写了原因）：
+    · 内置音效：一开始这个环境拿不到素材站的二进制文件，先用 build/mksound.py 合成过两个
+      音色应急；后来客户给了 book-voice.mp3，就改成只内置这一个，合成脚本与那两个 wav 一并
+      移除。要再换音效：覆盖 build/vendor/sound/book-voice.mp3 后重新构建，或在面板里选
+      「自定义路径」填自己的文件。
     · 示意框「自定义长宽」：没有加独立的宽/高滑块，而是由「拉框」直接决定（bookHintBox
       存 x,y,宽,高 四个百分比），需要时也能手动改这几个数字。
 
   验证脚本（都在 build/.verify/，自包含素材、随时可重跑）：
     verify_book.py   主回归：前进/回翻卷曲、页面方向、拖拽回翻、点内容页开 360、加载文案
-    verify_hint.py   示意框：首屏不显示、时序、亮暗底可读性、点击穿透、弹层隐藏、呼吸
-    verify_pick.py   拉框：真实工作台预览里合成拖拽 → 参数被正确写入、预览未被重建
-    verify_sound.py  音效：audio/音量/加载成功、解锁 1 次 + 翻页 1 次、关闭无声音、自定义路径
+    verify_hint.py   示意框：首屏不显示、只在指定内容页且只展示一次、亮暗底可读性、
+                     点击穿透、弹层隐藏、呼吸
+    verify_pick.py   拉框：真实工作台预览里合成拖拽 → 自动跳页、参数被正确写入、预览未被重建
+    verify_sound.py  音效：内置 mp3 加载成功（readyState/duration）、音量、解锁 1 次 + 翻页 1 次、
+                     关闭无声音、自定义路径
 
   仍需真机确认（自动化测不了）：
     · iOS「静音开关」下翻页音效是否真的出声（机制上应该成立：走 <audio> 的 media 通道）

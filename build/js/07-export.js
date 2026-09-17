@@ -193,10 +193,9 @@ SD.Export = (function () {
     }
 
     /* 3) lib/ —— 360 查看器 + 翻页库 + 内置音效，都得在：书页靠翻页库、
-       360 靠查看器、开了翻页音效时靠 sound/ 下那两个 wav。
+       360 靠查看器、开了翻页音效时靠 sound/book-voice.mp3。
        少一个就有一半功能是坏的（之前这里只复制了 360，导出的书页翻不动）。 */
-    var LIBS = ['360-view.min.js', 'vysmo-flipbook.min.js',
-                'sound/flip-light.wav', 'sound/flip-heavy.wav'];
+    var LIBS = ['360-view.min.js', 'vysmo-flipbook.min.js', 'sound/book-voice.mp3'];
     for (var li = 0; li < LIBS.length; li++) {
       var libBytes = await fetchBytes('lib/' + LIBS[li]);
       await writeIn(dir, 'lib/' + LIBS[li], libBytes);

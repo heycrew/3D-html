@@ -538,7 +538,7 @@ SD.BookPage = (function () {
         '})();'
       ].join('\n') : ''),
       '',
-      '/* ---------- 翻页音效（参数：翻页音效 / 音色 / 自定义路径 / 音量）----------',
+      '/* ---------- 翻页音效（参数：翻页音效 / 音效来源 / 自定义路径 / 音量）----------',
       '   为什么用 <audio> 元素而不是 Web Audio API：iOS 把 audio/video 归到 media 通道，',
       '   它**忽略静音开关**；Web Audio 属于 ambient 通道，会被静音开关掐掉。所以',
       '   「静音下也能听见」用 <audio> 天然成立，不必上社区那套「循环播一段静音 audio',
@@ -546,13 +546,13 @@ SD.BookPage = (function () {
       '   Safari 16.4+ 还可以用 Audio Session API 显式声明成 media 类输出，有就设一下。',
       '   边界：媒体音量被调到 0 时任何网页都发不出声 —— 那是系统级的，绕不过去。 */',
       'var SOUND_ON = ' + (p.bookSoundOn ? 'true' : 'false') + ';',
+      '/* 内置只有一个音效：lib/sound/book-voice.mp3（跟产物一起打包） */',
       'var SOUND_SRC = ' + JSON.stringify((function () {
-        var k = p.bookSoundKind || 'light';
-        if (k === 'custom') {
+        if ((p.bookSoundKind || 'builtin') === 'custom') {
           var c = String(p.bookSoundCustom || '').trim();
           if (c) return c;
         }
-        return './lib/sound/' + (k === 'heavy' ? 'flip-heavy.wav' : 'flip-light.wav');
+        return './lib/sound/book-voice.mp3';
       })()) + ';',
       'var SOUND_VOL = ' + (p.bookSoundVolume === undefined ? 0.7 : Number(p.bookSoundVolume) || 0) + ';',
       'var sndEl = null;',

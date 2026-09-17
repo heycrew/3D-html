@@ -151,9 +151,9 @@ SD.SCHEMA = [
       { key: 'bookSoundOn', label: '翻页音效', type: 'bool', def: false,
         desc: '翻页时播放音效。用 <audio> 播放，所以手机的静音开关下也能听见；' +
               '但「媒体音量」被调到 0 时任何网页都发不出声' },
-      { key: 'bookSoundKind', label: '音效音色', type: 'select', def: 'light',
-        options: [['light', '轻纸页'], ['heavy', '厚书页'], ['custom', '自定义路径']],
-        desc: '内置两个音效（合成生成，无版权顾虑）；想换成自己的录音选「自定义路径」' },
+      { key: 'bookSoundKind', label: '音效来源', type: 'select', def: 'builtin',
+        options: [['builtin', '内置音效'], ['custom', '自定义路径']],
+        desc: '内置音效就是项目自带的 lib/sound/book-voice.mp3；想换成自己的录音选「自定义路径」' },
       { key: 'bookSoundCustom', label: '自定义音效路径', type: 'text', def: '',
         placeholder: '如 ./sound/my-turn.mp3 或 https://…',
         desc: '选「自定义路径」时生效；导出产物请把文件放进导出目录再填相对路径' },
