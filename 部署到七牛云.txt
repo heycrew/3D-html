@@ -9,13 +9,19 @@
     index.html          页面本体（唯一入口）
     images/             拍品 360 素材（博古架/单品模式用）
     book/               书页图 + 每页的 360 素材（翻书图录用）
-    lib/360-view.min.js 360 查看器库
+    lib/                整个文件夹都要传，里面有三样：
+        └ 360-view.min.js        360 查看器库（少了它画面出不来）
+        └ vysmo-flipbook.min.js  翻页库（少了它书页翻不动）
+        └ sound/book-voice.mp3   翻页音效（开了「翻页音效」就得有它，少了没声音）
     serve.ps1           本机预览用的服务器  ← 不要传
     启动.bat            本机预览用的启动脚本 ← 不要传
     使用说明.txt        给本地看的说明       ← 不要传
 
 上七牛只需要传这四样：index.html、images/、book/、lib/
 （serve.ps1 与 启动.bat 是本地双击预览用的，跟线上无关）
+
+★ lib/ 是「整个文件夹」一起传，别只挑 360-view.min.js。
+  它里面还有个 sound/ 子目录，漏了音效文件线上就没有翻页声。
 
 为什么不能在本地直接双击 index.html 打开？
   360 查看器对图片强制要求 crossOrigin="anonymous"，
@@ -61,7 +67,8 @@
     --overwrite=true \
     --skip-suffixes=ps1,bat,txt
 
-  # 说明：--skip-suffixes 把 serve.ps1 / 启动.bat / 说明 排除掉
+  # 说明：--skip-suffixes 把 serve.ps1 / 启动.bat / 说明 排除掉。
+  #       mp3 不在跳过名单里，所以 lib/sound/book-voice.mp3（翻页音效）会一起传上去。
 
 
 四、上线后改内容怎么办（很重要）
@@ -98,6 +105,11 @@
 5. 图片太大
    → 打开工作台的「体检」看看有没有单张超 3MB 的，
    建议压到 500KB 以内，线上加载会快很多。
+
+6. lib/ 只挑了 360-view.min.js 传
+   → 少了 vysmo-flipbook.min.js，翻书页点不动、也不翻页；
+   少了 sound/book-voice.mp3，开了「翻页音效」同样没声音。
+   lib/ 连同它里面的 sound/ 子目录一起传，就不会漏。
 
 
 六、一条命令验证部署是否成功
