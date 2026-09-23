@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 14:43</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 14:51</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -3519,9 +3519,40 @@ SD.BookPage = (function () {
       '    var strip = document.getElementById("strip360");',
       '    if (!strip || !url || !strip.classList.contains("p3-above")) return;',
       '    var items = strip.querySelectorAll(".p3-item");',
-      '    for (var i = 0; i < items.length; i++) {',
+      '    var n = items.length;',
+      '    if (!n) return;',
+      '    /* 目标下标：按 src 找 */',
+      '    var want = -1;',
+      '    for (var i = 0; i < n; i++) {',
       '      var im = items[i].querySelector("img");',
-      '      items[i].classList.toggle("on", !!(im && im.getAttribute("src") === url));',
+      '      if (im && im.getAttribute("src") === url) { want = i; break; }',
+      '    }',
+      '    if (want < 0) return;',
+      '    /* 白框不直接跳到目标帧，而是沿「帧值变化的方向」一格格走。',
+      '       为什么不用最短路径：4 帧素材时两个方向的距离永远只有 1~2 步，',
+      '       等于还是在跳（实测 MutationObserver 只抓到 4 次变化、每次都恰好等于帧值）。',
+      '       改成按方向走之后，0→3 会走 0→1→2→3（或反向），观感是顺序转动。',
+      '       注意：被补扫的这几帧画布上并没有真的显示过，这是视觉补偿。 */',
+      '    if (typeof window.__selAx !== "number") window.__selAx = idx;',
+      '    if (idx !== window.__selAx) {',
+      '      var _d = (idx - window.__selAx + n) % n;',
+      '      window.__axDir = (_d > 0 && _d <= n / 2) ? 1 : -1;',
+      '      window.__selAx = idx;',
+      '    }',
+      '    if (typeof window.__selShown !== "number"',
+      '        || window.__selShown < 0 || window.__selShown >= n) {',
+      '      window.__selShown = want;',
+      '      window.__selStepAt = 0;',
+      '    }',
+      '    if (window.__selShown !== want) {',
+      '      var _now = performance.now();',
+      '      if (_now - (window.__selStepAt || 0) >= 25) {',
+      '        window.__selStepAt = _now;',
+      '        window.__selShown = (window.__selShown + (window.__axDir || 1) + n) % n;',
+      '      }',
+      '    }',
+      '    for (var j = 0; j < n; j++) {',
+      '      items[j].classList.toggle("on", j === window.__selShown);',
       '    }',
       '  }',
       '  window.__syncLot = syncLot;',
