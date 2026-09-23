@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 16:25</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 16:48</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -4008,6 +4008,17 @@ SD.BookPage = (function () {
       '    });',
       '  }',
       '  if (!SHARE_ON) return;',
+      '  /* 微信小程序里的 web-view 打开这个页面时不显示分享按钮 ——',
+      '     小程序里的转发走它自己的转发能力，页面上的分享按钮在那儿点了没意义。',
+      '     识别方式用微信官方的两个标志（任一命中即认为在小程序里）：',
+      '       1) UA 里带 miniProgram —— 小程序 web-view 的 UA 特征；',
+      '       2) JSSDK 注入的 window.__wxjs_environment === "miniprogram"。',
+      '     其余环境照常显示，包括「在微信里点链接打开」这种普通微信浏览器。 */',
+      '  var _ua = navigator.userAgent || "";',
+      '  var _isMini = /miniprogram/i.test(_ua)',
+      '    || (typeof window.__wxjs_environment !== "undefined"',
+      '        && window.__wxjs_environment === "miniprogram");',
+      '  if (_isMini) return;',
       '  var btn = document.createElement("button");',
       '  btn.id = "shareBtn";',
       '  btn.type = "button";',
