@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 15:11</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 15:25</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -3494,6 +3494,12 @@ SD.BookPage = (function () {
       })()) + ';',
       '  var _lotLogo = null;',
       '  if (_lotLogoSrc) {',
+      '    /* 舞台 #lotStage 是常驻元素：每次打开大图都会走到这里，',
+      '       不先清掉旧的就会开一次叠一个 logo。 */',
+      '    var _oldLotLogo = stage.querySelector("#lotLogo");',
+      '    if (_oldLotLogo && _oldLotLogo.parentNode) {',
+      '      _oldLotLogo.parentNode.removeChild(_oldLotLogo);',
+      '    }',
       '    _lotLogo = document.createElement("img");',
       '    _lotLogo.id = "lotLogo";',
       '    _lotLogo.alt = "";',
@@ -3570,12 +3576,14 @@ SD.BookPage = (function () {
       '     弹层一关就自己停；viewer 还没建好时 syncLot 内部会自己跳过。 */',
       '  var _syncRaf = null;',
       '  function syncLoop() {',
-      '    window.__syncDbg = (window.__syncDbg || 0) + 1;',
-      '    if (!modal.classList.contains("on")) { _syncRaf = null; return; }',
+      '    if (!modal.classList.contains("on")) { window.__syncRafId = null; return; }',
       '    syncLot();',
-      '    _syncRaf = requestAnimationFrame(syncLoop);',
+      '    window.__syncRafId = requestAnimationFrame(syncLoop);',
       '  }',
-      '  syncLoop();',
+      '  /* 上一个弹层的循环必须取消：每次打开都会新起一个，旧的不停就会有多个循环',
+      '     同时改同一个选中框 —— 表现就是「展开大图时选中框不停地闪」。 */',
+      '  if (window.__syncRafId) { cancelAnimationFrame(window.__syncRafId); window.__syncRafId = null; }',
+      '  window.__syncRafId = requestAnimationFrame(syncLoop);',
       '}',
       '',
       '/* 360 的入口已经移到底部那条缩略图（见 syncP360）。',
