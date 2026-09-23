@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 14:51</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 15:01</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -2350,9 +2350,13 @@ SD.BookPage = (function () {
       '@media (max-width:820px){ .lot-hint{bottom:138px;font-size:11px;}',
       '  .lot-hint{bottom:calc(138px + env(safe-area-inset-bottom, 0px));}',
       '  .book-logo{max-height:38px;} }',
-      '/* 大图弹层打开时：底部那条页码导航（窑口目录 / 页码 / 自动翻页）先让位，',
-      '   免得和大图里的关闭按钮挤在底部同一块地方。 */',
+      '/* 大图弹层打开时：',
+      '   1) 底部那条页码导航（窑口目录 / 页码 / 自动翻页）先让位，',
+      '      免得和大图里的关闭按钮挤在底部同一块地方；',
+      '   2) 书页上那个 logo 也一起藏起来 —— 大图里有它自己的 logo，',
+      '      留着背景那个会叠在一起。 */',
       'body:has(.lot-modal.on) .nav-wrap{display:none;}',
+      'body:has(.lot-modal.on) .book-logo{display:none;}',
 
       '/* 360 素材缩略图条：浮在底部导航条上方。',
       '   这一页上传了几张 360 素材就画几张；点第 N 张 → 打开全景并从第 N 帧起看。',
