@@ -1411,12 +1411,13 @@ SD.BookPage = (function () {
       '  })(list[0]);',
       '',
       '  /* 大图里的 logo：摆在图片内部的顶部居中（跟着图片上沿走，',
-      '     图片撑满屏幕时就是贴顶 12px）。用同一张书籍 logo。 */',
-      '  var _lotLogoSrc = (function () {',
-      '    var lg = (state.book && state.book.logo) || null;',
-      '    if (!lg) return "";',
-      '    return (mode === "preview") ? (lg.url || "") : ("book/logo" + extOfName(lg.name));',
-      '  })();',
+      '     图片撑满屏幕时就是贴顶 12px）。用同一张书籍 logo。',
+      '     注意：路径必须在「生成时」算好再写进产物 —— 产物运行环境里没有 state 变量。 */',
+      '  var _lotLogoSrc = ' + JSON.stringify((function () {
+        var lg = (state.book && state.book.logo) || null;
+        if (!lg) return '';
+        return (mode === 'preview') ? (lg.url || '') : ('book/logo' + extOfName(lg.name));
+      })()) + ';',
       '  var _lotLogo = null;',
       '  if (_lotLogoSrc) {',
       '    _lotLogo = document.createElement("img");',
