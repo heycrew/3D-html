@@ -547,6 +547,9 @@ SD.BookPage = (function () {
       '  bootEl = _bEl("div");',
       '  bootEl.id = "bootLoad";',
       '  var _bBox = _bEl("div");',
+      '  /* 这一列自己也要居中：否则 _bBox 的宽度由最宽的子元素（加载文案）撑开，',
+      '     里面的 logo 会贴着左边 —— 这正是现在「logo 往左偏」的原因。 */',
+      '  _bBox.style.cssText = "display:flex;flex-direction:column;align-items:center;";',
       '  /* 书籍 logo 显示在加载文案上方（同一张 logo；没上传就不占位）*/',
       '  var _lgPath = ' + JSON.stringify(
         (state.book && state.book.logo)

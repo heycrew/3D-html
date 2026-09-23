@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 15:52</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 15:57</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -2608,6 +2608,9 @@ SD.BookPage = (function () {
       '  bootEl = _bEl("div");',
       '  bootEl.id = "bootLoad";',
       '  var _bBox = _bEl("div");',
+      '  /* 这一列自己也要居中：否则 _bBox 的宽度由最宽的子元素（加载文案）撑开，',
+      '     里面的 logo 会贴着左边 —— 这正是现在「logo 往左偏」的原因。 */',
+      '  _bBox.style.cssText = "display:flex;flex-direction:column;align-items:center;";',
       '  /* 书籍 logo 显示在加载文案上方（同一张 logo；没上传就不占位）*/',
       '  var _lgPath = ' + JSON.stringify(
         (state.book && state.book.logo)
