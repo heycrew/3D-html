@@ -8,14 +8,17 @@ window.SD = window.SD || {};
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return SD.Codegen.esc(s); };
 
-  /* ================= 状态 ================= */
+  /* ================= 状态 =================
+     页面类型只剩「翻书图录」：单品 360 展示那一路已经去掉（入口、素材面板、
+     参数都撤了），所以这里直接固定成 book —— 免得出现「模式是单品、界面却是
+     书籍」的空白状态。底层函数（Codegen / Materials）保留，不再被 UI 调用。 */
   var STATE = {
     templateId: SD.TEMPLATES[0].id,
     title: '360° 产品展示',
     customCss: '',
     params: SD.defaults(),
     materials: { items: [], folder: './images/', filenameX: 'frame-{index}.jpg', pad: 0 },
-    pageType: 'single',   /* single = 单品 360；book = 翻书图录 */
+    pageType: 'book',     /* 固定翻书图录（单品 360 展示已下线） */
     stage: { width: 520, bg: 'checker' }
   };
   SD.STATE = STATE;
@@ -215,7 +218,11 @@ window.SD = window.SD || {};
     });
 
     host.innerHTML = '';
-    SD.SCHEMA.forEach(function (g, i) {
+    /* 只渲染「书籍（翻书图录）」这一组 —— 单品 360 展示已经下线，
+       其余那些组（图片源 / 旋转行为 / 交互控制 / 外观与控件 / 热点 / CDN）
+       都是给单品用的，摆在这里只会让人以为还能用。
+       组定义仍留在 01-schema.js 里（defaults 还要用），只是不再渲染。 */
+    SD.SCHEMA.filter(function (g) { return g.id === 'book'; }).forEach(function (g, i) {
       var box = document.createElement('div');
       var isOpen = openState[i] === undefined ? g.open : openState[i];
       box.className = 'pgroup' + (isOpen ? ' open' : '');
@@ -281,11 +288,15 @@ window.SD = window.SD || {};
     });
   }
 
-  /* ================= 素材 ================= */
+  /* ================= 素材 =================
+     单品模式的「素材面板」已下线（左侧那一栏只剩书页与窑口图录），
+     所以这里第一件事就是「面板不在就什么都不做」—— 它现在只在
+     单品路径下才会被真正用到，而那条路已经没有了。 */
   function renderMaterials() {
     var items = STATE.materials.items || [];
     var host = $('matList');
     var stats = $('matStats');
+    if (!host) return;
     host.innerHTML = '';
 
     if (!items.length) {
@@ -443,6 +454,116 @@ window.SD = window.SD || {};
     $('stageMeta').textContent = ratio ? ('比例 ' + ratio) : '';
   }
 
+  /* ================= 窑口图录（产物底部那个按钮里的条目） =================
+     每条 = 页码（产物里的真实页码，1 = 封面）+ 标题 + 可选自定义图。
+     自定义图留空时，产物里自动回退成该页的图。 */
+  var _catKey = '';
+  function catRender() {
+    var host = $('catList'), hint = $('catHint');
+    if (!host) return;
+    var list = SD.Book ? SD.Book.catalog() : [];
+    var last = SD.Book ? SD.Book.lastIndex() : 1;
+    /* key 里故意不含 title：输标题时不该重建这一栏（会丢焦点） */
+    var key = list.map(function (c) {
+      return (c.page || 1) + '|' + ((c.img && (c.img.url || c.img.name)) || '');
+    }).join(',') + '#' + last;
+    if (key === _catKey) return;
+    _catKey = key;
+    host.innerHTML = '';
+    var INP = 'background:var(--sd-bg3);color:inherit;border:1px solid var(--sd-line);' +
+              'border-radius:6px;padding:3px 6px;font:inherit;font-size:12px;box-sizing:border-box';
+    list.forEach(function (c, i) {
+      var row = document.createElement('div');
+      row.className = 'lot-row';
+      row.style.cssText = 'margin:0 0 6px;padding:6px;display:flex;gap:6px;align-items:flex-start';
+      row.innerHTML =
+        '<div class="lot-cover" style="width:44px;height:44px;flex:0 0 auto">' +
+          (c.img && c.img.url ? '<img alt="">' : '<span>页图</span>') + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="display:flex;gap:4px;align-items:center">' +
+            '<select data-page style="flex:0 0 96px;' + INP + '"></select>' +
+            '<button class="btn ghost sm" data-up title="上移">↑</button>' +
+            '<button class="btn ghost sm" data-down title="下移">↓</button>' +
+            '<button class="btn ghost sm" data-del title="删除">✕</button>' +
+          '</div>' +
+          '<input data-title placeholder="标题（显示在图片下方）" style="width:100%;margin-top:4px;' + INP + '">' +
+          '<div style="display:flex;gap:6px;margin-top:4px">' +
+            '<button class="btn ghost sm" data-img>选自定义图</button>' +
+            (c.img ? '<button class="btn ghost sm" data-imgdel>改用页图</button>' : '') +
+          '</div>' +
+        '</div>';
+      if (c.img && c.img.url) row.querySelector('.lot-cover img').src = c.img.url;
+
+      var sel = row.querySelector('[data-page]');
+      for (var n = 1; n <= last; n++) {
+        var op = document.createElement('option');
+        op.value = String(n);
+        op.textContent = (n === 1) ? '封面' : ((n === last) ? '封底' : ('第 ' + (n - 1) + ' 页'));
+        sel.appendChild(op);
+      }
+      sel.value = String(Math.max(1, Math.min(last, c.page || 1)));
+      sel.addEventListener('change', function () {
+        SD.Book.setCatalog(i, { page: Number(sel.value) || 1 });
+      });
+
+      var ti = row.querySelector('[data-title]');
+      ti.value = c.title || '';
+      ti.addEventListener('input', function () {
+        /* 直接改数据（不走 afterChange）—— 免得每敲一个字重画这一栏 */
+        var arr = SD.Book.catalog();
+        if (arr[i]) arr[i].title = ti.value;
+        if (SD.Store) SD.Store.autoSave();
+        if (SD.refresh) SD.refresh();
+      });
+
+      row.querySelector('[data-up]').addEventListener('click', function (e) {
+        e.stopPropagation(); SD.Book.moveCatalog(i, -1);
+      });
+      row.querySelector('[data-down]').addEventListener('click', function (e) {
+        e.stopPropagation(); SD.Book.moveCatalog(i, 1);
+      });
+      row.querySelector('[data-del]').addEventListener('click', function (e) {
+        e.stopPropagation(); SD.Book.removeCatalog(i);
+      });
+      row.querySelector('[data-img]').addEventListener('click', function (e) {
+        e.stopPropagation();
+        pickOneImage(function (it) {
+          SD.Book.setCatalog(i, { img: { url: it.url, file: it.file, name: it.name } });
+        });
+      });
+      var idel = row.querySelector('[data-imgdel]');
+      if (idel) idel.addEventListener('click', function (e) {
+        e.stopPropagation(); SD.Book.setCatalog(i, { img: null });
+      });
+
+      host.appendChild(row);
+    });
+    if (hint) {
+      hint.innerHTML = list.length
+        ? ('共 ' + list.length + ' 条；标题显示在图下方，自定义图留空就用该页的图')
+        : '还没有条目 —— 点右上「＋ 添加条目」。不配的话，产物里那个按钮仍显示全部页面的图墙';
+    }
+  }
+
+  /* ================= 书籍 logo =================
+     左栏那个「上传书籍 logo」按钮旁边的缩略图：有 logo 就显示，没有就藏起来。
+     产物里它显示在书的上方居中（加载页的加载文案上方也用同一张）。 */
+  function logoRender() {
+    var img = $('logoThumb');
+    var btn = $('btnUpLogo');
+    if (!img) return;
+    var lg = (SD.Book ? SD.Book.book() : (STATE.book || {})).logo;
+    if (lg && lg.url) {
+      if (img.getAttribute('src') !== lg.url) img.src = lg.url;
+      img.style.display = '';
+      if (btn) btn.textContent = '更换书籍 logo';
+      img.title = (lg.name || 'logo') + '（点左边按钮可更换）';
+    } else {
+      img.style.display = 'none';
+      if (btn) btn.textContent = '上传书籍 logo';
+    }
+  }
+
   /* ================= 主刷新 ================= */
   var codeTimer = null;
 
@@ -455,6 +576,8 @@ window.SD = window.SD || {};
        导入页面图）都会走到这里。以前只有动素材本身时才刷新它，所以换到
        另一页之后，下面那栏还显示着上一页的素材。 */
     page360Render();
+    catRender();          /* 窑口图录那一栏（key 不变时不重建，输标题不掉焦点） */
+    logoRender();         /* 左栏「上传书籍 logo」旁边的缩略图 */
     SD.Preview.schedule(STATE);
 
     if (codeTimer) clearTimeout(codeTimer);
@@ -506,7 +629,16 @@ window.SD = window.SD || {};
       toast('ok', '导出完成', '共 ' + r.files + ' 个文件 → ' + r.dir +
         '（双击其中的 启动.bat 即可预览）', 7000);
     }).catch(function (e) {
-      toast('err', '导出失败', (e && e.message) || '');
+      /* 完整错误打进控制台：toast 只有一行，而「导出失败」四个字本身说明不了
+         是哪一步 —— 控制台里能看到「写 book/xxx 失败：具体原因」。 */
+      try { console.error('[导出失败]', e); } catch (e2) {}
+      var msg = (e && e.message) || String(e || '未知错误');
+      if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
+        msg = '浏览器拒绝了写入权限：换一个自己的文件夹（别选系统盘根目录、Program Files）再试。';
+      } else if (e && e.name === 'AbortError') {
+        msg = '目录选择被取消了';
+      }
+      toast('err', '导出失败', msg, 12000);
       status('导出失败', 'err');
     });
   }
@@ -633,6 +765,16 @@ window.SD = window.SD || {};
       });
     });
 
+    /* 书籍 logo：显示在书的上方居中（加载页的加载文案上方也用同一张） */
+    var upLogo = $('btnUpLogo');
+    if (upLogo) upLogo.addEventListener('click', function () {
+      pickOneImage(function (it) {
+        SD.Book.book().logo = { url: it.url, file: it.file, name: it.name };
+        refresh();
+        toast('ok', '书籍 logo 已上传', '显示在书的上方居中，加载页也会用它', 6000);
+      });
+    });
+
     var upPage = $('btnUpPage');
     if (upPage) upPage.addEventListener('click', function () {
       var sh = SD.Book.activeSheet();
@@ -646,6 +788,10 @@ window.SD = window.SD || {};
         toast('ok', '本页图片已上传');
       });
     });
+
+    /* 窑口图录：产物底部那个按钮里的条目（页码 + 标题 + 自定义图） */
+    var addCat = $('btnAddCat');
+    if (addCat) addCat.addEventListener('click', function () { SD.Book.addCatalog(); });
   }
 
   /* ================= 全局错误横幅 =================
@@ -685,7 +831,9 @@ window.SD = window.SD || {};
     var snap = await SD.Store.load();
     if (!snap) return false;
 
-    STATE.pageType = snap.pageType || 'single';
+    /* 页面类型固定翻书图录：老工程里存的 'single' 也一律按书籍恢复，
+       否则会出现「界面是书籍栏、预览却走单品查看器」的空白状态。 */
+    STATE.pageType = 'book';
     STATE.title = snap.title || STATE.title;
     STATE.customCss = snap.customCss || '';
     if (snap.templateId) STATE.templateId = snap.templateId;
@@ -711,12 +859,8 @@ window.SD = window.SD || {};
                axis: rec.axis || 'x', off: !!rec.off };
     }
 
-    /* 当前编辑的那一份 */
-    var editing = [];
-    for (var k = 0; k < (snap.editingItems || []).length; k++) {
-      editing.push(await uploadOne(snap.editingItems[k]));
-    }
-    if (editing.length) STATE.materials.items = editing;
+    /* 单品模式那份「当前素材」不再恢复：素材只挂在各内容页上（见下面的书页）。
+       老工程里残留的 editingItems 直接忽略即可。 */
 
     /* 书页 */
     if (snap.book) {
@@ -734,13 +878,45 @@ window.SD = window.SD || {};
       for (var m = 0; m < ((snap.book.pages) || []).length; m++) {
         var pg = snap.book.pages[m];
         var o = await upSheet(pg);
+        /* 这一页的 360 素材：逐张重新上传换回新的 /@mat 地址 */
+        var its = [];
+        for (var k2 = 0; k2 < (((pg || {}).items) || []).length; k2++) {
+          var it2 = pg.items[k2];
+          var io = await upSheet(it2);
+          its.push({
+            url: io ? io.url : '',
+            file: io ? io.file : (it2 && it2.file) || null,
+            name: (io && io.name) || (it2 && it2.name) || '',
+            axis: (it2 && it2.axis) || 'x',
+            off: !!(it2 && it2.off),
+            w: it2 && it2.w, h: it2 && it2.h
+          });
+        }
         pages.push({
           url: o ? o.url : '',
           file: o ? o.file : null,
-          name: (o && o.name) || pg.name || ''
+          name: (o && o.name) || pg.name || '',
+          items: its
         });
       }
       STATE.book.pages = pages;
+
+      /* 书籍 logo 同样要重新传一遍（/@mat 地址一次性） */
+      STATE.book.logo = await upSheet(snap.book.logo);
+
+      /* 窑口图录：页码与标题直接恢复，自定义图要重新传一遍
+         （/@mat/... 是一次性地址，服务一重启就失效） */
+      var cats = [];
+      for (var q = 0; q < ((snap.book.catalog) || []).length; q++) {
+        var c0 = snap.book.catalog[q];
+        var co = await upSheet(c0.img);
+        cats.push({
+          page: c0.page || 1,
+          title: c0.title || '',
+          img: co ? { url: co.url, file: co.file, name: co.name } : null
+        });
+      }
+      STATE.book.catalog = cats;
     }
     return true;
   }
@@ -774,6 +950,11 @@ window.SD = window.SD || {};
         backName: (bk.back && bk.back.name) || '',
         pages: ((bk.pages) || []).map(function (p) {
           return { name: p.name || '' };
+        }),
+        /* 窑口图录：结构与文字可以带走，自定义图不带（导入后重新选） */
+        catalog: ((bk.catalog) || []).map(function (c) {
+          return { page: c.page || 1, title: c.title || '',
+                   imgName: (c.img && c.img.name) || '' };
         })
       },
       note: '仅含配置与结构，不含图片；导入后请重新上传对应图片'
@@ -785,7 +966,8 @@ window.SD = window.SD || {};
       toast('err', '这不是本工作台导出的配置', '请选择正确的 JSON 文件');
       return;
     }
-    STATE.pageType = conf.pageType || 'single';
+    /* 同上：导入旧配置时也一律按翻书图录恢复 */
+    STATE.pageType = 'book';
     STATE.title = conf.title || STATE.title;
     STATE.templateId = conf.templateId || STATE.templateId;
     STATE.customCss = conf.customCss || '';
@@ -802,6 +984,10 @@ window.SD = window.SD || {};
     STATE.book.back = null;
     STATE.book.pages = ((conf.book && conf.book.pages) || []).map(function (p) {
       return { url: '', file: null, name: p.name || '' };
+    });
+    /* 窑口图录：页码与标题恢复，自定义图留空待重新选 */
+    STATE.book.catalog = ((conf.book && conf.book.catalog) || []).map(function (c) {
+      return { page: c.page || 1, title: c.title || '', img: null };
     });
 
     if ($('pageType')) $('pageType').value = STATE.pageType;
@@ -1112,6 +1298,8 @@ window.SD = window.SD || {};
       reupload(bk.cover);
       reupload(bk.back);
       (bk.pages || []).forEach(reupload);
+      /* 窑口图录的自定义图也是素材，一起换新地址 */
+      (bk.catalog || []).forEach(function (c) { if (c) reupload(c.img); });
 
       if (!jobs.length) return false;
       status('检测到本地服务重启，正在重新载入素材…', 'warn');
@@ -1141,44 +1329,20 @@ window.SD = window.SD || {};
 
   /* ================= 事件装配 ================= */
   function bindEvents() {
-    $('btnPickFiles').addEventListener('click', function () { $('fileInput').click(); });
-    $('btnPickDir').addEventListener('click', function () { $('dirInput').click(); });
-    $('btnDemo').addEventListener('click', loadDemo);
-    $('fileInput').addEventListener('change', function (e) { addMaterials(e.target.files); e.target.value = ''; });
-    $('dirInput').addEventListener('change', function (e) { addMaterials(e.target.files); e.target.value = ''; });
-
-    var dz = $('dropzone');
-    dz.addEventListener('click', function () { $('fileInput').click(); });
-    ['dragenter', 'dragover'].forEach(function (ev) {
-      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('over'); });
-    });
-    ['dragleave', 'drop'].forEach(function (ev) {
-      dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('over'); });
-    });
-    dz.addEventListener('drop', function (e) {
-      if (e.dataTransfer && e.dataTransfer.files) addMaterials(e.dataTransfer.files);
-    });
-
-    $('btnSortName').addEventListener('click', function () {
-      STATE.materials.items.sort(function (a, b) {
-        return String(a.name).localeCompare(String(b.name), 'zh-Hans-CN',
-          { numeric: true, sensitivity: 'base' });
+    /* 单品模式的素材面板（选择图片 / 文件夹 / 载入示例 / 拖拽导入 / 重排 /
+       清空 / 水平垂直选择）整块已下线 —— 它的 DOM 已经不在了，绑定自然会
+       抛「Cannot read properties of null」。底层函数（addMaterials /
+       loadDemo / clearMaterials）保留，只是不再有入口调用它们。 */
+    var dz = $('dropzone');   /* 旧版留下的拖拽导入；DOM 在就直接跳过 */
+    if (dz) {
+      dz.addEventListener('click', function () { var f = $('fileInput'); if (f) f.click(); });
+      ['dragenter', 'dragover'].forEach(function (ev) {
+        dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add('over'); });
       });
-      renderMaterials();
-      refresh();
-      toast('ok', '已按文件名重排');
-    });
-    $('btnClearMat').addEventListener('click', clearMaterials);
-
-    Array.prototype.forEach.call($('axisPick').querySelectorAll('button'), function (b) {
-      b.addEventListener('click', function () {
-        Array.prototype.forEach.call($('axisPick').querySelectorAll('button'),
-          function (o) { o.className = ''; });
-        b.className = 'on';
-        AXIS = b.getAttribute('data-axis');
-        status('后续导入的图片将作为' + (AXIS === 'y' ? '垂直俯仰' : '水平旋转') + '帧');
+      ['dragleave', 'drop'].forEach(function (ev) {
+        dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove('over'); });
       });
-    });
+    }
 
     Array.prototype.forEach.call(document.querySelectorAll('.swatch'), function (s) {
       s.addEventListener('click', function () {
@@ -1217,19 +1381,9 @@ window.SD = window.SD || {};
       toast('ok', '已按素材比例设置', r);
     });
 
-    $('pageType').addEventListener('change', function () {
-      var t = $('pageType').value;
-      STATE.pageType = t;
-      if (t === 'book') {
-        SD.Book.book();
-        SD.Book.render();
-        status('已切到翻书图录：左侧可管理封面 / 内容页 / 封底');
-      } else {
-        status('已切到单品 360 模式');
-      }
-      syncParamsUI();
-      refresh();
-    });
+    /* 「页面类型」下拉已下线（只做翻书图录），这里的切换绑定一并去掉。
+       书籍模型在启动时就会初始化（见 boot 里的 SD.Book.book()）。 */
+
 
     $('btnAddHotspot').addEventListener('click', function () {
       if (!SD.Codegen.activeItems(STATE).length) {
@@ -1276,12 +1430,60 @@ window.SD = window.SD || {};
 
     $('btnHelp').addEventListener('click', showHelp);
 
+    /* 「清空本地工程」= 清掉这个工程用到的**全部图片素材**：
+       IndexedDB 里存的工程快照、本地服务内存里的 /@mat 素材、以及内存里
+       书页 / 封面 / 封底 / 每页 360 / 窑口图录自定义图的引用。 */
     var btnWipe = $('btnWipeStore');
     if (btnWipe) btnWipe.addEventListener('click', function () {
-      if (!confirm('确定清除本机保存的工程吗？\n\n' +
-                   '已上传的素材与参数都会消失，不可恢复。')) return;
-      SD.Store.clear().then(function () {
-        toast('ok', '已清除本地工程', '刷新后不会再恢复');
+      if (!confirm('确定清空本地工程吗？\n\n' +
+                   '书页图、360 素材、窑口图录自定义图与参数都会消失，不可恢复。')) return;
+      var clearLocal = SD.Materials && SD.Materials.clearServer
+        ? SD.Materials.clearServer() : Promise.resolve();
+      Promise.resolve(clearLocal).catch(function () {}).then(function () {
+        return SD.Store.clear();
+      }).then(function () {
+        /* 内存里的图片引用也一并清掉，否则界面上还挂着已经失效的素材 */
+        STATE.materials.items = [];
+        var bk = SD.Book ? SD.Book.book() : (STATE.book || {});
+        bk.cover = null;
+        bk.back = null;
+        (bk.pages || []).forEach(function (p) {
+          p.url = ''; p.file = null; p.name = '';
+          p.items = [];
+        });
+        (bk.catalog || []).forEach(function (c) { c.img = null; });
+        renderMaterials();
+        SD.Book.render();
+        refresh();
+        toast('ok', '已清空本地工程', '所有图片素材与参数都清掉了，刷新后不会再恢复', 7000);
+      });
+    });
+
+    /* 「保存素材」= 手动把当前工程落库（平时是自动保存，这一下是「现在就存」）。
+       存进去的是原始 File 对象，所以下次打开工作台书页图与 360 素材都还在。 */
+    var btnSave = $('btnSaveStore');
+    if (btnSave) btnSave.addEventListener('click', function () {
+      var bk = SD.Book ? SD.Book.book() : (STATE.book || {});
+      var n = (bk.cover && bk.cover.file ? 1 : 0) + (bk.back && bk.back.file ? 1 : 0);
+      (bk.pages || []).forEach(function (p) {
+        if (p && p.file) n += 1;
+        n += ((p && p.items) || []).filter(function (it) { return it && it.file; }).length;
+      });
+      n += (bk.catalog || []).filter(function (c) { return c && c.img && c.img.file; }).length;
+      if (!n) {
+        toast('warn', '还没有可保存的素材', '先在左栏上传封面 / 内容页图 / 360 素材');
+        return;
+      }
+      status('正在保存素材…');
+      SD.Store.saveNow().then(function (ok) {
+        if (ok) {
+          status('已保存 · ' + n + ' 个图片素材');
+          toast('ok', '素材已保存',
+            '共 ' + n + ' 个图片素材 —— 下次打开工作台会自动恢复，可继续操作', 8000);
+        } else {
+          status('保存失败', 'err');
+          toast('err', '保存失败', '浏览器可能禁用了本地存储（无痕模式 / 空间不足）');
+        }
       });
     });
     SD.onStoreSaved = function (ts) {
@@ -1364,10 +1566,23 @@ window.SD = window.SD || {};
       healAfterRestart();
       window.addEventListener('focus', function () { healAfterRestart(); });
 
-      /* 有调试参数时不打扰，直接按参数走 */
+      /* 有调试参数时不打扰��直接按参数走 */
       var hasDebug = /[?&](demo|book)/.test(location.search);
       if (!hasDebug && SD.Store) {
-        restoreFromStore().then(function (restored) {
+        /* 先清掉旧版本留下的残留（单品模式那份临时素材 editingItems）：
+           本地只该留「当前图录真正用到的素材」。顺带把内存里那份单品素材
+           也清空 —— 它已经没有任何入口了。 */
+        STATE.materials.items = [];
+        SD.Store.purgeLegacy().then(function (purged) {
+          if (purged) {
+            SD.Store.saveNow();   /* 清完存一次干净快照，让本地库与当前工程一致 */
+            toast('ok', '已清理旧的临时素材',
+                  '本地只保留当前图录用到的素材', 6000);
+          }
+          return restoreFromStore();
+        }).catch(function () {
+          return restoreFromStore();
+        }).then(function (restored) {
           if (!restored) return;
           applyRestored();
           toast('ok', '已恢复上次的工程',
@@ -1419,9 +1634,13 @@ window.SD = window.SD || {};
         updateCode();
       }
       if (/[?&]book/.test(location.search)) {
-        var ptb = $('pageType');
-        ptb.value = 'book';
-        ptb.dispatchEvent(new Event('change'));
+        /* ?book=1 以前靠「切到书籍模式」触发；页面类型已固定为书籍，
+           这里只需要把书籍模型与左栏刷新一遍。 */
+        STATE.pageType = 'book';
+        SD.Book.book();
+        SD.Book.render();
+        syncParamsUI();
+        refresh();
         var _tryBook = 0;
         (function waitBook() {
           _tryBook++;

@@ -188,6 +188,9 @@ SD.Codegen = (function () {
       '<head>',
       '<meta charset="utf-8">',
       '<meta name="viewport" content="width=device-width,initial-scale=1">',
+      /* 内联图标：否则浏览器会去请求 /favicon.ico 拿一个 404 ——
+         线上（七牛等静态托管）控制台也会挂一条红字 */
+      '<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2214%22%20fill=%22%2312100e%22/%3E%3Ctext%20x=%2232%22%20y=%2243%22%20font-family=%22Arial,sans-serif%22%20font-size=%2226%22%20font-weight=%22700%22%20text-anchor=%22middle%22%20fill=%22%23ffb340%22%3E360%3C/text%3E%3C/svg%3E">',
       '<title>' + esc(title) + '</title>',
       '<style>',
       tpl.css,

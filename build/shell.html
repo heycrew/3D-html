@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 内联图标：少了这一行，浏览器会去请求 /favicon.ico 拿一个 404，
+     工作台控制台里就一直挂着一条红字（项目目录里本来没有这个文件） -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2214%22%20fill=%22%2312100e%22/%3E%3Ctext%20x=%2232%22%20y=%2243%22%20font-family=%22Arial,sans-serif%22%20font-size=%2226%22%20font-weight=%22700%22%20text-anchor=%22middle%22%20fill=%22%23ffb340%22%3E360%3C/text%3E%3C/svg%3E">
 <title>360° 全景展示工作台</title>
 <style>
 :root{
@@ -283,18 +286,14 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
       style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v{{BUILD_TIME}}</span>
   </div>
   <div class="topbar-sep"></div>
-  <label style="color:var(--sd-fg2);font-size:12px">页面类型</label>
-  <select id="pageType" style="width:132px">
-    <option value="single">单品 360 展示</option>
-    <option value="book">翻书图录（电子图册）</option>
-  </select>
-  <div class="topbar-sep"></div>
+  <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
   <!-- 页面标题：写进导出产物的 <title>，也就是手机打开链接时顶部/微信分享栏显示的那行 -->
   <label style="color:var(--sd-fg2);font-size:12px">页面标题</label>
   <input type="text" id="titleInput" placeholder="360° 产品展示" style="width:180px">
   <div class="topbar-sep"></div>
   <button class="btn ghost sm" id="btnHelp">使用说明</button>
-  <button class="btn ghost sm" id="btnWipeStore" title="清除浏览器里自动保存的工程">清空本地工程</button>
+  <button class="btn ghost sm" id="btnWipeStore" title="清除浏览器里保存的工程与所有图片素材">清空本地工程</button>
+  <button class="btn ghost sm" id="btnSaveStore" title="把当前的书页图与 360 素材存进浏览器本地库，下次打开自动恢复">保存素材</button>
   <div class="topbar-spacer"></div>
   <button class="btn sm" id="btnCheckup" title="检查图片尺寸是否一致、帧数够不够、有没有超大的图">体检</button>
   <button class="btn sm" id="btnImportCfg">导入配置</button>
@@ -306,12 +305,6 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
 
   <!-- 左：素材 -->
   <aside class="col" id="col-left">
-    <div class="col-head">
-      <span>素材</span>
-      <span class="spacer"></span>
-      <button class="btn ghost sm" id="btnSortName" title="按文件名自然排序">重排</button>
-      <button class="btn ghost sm" id="btnClearMat" title="清空素材">清空</button>
-    </div>
     <div class="col-body">
       <div id="bookBar" style="display:none">
         <div class="lot-bar-head">
@@ -320,16 +313,21 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
           <button class="btn ghost sm" id="btnAddPage">＋ 加页</button>
         </div>
         <div id="bookList"></div>
-        <div style="display:flex;gap:6px;padding:0 12px 10px">
+        <div style="display:flex;gap:6px;padding:0 12px 10px;align-items:center">
           <button class="btn sm" id="btnUpCover" style="flex:1;justify-content:center">上传封面</button>
           <button class="btn sm" id="btnUpBack" style="flex:1;justify-content:center">上传封底</button>
+        </div>
+        <!-- 书籍 logo：显示在书的上方居中（加载页的加载文案上方也用它） -->
+        <div style="display:flex;gap:8px;padding:0 12px 10px;align-items:center">
+          <button class="btn sm" id="btnUpLogo" style="flex:1;justify-content:center">上传书籍 logo</button>
+          <img id="logoThumb" alt="" style="width:34px;height:34px;object-fit:contain;border-radius:4px;background:var(--sd-bg3);display:none">
         </div>
         <div style="padding:0 12px 10px">
           <button class="btn sm" id="btnUpPage" style="width:100%;justify-content:center">上传本页图片</button>
         </div>
         <div style="padding:10px 12px;border-top:1px solid var(--sd-line)">
           <div style="font-size:12px;color:var(--sd-fg2);margin-bottom:6px">
-            本页 360 素材<span style="color:var(--sd-fg3)">（成品里点这一页就会弹出）</span>
+            本页 360 素材<span style="color:var(--sd-fg3)">（成品里点底部缩略图就会弹出）</span>
           </div>
           <div style="display:flex;gap:6px">
             <button class="btn sm" id="btnUpPage360X" style="flex:1;justify-content:center">＋ 水平转动</button>
@@ -338,35 +336,20 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
           <div id="page360List" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px"></div>
           <div id="page360Hint" style="font-size:11px;color:var(--sd-fg3);margin-top:6px"></div>
         </div>
+        <!-- 窑口目录：产物底部那个按钮里的条目，逐条配「页码 + 标题 + 自定义图」 -->
+        <div style="padding:10px 12px;border-top:1px solid var(--sd-line)">
+          <div style="display:flex;align-items:center;font-size:12px;color:var(--sd-fg2);margin-bottom:6px">
+            窑口目录
+            <span style="flex:1"></span>
+            <button class="btn ghost sm" id="btnAddCat">＋ 添加条目</button>
+          </div>
+          <div id="catList"></div>
+          <div id="catHint" style="font-size:11px;color:var(--sd-fg3);margin-top:6px"></div>
+        </div>
         <div class="mini-note" id="bookHint"></div>
       </div>
-      <!-- 书模式下整块收起（素材直接挂在内容页上）；单品时照旧 -->
-      <div id="matPanel">
-        <div style="padding:8px 12px 4px;font-size:12px;color:var(--sd-fg3)">
-          素材（当前页面的 360 图）
-        </div>
-      <div id="dropzone">
-        <span class="big">🖼</span>
-        <div>拖拽图片到此处</div>
-        <div class="hint">或点击选择文件 / 选择文件夹<br>支持任意帧数（6 张也能用）</div>
-      </div>
-      <div class="mat-actions">
-        <button class="btn sm" id="btnPickFiles">选择图片</button>
-        <button class="btn sm" id="btnPickDir">选择文件夹</button>
-        <button class="btn sm" id="btnDemo">载入示例</button>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;padding:0 12px 10px;font-size:11px;color:var(--sd-fg3)">
-        <span>导入到</span>
-        <div class="tri" id="axisPick">
-          <button type="button" class="on" data-axis="x">水平旋转</button>
-          <button type="button" data-axis="y">垂直俯仰</button>
-        </div>
-      </div>
-      <input type="file" id="fileInput" accept="image/*" multiple hidden>
-      <input type="file" id="dirInput" webkitdirectory directory multiple hidden>
-      <div id="matStats"></div>
-      <div id="matList"></div>
-      </div><!-- /#matPanel -->
+      <!-- 「单品 360 展示」的素材面板与页面类型入口都已下线：这一栏现在只有
+           书页与窑口目录；底层生成/素材函数仍保留，只是不再有 UI 调用它们。 -->
     </div>
   </aside>
 

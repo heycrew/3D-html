@@ -93,17 +93,34 @@ SD.Export = (function () {
     });
   }
 
+  /* 文件名净化：Windows 不允许 \ / : * ? " < > | 出现在文件名里，
+     而窑口图录的自定义图用的是「上传时的原始文件名」——
+     带个冒号或问号就会让 getFileHandle 直接抛错，整个导出报「导出失败」。
+     这里统一换成下划线，顺手去掉首尾空格与点（Windows 也不允许结尾是点）。 */
+  function safeName(name) {
+    var s = String(name == null ? '' : name)
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .replace(/[\x00-\x1f]/g, '')
+      .replace(/^[\s.]+|[\s.]+$/g, '');
+    return s || 'file';
+  }
+
   async function writeIn(dir, relPath, data) {
     var parts = String(relPath).split('/');
-    var name = parts.pop();
+    var name = safeName(parts.pop());
     var cur = dir;
-    for (var i = 0; i < parts.length; i++) {
-      cur = await cur.getDirectoryHandle(parts[i], { create: true });
+    try {
+      for (var i = 0; i < parts.length; i++) {
+        cur = await cur.getDirectoryHandle(safeName(parts[i]), { create: true });
+      }
+      var fh = await cur.getFileHandle(name, { create: true });
+      var w = await fh.createWritable();
+      await w.write(data);
+      await w.close();
+    } catch (e) {
+      /* 把「哪个文件、为什么」带出去 —— 否则上层只能看到一句干巴巴的「导出失败」 */
+      throw new Error('写 ' + relPath + ' 失败：' + ((e && e.message) || e));
     }
-    var fh = await cur.getFileHandle(name, { create: true });
-    var w = await fh.createWritable();
-    await w.write(data);
-    await w.close();
   }
 
   /* ---------- 主流程：写到一个用户选择的目录 ---------- */
@@ -134,6 +151,9 @@ SD.Export = (function () {
           var n = (bk1.cover && bk1.cover.url) ? 1 : 0;
           n += (bk1.pages || []).filter(function (x) { return x && x.url; }).length;
           n += (bk1.back && bk1.back.url) ? 1 : 0;
+          n += ((bk1.catalog) || []).filter(function (c) {
+                 return c && c.img && c.img.url;
+               }).length;   /* 窑口图录的自定义图 */
           return n;
         })() : items.length);
     var total = nImgs + 4;
@@ -170,6 +190,8 @@ SD.Export = (function () {
         tick(rel);
       };
       if (bk.cover && bk.cover.url) await put(bk.cover, 'book/cover' + extOf(bk.cover.name));
+      /* 书籍 logo → book/logo.xxx（页面里引用的是 book/logo + 它的扩展名） */
+      if (bk.logo && bk.logo.url) await put(bk.logo, 'book/logo' + extOf(bk.logo.name));
       for (var pi = 0; pi < (bk.pages || []).length; pi++) {
         var pg = bk.pages[pi];
         if (pg && pg.url) await put(pg, 'book/page-' + (pi + 1) + extOf(pg.name));
@@ -183,6 +205,13 @@ SD.Export = (function () {
         }
       }
       if (bk.back && bk.back.url) await put(bk.back, 'book/back' + extOf(bk.back.name));
+      /* 窑口图录的自定义图 → book/catalog/ 下（文件名与页面里的引用保持一致） */
+      var catRows = (bk.catalog) || [];
+      for (var ci = 0; ci < catRows.length; ci++) {
+        var cg = catRows[ci] && catRows[ci].img;
+        if (!cg || !cg.url) continue;
+        await put(cg, 'book/catalog/' + (cg.name || ('cat-' + (ci + 1) + '.png')));
+      }
     } else {
       for (var i = 0; i < items.length; i++) {
         var f = items[i].file;

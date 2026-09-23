@@ -131,14 +131,21 @@ SD.SCHEMA = [
         desc: '文案下面显示「已加载 x / y 页」' },
       { key: 'bookLoadTopText', label: '加载页说明文字', type: 'text', def: '点页码可拖动跳页',
         desc: '显示在加载页底部「模拟页码」的上方（那句话就是解释页码能点的）；留空则不显示' },
-      { key: 'bookLoadMinMs', label: '最短停留', type: 'num', def: 3000, min: 0, max: 10000, step: 100,
-        unit: 'ms', desc: '加载页至少停留多久 —— 实际时长取「真实加载耗时」与它的较大者' },
       { key: 'bookBg', label: '桌面背景', type: 'color', def: '#000000',
         desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
               '已保存的工程仍用它当时的值）' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true,
-        desc: '底部那条：左边「缩略图」、中间页码、右边「自动翻页」。' +
+        desc: '底部那条：左边「窑口图录」、中间页码、右边「自动翻页」。' +
               '点页码会展开一条拖动进度条（拖动时显示第几页，松手跳过去）' },
+      { key: 'bookCatalogTitle', label: '窑口目录按钮名', type: 'text', def: '窑口目录',
+        desc: '底部那条左侧按钮与图墙标题的文字（默认「窑口目录」）。图墙内容由工作台' +
+              '左侧「窑口目录」里配的条目决定（页码 + 标题 + 自定义图）；一条都没配时照旧显示全部页面' },
+      { key: 'bookPage360Bar', label: '360 素材缩略图', type: 'bool', def: true,
+        desc: '导航条上方那条：这一页有几张 360 素材就画几张缩略图，' +
+              '点第 N 张就从第 N 帧开始看；本页没有 360 素材时整条自动隐藏' },
+      { key: 'bookZoomOn', label: '双击放大查看', type: 'bool', def: true,
+        desc: '双击内容页进入全屏大图：双指 / 滚轮缩放、拖动平移，双击复位，' +
+              '缩小到默认大小为止（再小就回到默认）。关掉后双击不再响应' },
       { key: 'bookAutoMs', label: '自动翻页间隔', type: 'num', def: 3000, min: 1000, max: 20000,
         step: 500, unit: 'ms',
         desc: '点「自动翻页」后每隔多久翻一页；翻到最后一页会自动停下' },
@@ -171,7 +178,24 @@ SD.SCHEMA = [
         desc: '选「自定义路径」时生效；导出产物请把文件放进导出目录再填相对路径' },
       { key: 'bookSoundVolume', label: '音效音量', type: 'num', def: 0.7, min: 0, max: 1, step: 0.05 },
       { key: 'boguMask2', label: '弹层遮罩浓度', type: 'num', def: 0.72, min: 0.2, max: 0.98, step: 0.02,
-        desc: '越小越透，底下的内容页看得越清楚' }
+        desc: '越小越透，底下的内容页看得越清楚' },
+      /* 帧插值原本挂在「图片源」那一组（单品用的），但 360 弹层也吃它：
+         一圈帧数少时调到 2~3，旋转会顺滑很多。单品下线后把它搬到这里，
+         否则参数面板里就没地方调了。 */
+      { key: 'interp', label: '360 帧插值平滑', type: 'num', def: 0, min: 0, max: 4,
+        desc: '在相邻帧之间插几张过渡帧。0=关闭；拍照张数少时调到 2~3 会顺滑很多' },
+      /* ---------- 分享 ---------- */
+      { key: 'bookShareOn', label: '分享按钮', type: 'bool', def: true,
+        desc: '页面右上角显示一个「分享」按钮：手机上调系统分享面板，电脑上复制链接；' +
+              '微信里会提示「点右上角 → 转发给朋友」（微信不支持网页直接调起转发）。' +
+              '关掉只保留分享卡片信息（og 标签）' },
+      { key: 'bookShareTitle', label: '分享标题', type: 'text', def: '',
+        placeholder: '留空则用页面标题',
+        desc: '分享卡片上的标题（留空就用上面的「页面标题」）' },
+      { key: 'bookShareText', label: '分享文案', type: 'list', def: '',
+        placeholder: '留空则用页面标题',
+        desc: '分享卡片上的描述文字（支持多行）。' +
+              '分享卡片用的封面图就是「封面」' }
     ]
   },
   {

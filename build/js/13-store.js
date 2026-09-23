@@ -69,23 +69,33 @@ SD.Store = (function () {
       customCss: st.customCss || '',
       templateId: st.templateId || '',
       params: JSON.parse(JSON.stringify(st.params || {})),
-      /* 当前正在编辑的那一份也要存 */
-      editingItems: (st.materials && st.materials.items || []).map(function (it) {
-        return {
-          name: it.name || '', w: it.w, h: it.h,
-          axis: it.axis || 'x', off: !!it.off, file: it.file || null
-        };
-      }),
+      /* 这里原本还存着单品模式的「当前素材」（editingItems）。单品 360 展示
+         已下线，那一份临时素材不再需要 —— 素材现在只挂在各内容页上
+         （见下面的 book.pages[].items），别再往库里塞一份重复的。 */
 
       book: {
         w: bk.w || 900, h: bk.h || 1200,
         active: bk.active || 0,
         cover: fileOf(bk.cover),
         back: fileOf(bk.back),
+        /* 书籍 logo（显示在书的上方居中 + 加载页文案上方）*/
+        logo: fileOf(bk.logo),
         pages: ((bk.pages) || []).map(function (p) {
           return {
-            name: p.name || '', file: p.file || null
+            name: p.name || '', file: p.file || null,
+            /* 每页自己的 360 素材也要存 —— 少这一段，刷新后「本页 360 素材」
+               就整组丢了（用户反馈过：保存以后下次打开 360 素材没了）。 */
+            items: ((p.items) || []).map(function (it) {
+              return {
+                name: it.name || '', file: it.file || null,
+                axis: it.axis || 'x', off: !!it.off, w: it.w, h: it.h
+              };
+            })
           };
+        }),
+        /* 窑口图录条目（页码 + 标题 + 可选的自定义图），数组顺序就是显示顺序 */
+        catalog: ((bk.catalog) || []).map(function (c) {
+          return { page: c.page || 1, title: c.title || '', img: fileOf(c.img) };
         })
       }
     };
@@ -107,14 +117,41 @@ SD.Store = (function () {
       .catch(function () { return false; });
   }
 
-  /* 完全空的工程不必存 */
+  /* 「有内容」= 书籍工程里真的挂着素材。
+     注意：只看 book —— 单品模式那份临时素材（editingItems）已经下线，
+     不能再让一个「只剩单品素材的老工程」被当成有内容、一遍遍存下去。 */
   function hasWork(snap) {
-    if (snap.editingItems && snap.editingItems.length) return true;
     var b = snap.book || {};
     if (b.cover && b.cover.file) return true;
     if (b.back && b.back.file) return true;
-    if ((b.pages || []).some(function (p) { return p.file; })) return true;
+    if ((b.pages || []).some(function (p) {
+      return p.file || (p.items || []).some(function (it) { return it && it.file; });
+    })) return true;
+    if ((b.catalog || []).some(function (c) { return c && c.img && c.img.file; })) return true;
     return false;
+  }
+
+  /* ---------- 清掉旧版本留下的残留 ----------
+     单品 360 展示下线之后，老的工程快照里还躺着 editingItems（那一份临时素材
+     的 File 对象）：既用不上、又占空间，还会把「空工程」判成有内容。
+     这里在读出来之后判断一次，有残留就用干净结构覆盖回去（等于删掉那份素材）。
+     返回 true 表示确实清理过。 */
+  function purgeLegacy() {
+    return load().then(function (snap) {
+      if (!snap) return false;
+      var legacy = Object.prototype.hasOwnProperty.call(snap, 'editingItems')
+                || Object.prototype.hasOwnProperty.call(snap, 'materials')
+                || snap.pageType === 'single';
+      if (!legacy) return false;
+      var clean = snapshot();
+      if (!hasWork(clean)) {
+        /* 清理完发现其实只剩空壳 → 整条记录删掉，别留着 */
+        return tx('readwrite', function (store) { store.delete(KEY); })
+          .then(function () { return true; }).catch(function () { return false; });
+      }
+      return tx('readwrite', function (store) { store.put(clean, KEY); })
+        .then(function () { return true; }).catch(function () { return false; });
+    }).catch(function () { return false; });
   }
 
   /* 变更后延时保存，避免拖动参数时疯狂写库 */
@@ -150,6 +187,7 @@ SD.Store = (function () {
     autoSave: autoSave,
     load: load,
     clear: clear,
+    purgeLegacy: purgeLegacy,
     lastSaved: lastSaved,
     isEnabled: isEnabled,
     setEnabled: setEnabled

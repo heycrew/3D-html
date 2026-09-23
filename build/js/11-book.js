@@ -157,6 +157,45 @@ SD.Book = (function () {
     });
   }
 
+  /* ---------- 窑口图录条目 ----------
+     产物底部那个按钮里的内容：每条 = 页码 + 标题 +（可选）自定义图。
+     数组顺序就是显示顺序；自定义图为空时，展示时自动回退成该页的图。 */
+  function catalog() {
+    var b = book();
+    if (!b.catalog) b.catalog = [];
+    return b.catalog;
+  }
+
+  function addCatalog() {
+    var list = catalog();
+    /* 默认指向第 1 张内容页（页码 2 = 封面之后的第一张；只有封面时退回 1） */
+    list.push({ page: Math.min(2, lastIndex()), title: '', img: null });
+    afterChange('已添加一条窑口图录');
+  }
+
+  function removeCatalog(i) {
+    var list = catalog();
+    if (i < 0 || i >= list.length) return;
+    list.splice(i, 1);
+    afterChange('已删除该条目');
+  }
+
+  function moveCatalog(i, dir) {
+    var list = catalog();
+    var j = i + dir;
+    if (i < 0 || i >= list.length || j < 0 || j >= list.length) return;
+    var t = list[i]; list[i] = list[j]; list[j] = t;
+    afterChange();
+  }
+
+  function setCatalog(i, patch) {
+    var list = catalog();
+    if (i < 0 || i >= list.length) return;
+    var c = list[i];
+    Object.keys(patch || {}).forEach(function (k) { c[k] = patch[k]; });
+    afterChange();
+  }
+
   return {
     book: book,
     lastIndex: lastIndex,
@@ -169,6 +208,11 @@ SD.Book = (function () {
     removePage: removePage,
     movePage: movePage,
     itemsOf: itemsOf,
+    catalog: catalog,
+    addCatalog: addCatalog,
+    removeCatalog: removeCatalog,
+    moveCatalog: moveCatalog,
+    setCatalog: setCatalog,
     render: render
   };
 })();
