@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 15:30</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-23 15:42</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -2362,6 +2362,12 @@ SD.BookPage = (function () {
       '      留着背景那个会叠在一起。 */',
       'body:has(.lot-modal.on) .nav-wrap{display:none;}',
       'body:has(.lot-modal.on) .book-logo{display:none;}',
+      '/* 去掉 360 查看器自带的加载指示：',
+      '   .cloudimage-360-loader 就是那个「白色圆 + 百分数」（内部 span.percentage 显示 0%…100%），',
+      '   .cloudimage-loading-spinner 是左上角那个小转圈。',
+      '   加载状态改用「正在加载 360…」这行文案 + 书籍 logo 表达。 */',
+      '.cloudimage-360-loader{display:none !important;}',
+      '.cloudimage-loading-spinner{display:none !important;}',
 
       '/* 360 素材缩略图条：浮在底部导航条上方。',
       '   这一页上传了几张 360 素材就画几张；点第 N 张 → 打开全景并从第 N 帧起看。',
@@ -3516,9 +3522,17 @@ SD.BookPage = (function () {
       '     （那个轮询负责 canvas 的 object-fit，一直被证实是活的）。 */',
       '  function syncLot() {',
       '    if (!modal.classList.contains("on")) return;',
-      '    /* logo 跟着图片上沿：图片按 contain 居中，上沿 = (舞台高 - 图片显示高) / 2 */',
+      '    /* logo 位置分两种：',
+      '       · 还在加载 → 居中摆在「正在加载 360…」这行文案的正上方；',
+      '       · 已加载完 → 贴着图片上沿（图片按 contain 居中，上沿 = (舞台高 - 图片显示高)/2）。',
+      '       放在这里（而不是 showLotLoad 里）是因为 top 由这个同步函数每帧写，',
+      '       写在别处会被它覆盖掉。 */',
+      '    var _loadEl = document.getElementById("lotLoad");',
+      '    var _loading = !!(_loadEl && _loadEl.style.display !== "none");',
       '    var _cv = stage.querySelector("canvas");',
-      '    if (_lotLogo && _cv && _cv.width && _cv.height && stage.clientHeight) {',
+      '    if (_lotLogo && _loading) {',
+      '      _lotLogo.style.top = "calc(50% - 36px)";',
+      '    } else if (_lotLogo && _cv && _cv.width && _cv.height && stage.clientHeight) {',
       '      var _sh = stage.clientHeight;',
       '      var _dh = Math.min(_sh, stage.clientWidth / (_cv.width / _cv.height));',
       '      _lotLogo.style.top = Math.round(Math.max(0, (_sh - _dh) / 2) + 12) + "px";',
