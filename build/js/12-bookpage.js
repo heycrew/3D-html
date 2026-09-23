@@ -2063,6 +2063,14 @@ SD.BookPage = (function () {
     if (_cov && (mode === 'preview' ? _cov.url : true)) {
       shareImg = (mode === 'preview') ? (_cov.url || '') : ('book/cover' + extOfName(_cov.name));
     }
+    /* 关键：og:image 必须是「写死在源码里」的绝对地址。
+       微信抓取分享卡片时不执行网页脚本，只读 HTML 源码；页面里那段运行时补绝对地址的
+       脚本对微信没用 —— 相对路径抓不到图，卡片生成失败，「发送给朋友」就点了没反应。
+       所以配了「站点地址」就这里拼成完整网址。 */
+    var shareBase = String((state.params || {}).bookShareBase || '').trim();
+    if (shareBase && shareImg && !/^https?:/i.test(shareImg)) {
+      shareImg = shareBase.replace(/\/+$/, '') + '/' + shareImg.replace(/^\/+/, '');
+    }
 
     /* 预览也要真正跑起来（不只是摆个空壳）：
        之前用 srcdoc 时 CI360 不渲染，于是干脆连脚本都不发了 ——

@@ -192,6 +192,11 @@ SD.SCHEMA = [
       { key: 'bookShareTitle', label: '分享标题', type: 'text', def: '',
         placeholder: '留空则用页面标题',
         desc: '分享卡片上的标题（留空就用上面的「页面标题」）' },
+      { key: 'bookShareBase', label: '站点地址', type: 'text', def: '',
+        placeholder: '例如 https://pqn.funsun.cn/auction/',
+        desc: '填部署后的网址（结尾带 /）。微信抓取分享卡片时不执行网页脚本，' +
+              '只认 HTML 源码里的绝对地址，所以封面图必须在这里拼成完整网址 —— ' +
+              '不填的话微信又抓不到图，可能「发送给朋友」点了没反应' },
       { key: 'bookShareText', label: '分享文案', type: 'list', def: '',
         placeholder: '留空则用页面标题',
         desc: '分享卡片上的描述文字（支持多行）。' +
