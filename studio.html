@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-24 15:50</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-24 15:57</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -1731,7 +1731,7 @@ SD.Export = (function () {
        上一版的图片会一直躺在里面（比如已经删掉的书页、换过的窑口图录），
        打包上传就带着「之前进度的图片」。只删我们自己生成的项 ——
        images/ book/ lib/ 三个目录 + 四个已知文件，用户目录里的其它文件一律不碰。 */
-    var KILL_DIRS = ['images', 'book', 'lib'];
+    var KILL_DIRS = ['images', 'book', 'lib', 'vendor', 'doc'];
     var KILL_FILES = ['index.html', 'serve.ps1', '启动.bat', '使用说明.txt'];
     var removed = 0;
     for (var kd = 0; kd < KILL_DIRS.length; kd++) {

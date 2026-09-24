@@ -151,7 +151,7 @@ SD.Export = (function () {
        上一版的图片会一直躺在里面（比如已经删掉的书页、换过的窑口图录），
        打包上传就带着「之前进度的图片」。只删我们自己生成的项 ——
        images/ book/ lib/ 三个目录 + 四个已知文件，用户目录里的其它文件一律不碰。 */
-    var KILL_DIRS = ['images', 'book', 'lib'];
+    var KILL_DIRS = ['images', 'book', 'lib', 'vendor', 'doc'];
     var KILL_FILES = ['index.html', 'serve.ps1', '启动.bat', '使用说明.txt'];
     var removed = 0;
     for (var kd = 0; kd < KILL_DIRS.length; kd++) {
