@@ -146,6 +146,23 @@ SD.Export = (function () {
       throw e;
     }
 
+    /* 导出前先清掉「上一次导出留下的」内容。
+       为什么必须清：这里是只写不删的，换了素材再导出到同一个目录时，
+       上一版的图片会一直躺在里面（比如已经删掉的书页、换过的窑口图录），
+       打包上传就带着「之前进度的图片」。只删我们自己生成的项 ——
+       images/ book/ lib/ 三个目录 + 四个已知文件，用户目录里的其它文件一律不碰。 */
+    var KILL_DIRS = ['images', 'book', 'lib'];
+    var KILL_FILES = ['index.html', 'serve.ps1', '启动.bat', '使用说明.txt'];
+    var removed = 0;
+    for (var kd = 0; kd < KILL_DIRS.length; kd++) {
+      try { await dir.removeEntry(KILL_DIRS[kd], { recursive: true }); removed++; }
+      catch (e1) { /* 不存在就跳过 */ }
+    }
+    for (var kf = 0; kf < KILL_FILES.length; kf++) {
+      try { await dir.removeEntry(KILL_FILES[kf]); removed++; }
+      catch (e2) { /* 不存在就跳过 */ }
+    }
+
     var nImgs = (isBook ? (function () {
           var bk1 = state.book || {};
           var n = (bk1.cover && bk1.cover.url) ? 1 : 0;
