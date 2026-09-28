@@ -368,16 +368,23 @@ SD.BookPage = (function () {
 
     out.push('<div class="book-wrap">');
     out.push('  <div class="book-shell">');
-    if (_lgSrc) {
-      out.push('    <img id="bookLogo" class="book-logo" src="' + SD.Codegen.esc(_lgSrc) + '"' +
-        ' alt="' + SD.Codegen.esc((state.title || '') + ' logo') + '">');
-    }
     /* 背面由翻页库着色（参数「纸背颜色」），这里不再铺淡化层 */
     out.push('    <div class="book" id="book"></div>');
     out.push('    <div class="ph hide" id="phBox">本页未上传图片</div>');
     out.push('    <div class="dots" id="dotsLayer"></div>');
     out.push('  </div>');
     out.push('</div>');
+    /* 书籍 logo 挂在 .book-shell **外面** —— 这是刻意的：
+       双指放大时会给 .book-shell 写 transform，而按 CSS 规范，元素的 transform
+       不是 none 时，它会成为其 fixed 后代的 containing block。
+       logo 正是 position:fixed + top:calc(100vh …) + left:50%。
+       一旦它留在 .book-shell 里，缩放过后这两条就会从「相对视口」变成
+       「相对 .book-shell」，关掉大图后 logo 就停在了偏移的位置上。
+       它本来就是 fixed、不依赖父元素布局，放到外面视觉完全一致。 */
+    if (_lgSrc) {
+      out.push('<img id="bookLogo" class="book-logo" src="' + SD.Codegen.esc(_lgSrc) + '"' +
+        ' alt="' + SD.Codegen.esc((state.title || '') + ' logo') + '">');
+    }
 
     out.push('<div class="corner prev" id="cPrev"></div>');
     out.push('<div class="corner next" id="cNext"></div>');
@@ -1762,8 +1769,17 @@ SD.BookPage = (function () {
       '  }',
       '  function apply() {',
       '    if (!shell) return;',
-      '    shell.style.transform = (scale === 1 && !tx && !ty) ? ""',
-      '      : "translate(" + tx + "px," + ty + "px) scale(" + scale + ")";',
+      '    /* 缩回 1 倍时必须把 transform 彻底清掉（tx/ty 一并归零）。',
+      '       原来只在「scale===1 且 tx===0 且 ty===0」时才清空，而 clamp() 在',
+      '       scale=1 时仍允许 ±30px 偏移，于是残留了一个纯 translate 的 transform。',
+      '       残留的 transform 会让 .book-shell 成为 fixed 后代的 containing block，',
+      '       把 body 层级的 fixed 元素（书籍 logo 等）带偏。 */',
+      '    if (scale <= 1.001) {',
+      '      scale = 1; tx = 0; ty = 0;',
+      '      shell.style.transform = "";',
+      '      return;',
+      '    }',
+      '    shell.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + scale + ")";',
       '  }',
       '  function reset() { scale = 1; tx = 0; ty = 0; apply(); }',
       '  function zoomAt(sx, sy, s, baseX, baseY, baseScale) {',
