@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-28 13:20</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-28 18:07</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -3292,6 +3292,11 @@ SD.BookPage = (function () {
       '  }',
       '  if (hintEl) hintEl.style.bottom = "";',
       '  destroyViewer();',
+      '  /* 查看器已经销毁，复用用的引用必须一并清掉 ——',
+      '     否则下次可能拿一个已 destroy 的实例去 animateToFrame。 */',
+      '  window.__lotViewer = null;',
+      '  window.__lotFrames = null;',
+      '  window.__lotKey = "";',
       '}',
       '/* 点大图（图片区域）就关闭；拖动旋转 / 双指缩放不算点击。',
       '   判断方式：按下与松开的位移超过阈值 → 当作拖动；出现第二个指针 → 当作双指。',
@@ -3355,6 +3360,33 @@ SD.BookPage = (function () {
       '}',
       'function openSheet360(sh, startIdx) {',
       '  if (!sh || !sh.items || !sh.items.length) return;   /* 本页没素材 → 不响应 */',
+      '  /* 同一组素材已经在大图里打开着 → 只把视角转到被点的那一帧，不重建查看器。',
+      '     重建的代价：destroyViewer + ci.init 会走 startLoadingImages()，把这一组',
+      '     每一帧都重新建 Image、重新解码、重传给 worker —— 观感就是「重新加载/闪断」。',
+      '     左右拖动切换之所以顺滑，是因为它走的是库内部只切帧的渲染管线；',
+      '     这里改用库自带的 animateToFrame()，同样只切帧（按最短方向逐帧 30ms 过去）。 */',
+      '  var _key = sh.items.join("|");',
+      '  if (modal.classList.contains("on") && window.__lotViewer && window.__lotKey === _key',
+      '      && window.__lotFrames && window.__lotFrames.length === sh.items.length) {',
+      '    var _si = Math.round(Number(startIdx) || 0);',
+      '    _si = Math.max(0, Math.min(_si, sh.items.length - 1));',
+      '    var _want = sh.items[_si];',
+      '    var _t = -1;',
+      '    for (var _fi = 0; _fi < window.__lotFrames.length; _fi++) {',
+      '      if (window.__lotFrames[_fi] === _want) { _t = _fi; break; }',
+      '    }',
+      '    if (_t >= 0) {',
+      '      try {',
+      '        if (typeof window.__lotViewer.animateToFrame === "function") {',
+      '          window.__lotViewer.animateToFrame(_t);',
+      '        } else {',
+      '          window.__lotViewer.activeImageX = _t;   /* 兜底：直接改当前帧 */',
+      '        }',
+      '      } catch (e) { }',
+      '      titleEl.textContent = sh.title || "";',
+      '      return;',
+      '    }',
+      '  }',
       '  /* 从被点的那一帧起看：imageListX 是一圈循环的帧，把序列转一下就行 ——',
       '     起始帧变成被点的那张，旋转方向与相邻关系完全不变。 */',
       '  var list = sh.items.slice();',
@@ -3364,6 +3396,7 @@ SD.BookPage = (function () {
       '  if (n0 > 0) list = list.slice(n0).concat(list.slice(0, n0));',
       '  var lot = { x: list, y: [], title: sh.title || "" };',
       '  window.__last360 = { start: n0, first: list[0], count: list.length };   /* 诊断用 */',
+      '  window.__lotKey = _key;   /* 记住这一组的指纹，下次点同组的缩略图就能只跳帧 */',
       '  /* 「正在加载 360」那一层：配合下面的首帧预加载用（见 buildInterpolated 调用点）*/',
       '  function showLotLoad(on) {',
       '    var le = document.getElementById("lotLoad");',
@@ -4230,10 +4263,10 @@ SD.BookPage = (function () {
   }
 
   /* ---------- 窑口图录：条目 → 产物里那条图墙 ----------
-     工作台配好的条目（页码 + 标题 + 可选自定义图）在这里解析成可直接渲染的数组。
+     工��台配好的条目（页码 + 标题 + 可选自定义图）在这里解析成可直接渲染的数组。
      没配（或全被删掉）时返回 null —— 调用方回退成「全部页面的图墙」，
      老工程的行为因此完全不变。
-     page 用的是产物里的真实页码：1 = 封面，2 = 第 1 张内容页，末位 = 封底。 */
+     page 用的是产物��的真实页码：1 = 封面，2 = 第 1 张内容页，末位 = 封底。 */
   function catalogList(state, mode) {
     var rows = (state.book && state.book.catalog) || [];
     if (!rows.length) return null;
