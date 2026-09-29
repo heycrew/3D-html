@@ -1566,7 +1566,7 @@ window.SD = window.SD || {};
       healAfterRestart();
       window.addEventListener('focus', function () { healAfterRestart(); });
 
-      /* 有调试参数时不打扰��直接按参数走 */
+      /* 有调试参数时不打扰，直接按参数走 */
       var hasDebug = /[?&](demo|book)/.test(location.search);
       if (!hasDebug && SD.Store) {
         /* 先清掉旧版本留下的残留（单品模式那份临时素材 editingItems）：

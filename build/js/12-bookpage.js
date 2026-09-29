@@ -1100,7 +1100,7 @@ SD.BookPage = (function () {
       '  }, 240);',
       '}',
       '/* 进度条「点别处就收回」：',
-      '   点窑口图录、点书页空白、点任何别处��都算「这次拖页结束了」。',
+      '   点窑口图录、点书页空白、点任何别处，都算「这次拖页结束了」。',
       '   用捕获阶段（第三个参数 true）—— 那些按钮多半会 stopPropagation，',
       '   挂在冒泡阶段会被挡掉；捕获阶段在最外层先跑，不受影响。',
       '   点进度条自己放过；点页码放过（它本身就是开关）。 */',
@@ -1156,7 +1156,7 @@ SD.BookPage = (function () {
       '}',
       'function startAuto() {',
       '  if (autoTimer || !total) return;',
-      '  closeSeek();                      /* 自动翻页时把进度条收起来，免��挡着 */',
+      '  closeSeek();                      /* 自动翻页时把进度条收起来，免得挡着 */',
       '  if (navAuto) { navAuto.textContent = "停止翻页"; navAuto.classList.add("on"); }',
       '  autoTimer = setInterval(autoTick, AUTO_MS);',
       '  /* 点下去先立刻翻一页，别让访客对着第一页干等一个间隔 */',
@@ -1400,8 +1400,8 @@ SD.BookPage = (function () {
       '     左右留空 —— 也就是「放大时没有铺满整个屏幕」。所以：',
       '       未放大 -> contain：素材完整可见、不变形；',
       '       已放大 -> cover  ：铺满整个屏幕。放大本就是看局部，被裁掉的部分',
-      '                        可以拖动平移补看（CI360 的 zoomPan 已支持��。',
-      '     是否放大���自查看��实例的 isZoomed，见下面的 _isZoomed()。 */',
+      '                        可以拖动平移补看（CI360 的 zoomPan 已支持）。',
+      '     是否放大取自查看器实例的 isZoomed，见下面的 _isZoomed()。 */',
       '  /* 当前是否处于放大状态。只认查看器实例上的 isZoomed（实测：初始为',
       '     null、放大后为 true）；读不到就返回 null 表示「不确定」—— 调用方',
       '     遇到 null 一律不动，免得把已经正确的状态覆盖掉。 */',
@@ -2240,10 +2240,10 @@ SD.BookPage = (function () {
   }
 
   /* ---------- 窑口图录：条目 → 产物里那条图墙 ----------
-     工��台配好的条目（页码 + 标题 + 可选自定义图）在这里解析成可直接渲染的数组。
+     工作台配好的条目（页码 + 标题 + 可选自定义图）在这里解析成可直接渲染的数组。
      没配（或全被删掉）时返回 null —— 调用方回退成「全部页面的图墙」，
      老工程的行为因此完全不变。
-     page 用的是产物��的真实页码：1 = 封面，2 = 第 1 张内容页，末位 = 封底。 */
+     page 用的是产物里的真实页码：1 = 封面，2 = 第 1 张内容页，末位 = 封底。 */
   function catalogList(state, mode) {
     var rows = (state.book && state.book.catalog) || [];
     if (!rows.length) return null;
