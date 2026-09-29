@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-28 18:11</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-29 10:12</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -3501,6 +3501,9 @@ SD.BookPage = (function () {
       '    if (window.__syncLot) window.__syncLot();',
       '    var zoomed = _isZoomed();',
       '    if (zoomed === null) return;           /* 状态未知 -> 保持现状 */',
+      '    /* logo 只在「未放大」时显示：放大后画面铺满全屏，logo 会压住细节。',
+      '       跟 object-fit 用同一个 zoomed，不另起判断。 */',
+      '    if (_lotLogo) _lotLogo.style.display = zoomed ? "none" : "";',
       '    var fit = zoomed ? "cover" : "contain";',
       '    var _cs = stage.querySelectorAll("canvas");',
       '    for (var _j = 0; _j < _cs.length; _j++) {',
@@ -3550,10 +3553,32 @@ SD.BookPage = (function () {
       '    setTimeout(fire, 2500);',
       '  })(list[0]);',
       '',
-      '  /* 大图里不再展示 logo（按需求去掉）。',
-      '     背景页那个 logo 在大图打开时由 CSS 隐藏（body:has(.lot-modal.on)）。',
-      '     这里保留一个空变量，避免别处引用时报错。 */',
+      '  /* 大图里的 logo：摆在图片内部的顶部居中（跟着图片上沿走）。',
+      '     只在「未放大」时显示 —— 放大后画面铺满全屏，logo 会压住正在看的细节，',
+      '     显隐由 _applyFit() 按 isZoomed 切 display（见那里）。',
+      '     路径必须在「生成时」算好再写进产物 —— 产物运行环境里没有 state 变量。 */',
+      '  var _lotLogoSrc = ' + JSON.stringify((function () {
+        var lg = (state.book && state.book.logo) || null;
+        if (!lg) return '';
+        return (mode === 'preview') ? (lg.url || '') : ('book/logo' + extOfName(lg.name));
+      })()) + ';',
       '  var _lotLogo = null;',
+      '  if (_lotLogoSrc) {',
+      '    /* 舞台 #lotStage 是常驻元素：每次打开大图都会走到这里，',
+      '       不先清掉旧的就会开一次叠一个 logo。 */',
+      '    var _oldLotLogo = stage.querySelector("#lotLogo");',
+      '    if (_oldLotLogo && _oldLotLogo.parentNode) {',
+      '      _oldLotLogo.parentNode.removeChild(_oldLotLogo);',
+      '    }',
+      '    _lotLogo = document.createElement("img");',
+      '    _lotLogo.id = "lotLogo";',
+      '    _lotLogo.alt = "";',
+      '    _lotLogo.src = _lotLogoSrc;',
+      '    _lotLogo.style.cssText = "position:absolute;left:50%;transform:translateX(-50%);" +',
+      '      "z-index:4;max-height:44px;max-width:60vw;object-fit:contain;pointer-events:none;" +',
+      '      "filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))";',
+      '    stage.appendChild(_lotLogo);',
+      '  }',
       '',
       '  /* 大图里左右拖动旋转 = 在切帧：让底部那条缩略图的选中态跟着当前帧走。',
       '     这一段不自己起定时器，而是交给 _applyFit 那套已经在跑的 200ms 轮询调用',
@@ -3567,6 +3592,23 @@ SD.BookPage = (function () {
       '  var _selStepAt = 0;      /* 上一次走格的时刻 */',
       '  function syncLot() {',
       '    if (!modal.classList.contains("on")) return;',
+      '    /* 大图 logo 的位置：还在加载 → 摆在「正在加载 360…」正上方；',
+      '       已加载 → 贴着图片上沿（图片按 contain 居中，上沿 = (舞台高 - 显示高)/2）。',
+      '       放大时由 _applyFit 直接 display:none，这里只管位置不管显隐。 */',
+      '    if (_lotLogo) {',
+      '      var _loadEl = document.getElementById("lotLoad");',
+      '      var _loading = !!(_loadEl && _loadEl.style.display !== "none");',
+      '      var _cv = stage.querySelector("canvas");',
+      '      if (_loading) {',
+      '        _lotLogo.style.top = "";',
+      '        _lotLogo.style.bottom = "calc(50% + 26px)";',
+      '      } else if (_cv && _cv.width && _cv.height && stage.clientHeight) {',
+      '        _lotLogo.style.bottom = "";',
+      '        var _sh = stage.clientHeight;',
+      '        var _dh = Math.min(_sh, stage.clientWidth / (_cv.width / _cv.height));',
+      '        _lotLogo.style.top = Math.round(Math.max(0, (_sh - _dh) / 2) + 12) + "px";',
+      '      }',
+      '    }',
       '    /* 当前帧 → 对应那张缩略图高亮。',
       '       这里取 window.__lotViewer：openSheet360 里那个同名变量会被 _go 内部的 var',
       '       遮蔽掉，用它是永远进不来的（这个坑查了很久）。 */',
