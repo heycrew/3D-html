@@ -845,11 +845,15 @@ window.SD = window.SD || {};
           status('批量导入中 ' + pct + '%');
         }).then(function (items) {
           doneImgs += job.files.length;
-          if (job.kind === 'cover') out.cover = items[0] || null;
-          else if (job.kind === 'back') out.back = items[0] || null;
-          else if (job.kind === 'pageImg') out.pages[job.page] = items[0] || out.pages[job.page];
-          else if (job.kind === 'frames') out.pages[job.page].items = items || [];
-          /* 上传失败的记下来（importFiles 失败时仍 resolve，只是没有 url） */
+          /* §8：失败的不写进 state —— importFiles 失败时仍 resolve，只是没有 url。
+             四路（封面 / 封底 / 页图 / 该页 360 素材）统一先按 url 过滤，否则
+             封面或有图页会显示「已上传」点开却是空的（11-book.js 判定用 r.img.url）。 */
+          var ok = (items || []).filter(function (it) { return it && it.url; });
+          if (job.kind === 'cover') out.cover = ok[0] || null;
+          else if (job.kind === 'back') out.back = ok[0] || null;
+          else if (job.kind === 'pageImg') { if (ok[0]) out.pages[job.page] = ok[0]; }
+          else if (job.kind === 'frames') out.pages[job.page].items = ok;
+          /* 失败的记下来，供最后的汇总提示（它们不进 state） */
           (items || []).forEach(function (it) {
             if (!it || !it.url) missing.push((it && it.name) || '（未知文件）');
           });
