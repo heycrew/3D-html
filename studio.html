@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-30 17:07</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-30 17:20</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -3285,17 +3285,20 @@ SD.BookPage = (function () {
       '  });',
       '}',
       'if (seekRange) {',
-      '  /* input 在拖动过程中连续触发 → 更新提示，并顺手预取目标页 */',
-      '  var _seekPre = -1;',
+      '  /* 拖动时连续触发（range 没有 step，跨 K 页就是 K 次不同的值），',
+      '     所以 debounce：停下 120ms 才预取「停留的那一页」。',
+      '     为什么不是「按目标页去重」：拖动时值几乎总在变，去重拦不住 ——',
+      '     跨 50 页就是 50 次 preloadPage，每次又拉前后页，等于一次拖动几百个请求。 */',
+      '  var _seekPreT = 0;',
       '  seekRange.addEventListener("input", function () {',
       '    var v = parseInt(seekRange.value, 10);',
       '    if (seekTip && isFinite(v)) seekTip.textContent = "第 " + v + " 页";',
-      '    /* 拖动过程中就把目标页灌进缓存（拖动会连续触发，所以按目标页去重）——',
-      '       松手时才不会卡在等待上。 */',
-      '    if (isFinite(v) && v !== _seekPre) {',
-      '      _seekPre = v;',
+      '    if (!isFinite(v)) return;',
+      '    if (_seekPreT) clearTimeout(_seekPreT);',
+      '    _seekPreT = setTimeout(function () {',
+      '      _seekPreT = 0;',
       '      preloadPage(v, function () {});',
-      '    }',
+      '    }, 120);',
       '  });',
       '  /* change 在松手时触发 → 这才是「跳到那一页」，随后缩回去 */',
       '  seekRange.addEventListener("change", function () {',
