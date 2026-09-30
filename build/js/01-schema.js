@@ -99,7 +99,7 @@ SD.SCHEMA = [
     ]
   },
   {
-    /* 默认展开：书页的那些参数（加载文案 / 示意框 / 翻页音效…）都在这一组里，
+    /* 默认展开：书页的那些参数（加载文案 / 翻页音效…）都在这一组里，
        折叠着用户根本找不到（第一次交上去就被问「看不见新功能」）。 */
     id: 'book', name: '书籍（翻书图录）', open: true,
     desc: '仅「翻书图录」页面类型生效（翻页引擎：@vysmo/flipbook，WebGL 卷曲）',
@@ -131,7 +131,7 @@ SD.SCHEMA = [
         desc: '文案下面显示「已加载 x / y 页」' },
       { key: 'bookLoadTopText', label: '加载页说明文字', type: 'text', def: '点页码可拖动跳页',
         desc: '显示在加载页底部「模拟页码」的上方（那句话就是解释页码能点的）；留空则不显示' },
-      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#000000',
+      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#ffffff',
         desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
               '已保存的工程仍用它当时的值）' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true,
@@ -149,25 +149,7 @@ SD.SCHEMA = [
       { key: 'bookAutoMs', label: '自动翻页间隔', type: 'num', def: 3000, min: 1000, max: 20000,
         step: 500, unit: 'ms',
         desc: '点「自动翻页」后每隔多久翻一页；翻到最后一页会自动停下' },
-      { key: 'bookHintOn', label: '交互示意区', type: 'bool', def: true,
-        desc: '在指定的那张内容页上淡入一个四角示意框，引导访客拖动 / 缩放（只展示一次）。' +
-              '四角会缓慢呼吸，并尊重系统的「减少动态效果」设置' },
-      { key: 'bookHintPage', label: '示意框所在页', type: 'num', def: 1, min: 1, max: 99,
-        desc: '第几张内容页（1 = 第一张内容页，封面不算）。框只在这一页展示，' +
-              '而且只对访客展示一次——首次翻到这一页时作引导' },
-      { key: 'bookHintBox', label: '示意框位置', type: 'text', def: '20,25,60,50',
-        desc: 'x,y,宽,高（百分比，相对书页）。在工作台预览里点「示意区」会自动跳到上面' +
-              '那张内容页，直接在图上拖拽就能拉取' },
-      { key: 'bookHintColor', label: '示意框颜色', type: 'color', def: '#ffffff',
-        desc: '四角的描边色（外面会自动加一层深色描边，保证任何底色上都看得清）' },
-      { key: 'bookHintCaption', label: '示意框文案', type: 'text', def: '点击查看360全景图',
-        desc: '显示在示意框底部（贴着框内底边），颜色与四角一致；留空则不显示' },
-      { key: 'bookHintLen', label: '角臂长度', type: 'num', def: 12, min: 4, max: 40, unit: '%',
-        desc: '每个角的两条边有多长（占框短边的百分比）' },
-      { key: 'bookHintRadius', label: '角圆角', type: 'num', def: 6, min: 0, max: 24, unit: 'px' },
-      { key: 'bookHintDelay', label: '显示延迟', type: 'num', def: 0, min: 0, max: 3000, step: 50,
-        unit: 'ms', desc: '翻页动画结束后，等多久再淡入' },
-      { key: 'bookSoundOn', label: '翻页音效', type: 'bool', def: true,
+      { key: 'bookSoundOn', label: '翻页音效', type: 'bool', def: false,
         desc: '翻页时播放音效。用 <audio> 播放，所以手机的静音开关下也能听见；' +
               '但「媒体音量」被调到 0 时任何网页都发不出声' },
       { key: 'bookSoundKind', label: '音效来源', type: 'select', def: 'builtin',

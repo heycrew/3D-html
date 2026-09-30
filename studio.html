@@ -301,7 +301,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-30 18:24</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-01 00:17</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -368,7 +368,6 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
           <div id="catList"></div>
           <div id="catHint" style="font-size:11px;color:var(--sd-fg3);margin-top:6px"></div>
         </div>
-        <div class="mini-note" id="bookHint"></div>
       </div>
       <!-- 「单品 360 展示」的素材面板与页面类型入口都已下线：这一栏现在只有
            书页与窑口目录；底层生成/素材函数仍保留，只是不再有 UI 调用它们。 -->
@@ -552,7 +551,7 @@ SD.SCHEMA = [
     ]
   },
   {
-    /* 默认展开：书页的那些参数（加载文案 / 示意框 / 翻页音效…）都在这一组里，
+    /* 默认展开：书页的那些参数（加载文案 / 翻页音效…）都在这一组里，
        折叠着用户根本找不到（第一次交上去就被问「看不见新功能」）。 */
     id: 'book', name: '书籍（翻书图录）', open: true,
     desc: '仅「翻书图录」页面类型生效（翻页引擎：@vysmo/flipbook，WebGL 卷曲）',
@@ -584,7 +583,7 @@ SD.SCHEMA = [
         desc: '文案下面显示「已加载 x / y 页」' },
       { key: 'bookLoadTopText', label: '加载页说明文字', type: 'text', def: '点页码可拖动跳页',
         desc: '显示在加载页底部「模拟页码」的上方（那句话就是解释页码能点的）；留空则不显示' },
-      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#000000',
+      { key: 'bookBg', label: '桌面背景', type: 'color', def: '#ffffff',
         desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
               '已保存的工程仍用它当时的值）' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true,
@@ -602,25 +601,7 @@ SD.SCHEMA = [
       { key: 'bookAutoMs', label: '自动翻页间隔', type: 'num', def: 3000, min: 1000, max: 20000,
         step: 500, unit: 'ms',
         desc: '点「自动翻页」后每隔多久翻一页；翻到最后一页会自动停下' },
-      { key: 'bookHintOn', label: '交互示意区', type: 'bool', def: true,
-        desc: '在指定的那张内容页上淡入一个四角示意框，引导访客拖动 / 缩放（只展示一次）。' +
-              '四角会缓慢呼吸，并尊重系统的「减少动态效果」设置' },
-      { key: 'bookHintPage', label: '示意框所在页', type: 'num', def: 1, min: 1, max: 99,
-        desc: '第几张内容页（1 = 第一张内容页，封面不算）。框只在这一页展示，' +
-              '而且只对访客展示一次——首次翻到这一页时作引导' },
-      { key: 'bookHintBox', label: '示意框位置', type: 'text', def: '20,25,60,50',
-        desc: 'x,y,宽,高（百分比，相对书页）。在工作台预览里点「示意区」会自动跳到上面' +
-              '那张内容页，直接在图上拖拽就能拉取' },
-      { key: 'bookHintColor', label: '示意框颜色', type: 'color', def: '#ffffff',
-        desc: '四角的描边色（外面会自动加一层深色描边，保证任何底色上都看得清）' },
-      { key: 'bookHintCaption', label: '示意框文案', type: 'text', def: '点击查看360全景图',
-        desc: '显示在示意框底部（贴着框内底边），颜色与四角一致；留空则不显示' },
-      { key: 'bookHintLen', label: '角臂长度', type: 'num', def: 12, min: 4, max: 40, unit: '%',
-        desc: '每个角的两条边有多长（占框短边的百分比）' },
-      { key: 'bookHintRadius', label: '角圆角', type: 'num', def: 6, min: 0, max: 24, unit: 'px' },
-      { key: 'bookHintDelay', label: '显示延迟', type: 'num', def: 0, min: 0, max: 3000, step: 50,
-        unit: 'ms', desc: '翻页动画结束后，等多久再淡入' },
-      { key: 'bookSoundOn', label: '翻页音效', type: 'bool', def: true,
+      { key: 'bookSoundOn', label: '翻页音效', type: 'bool', def: false,
         desc: '翻页时播放音效。用 <audio> 播放，所以手机的静音开关下也能听见；' +
               '但「媒体音量」被调到 0 时任何网页都发不出声' },
       { key: 'bookSoundKind', label: '音效来源', type: 'select', def: 'builtin',
@@ -2864,193 +2845,6 @@ SD.BookPage = (function () {
       '  }, 420);',
       '}',
       '',
-      '/* ---------- 交互示意区（参数：交互示意区 / 示意框位置 / 颜色 / 角臂 / 圆角 / 呼吸 / 延迟）----------',
-      '   按需求用「四角」而不是完整边框。「任何底色都看得清」靠双层描边：四角本身是',
-      '   浅色描边，外面再套一圈 filter: drop-shadow 的深色描边 —— 亮底图时深色那层可读、',
-      '   暗底图时浅色那层可读。不用 mix-blend-mode: difference：它在中间灰的底图上会退化成',
-      '   #808080 直接失效，还会被父级任意 opacity/transform/filter 静默破坏。',
-      '   样式走动态 <style>：这是一段自包含的小组件，集中在一处便于整体摘除或替换。 */',
-      'var HINT_ON = ' + (p.bookHintOn ? 'true' : 'false') + ';',
-      '/* 框只属于「第 N 张内容页」：PAGES[0] 是封面，所以第 1 张内容页就是索引 1。',
-      '   而且只对访客展示一次（首次翻到这一页时作引导）。 */',
-      'var HINT_PAGE = ' + (function () {
-        var n = Number(p.bookHintPage);
-        if (!isFinite(n) || n < 1) n = 1;
-        return Math.round(n);
-      })() + ';',
-      'var _hintShown = false;',
-      'var HINT_DELAY = ' + (p.bookHintDelay === undefined ? 0 : Number(p.bookHintDelay) || 0) + ';',
-      'var HINT_LEN = ' + (p.bookHintLen === undefined ? 12 : Number(p.bookHintLen) || 12) + ';',
-      'var HINT_BOX = ' + JSON.stringify((function () {
-        var a = String(p.bookHintBox || '').split(',').map(function (s) { return Number(String(s).trim()); });
-        if (a.length !== 4 || !a.every(function (n) { return isFinite(n); })) a = [20, 25, 60, 50];
-        return a;
-      })()) + ';',
-      '/* 变量名带 frame 前缀：产物里已有 hintEl / hintTimer 之类的名字，',
-      '   同作用域下 var 会互相覆盖（踩过一次，见下面的说明）。 */',
-      'var frameEl = null;',
-      'var hintTimer = null;',
-      'if (HINT_ON) {',
-      '  var _hs = document.createElement("style");',
-      '  _hs.textContent =',
-      '    ".hint{position:absolute;z-index:55;pointer-events:none;opacity:0;" +',
-      '    "transition:opacity .32s ease;" +',
-      '    "filter:drop-shadow(0 0 2px rgba(0,0,0,.9)) drop-shadow(0 0 7px rgba(0,0,0,.45));}" +',
-      '    ".hint.on{opacity:1;}" +',
-      '    ".hint .hc{position:absolute;width:var(--hl,40px);height:var(--hl,40px);" +',
-      '    "border:3px solid ' + (p.bookHintColor || '#ffffff') + ';border-radius:' + 
-      (p.bookHintRadius === undefined ? 6 : Number(p.bookHintRadius) || 0) + 'px;}" +',
-      '    ".hint .hc.tl{left:0;top:0;border-right:0;border-bottom:0;}" +',
-      '    ".hint .hc.tr{right:0;top:0;border-left:0;border-bottom:0;}" +',
-      '    ".hint .hc.bl{left:0;bottom:0;border-right:0;border-top:0;}" +',
-      '    ".hint .hc.br{right:0;bottom:0;border-left:0;border-top:0;}" +',
-      '    "@keyframes hintBreath{0%,100%{opacity:.5;}50%{opacity:1;}}" +',
-      '    ".hint.breath .hc{animation:hintBreath 3.2s ease-in-out infinite;}" +',
-      '    "@media (prefers-reduced-motion: reduce){.hint .hc{animation:none;opacity:1;}}" +',
-      '    /* 示意框底部文案：贴在框内底边（文字底边与框底边齐平），颜色与四角一致；',
-      '       用多层 text-shadow 当深色描边 —— 与四角那套 drop-shadow 同思路，',
-      '       保证任何底图上都看得清。 */',
-      '    ".hint .hint-cap{position:absolute;left:50%;bottom:0;transform:translateX(-50%);" +',
-      '    "white-space:nowrap;font-size:14px;letter-spacing:1px;line-height:1;" +',
-      '    "color:' + (p.bookHintColor || '#ffffff') + ';" +',
-      '    "text-shadow:0 0 2px rgba(0,0,0,.95),0 0 7px rgba(0,0,0,.6),0 1px 2px rgba(0,0,0,.85);}" +',
-      '    /* 360 弹层打开时藏起来（用 :has 就省掉一处事件挂钩；旧浏览器不支持时',
-      '       最多是「弹层上仍看得见框」，而框是 pointer-events:none，不影响操作）*/',
-      '    "body:has(.lot-modal.on) .hint{opacity:0 !important;}";',
-      '  document.head.appendChild(_hs);',
-      '  /* 挂到 .book-shell（书的容器）上而不是翻页库的 #book 里：',
-      '     免得和库自己创建的 canvas 混在同一层 DOM 里。',
-      '     变量叫 frameEl 而不是 hintEl —— 产物后半段本来就有个同名的',
-      '     hintEl（= 360 弹层底部那条提示），var 同作用域会互相覆盖，',
-      '     现象是「不报错、也没效果」，示意框永远不显示。踩过一次。 */',
-      '  frameEl = document.createElement("div");',
-      '  frameEl.id = "hintBox";',
-      '  frameEl.className = "hint breath";   /* 呼吸动画跟随示意区，总是开 */',
-      '  frameEl.setAttribute("style", "left:" + HINT_BOX[0] + "%;top:" + HINT_BOX[1] + "%;" +',
-      '    "width:" + HINT_BOX[2] + "%;height:" + HINT_BOX[3] + "%;");',
-      '  ["tl", "tr", "bl", "br"].forEach(function (c) {',
-      '    var e = document.createElement("i");',
-      '    e.className = "hc " + c;',
-      '    frameEl.appendChild(e);',
-      '  });',
-      '  /* 底部文案（参数「示意框文案」，留空则不显示）*/',
-      '  var _capTxt = ' + JSON.stringify((function () {
-        var t = (p.bookHintCaption === undefined ? '点击查看360全景图' : p.bookHintCaption);
-        return String(t).replace(/\r\n?/g, '\n').trim();
-      })()) + ';',
-      '  if (_capTxt) {',
-      '    var _cap = document.createElement("div");',
-      '    _cap.className = "hint-cap";',
-      '    _cap.textContent = _capTxt;',
-      '    frameEl.appendChild(_cap);',
-      '  }',
-      '  (bookEl.parentNode || document.body).appendChild(frameEl);',
-      '}',
-      'function layoutHint() {',
-      '  if (!frameEl) return;',
-      '  var r = frameEl.getBoundingClientRect();',
-      '  /* 角臂按框的短边算，且不小于 10px —— 框拉得很小时四角不会糊成一团 */',
-      '  var len = Math.max(10, Math.round(Math.min(r.width, r.height) * HINT_LEN / 100));',
-      '  frameEl.style.setProperty("--hl", len + "px");',
-      '}',
-      'function showHint(on) { if (frameEl) frameEl.classList.toggle("on", !!on); }',
-      '',
-      (mode === 'preview' ? [
-        '/* ---------- 预览专用：鼠标拉取示意框（只在预览里生成，导出产物不带）----------',
-        '   工作台要的是「在书上拖一下就把框拉出来」。这里用小按钮进入框选模式，',
-        '   拖拽时用 capture + stopPropagation 抢在翻页库之前拦下指针事件（否则会变成翻页），',
-        '   松手把百分比坐标 postMessage 回工作台（预览是同源 blob 文档，能直接收）。 */',
-        '(function () {',
-        '  var shell = bookEl.parentNode;',
-        '  if (!shell) return;',
-        '  /* 给工作台一个重算角臂长度的入口：工作台改「示意框位置」时会就地更新',
-        '     框的位置/尺寸（不重建预览），角臂得跟着重算。只在这个预览文档里暴露。 */',
-        '  window.__layoutHint = layoutHint;',
-        '  var picking = false, sx = 0, sy = 0, ghost = null;',
-        '',
-        '  var btn = document.createElement("button");',
-        '  btn.type = "button";',
-        '  btn.textContent = "示意区";',
-        '  btn.setAttribute("style", "position:absolute;right:8px;top:8px;z-index:120;" +',
-        '    "font:12px/1.6 inherit;padding:3px 10px;border:0;border-radius:999px;cursor:pointer;" +',
-        '    "background:rgba(0,0,0,.55);color:#fff;letter-spacing:1px");',
-        '  var tip = document.createElement("div");',
-        '  tip.setAttribute("style", "position:absolute;left:8px;bottom:8px;z-index:120;display:none;" +',
-        '    "font:12px/1.6 inherit;padding:3px 10px;border-radius:6px;" +',
-        '    "background:rgba(0,0,0,.65);color:#fff;pointer-events:none");',
-        '  tip.textContent = "在书上拖拽画出示意框（松手即记录）";',
-        '  shell.appendChild(btn);',
-        '  shell.appendChild(tip);',
-        '',
-        '  function pct(e) {',
-        '    var r = shell.getBoundingClientRect();',
-        '    return { x: (e.clientX - r.left) / r.width * 100, y: (e.clientY - r.top) / r.height * 100 };',
-        '  }',
-        '  function setPick(on) {',
-        '    picking = !!on;',
-        '    btn.textContent = picking ? "退出框选" : "示意区";',
-        '    btn.style.background = picking ? "rgba(255,170,60,.92)" : "rgba(0,0,0,.55)";',
-        '    tip.textContent = "在第 " + HINT_PAGE + " 张内容页上拖拽画框（松手即记录）";',
-        '    tip.style.display = picking ? "" : "none";',
-        '    if (picking) {',
-        '      /* 进入框选就把画面挪到「示意框所在页」，并把现有框显示出来，',
-        '         管理员可以对着它微调重拉（这里显示不代表访客会看到 —— 访客那边',
-        '         仍然只在首次翻到这一页时展示一次）。 */',
-        '      if (fb && fb.goTo) {',
-        '        try { fb.goTo(Math.min(HINT_PAGE, Math.max(0, total - 1)), { instant: true }); } catch (err) {}',
-        '      }',
-        '      _hintShown = true;',
-        '      showHint(true);',
-        '    } else {',
-        '      showHint(false);',
-        '    }',
-        '  }',
-        '  btn.addEventListener("pointerdown", function (e) { e.stopPropagation(); });',
-        '  btn.addEventListener("click", function (e) { e.stopPropagation(); setPick(!picking); });',
-        '',
-        '  shell.addEventListener("pointerdown", function (e) {',
-        '    if (!picking) return;',
-        '    e.preventDefault(); e.stopPropagation();',
-        '    var p = pct(e);',
-        '    sx = p.x; sy = p.y;',
-        '    ghost = document.createElement("div");',
-        '    ghost.setAttribute("style", "position:absolute;z-index:119;pointer-events:none;" +',
-        '      "border:1px dashed #ffb340;background:rgba(255,179,64,.16)");',
-        '    shell.appendChild(ghost);',
-        '  }, true);',
-        '  shell.addEventListener("pointermove", function (e) {',
-        '    if (!picking || !ghost) return;',
-        '    e.stopPropagation();',
-        '    var p = pct(e);',
-        '    ghost.style.left = Math.min(sx, p.x) + "%";',
-        '    ghost.style.top = Math.min(sy, p.y) + "%";',
-        '    ghost.style.width = Math.abs(p.x - sx) + "%";',
-        '    ghost.style.height = Math.abs(p.y - sy) + "%";',
-        '  }, true);',
-        '  shell.addEventListener("pointerup", function (e) {',
-        '    if (!picking || !ghost) return;',
-        '    e.stopPropagation();',
-        '    var p = pct(e);',
-        '    var x = Math.min(sx, p.x), y = Math.min(sy, p.y);',
-        '    var w = Math.abs(p.x - sx), h = Math.abs(p.y - sy);',
-        '    if (ghost.parentNode) ghost.parentNode.removeChild(ghost);',
-        '    ghost = null;',
-        '    if (w < 3 || h < 3) return;              /* 太小当误触，丢弃 */',
-        '    var r = [x, y, w, h].map(function (n) { return Math.round(n * 10) / 10; });',
-        '    /* 立刻按新框在预览里显示，不重建 iframe（重建会闪、还会跳回首页） */',
-        '    if (frameEl) {',
-        '      frameEl.style.left = r[0] + "%";',
-        '      frameEl.style.top = r[1] + "%";',
-        '      frameEl.style.width = r[2] + "%";',
-        '      frameEl.style.height = r[3] + "%";',
-        '      layoutHint();',
-        '    }',
-        '    try { parent.postMessage({ type: "sd-hint-box", box: r }, "*"); } catch (err) {}',
-        '    setPick(false);',
-        '  }, true);',
-        '})();'
-      ].join('\n') : ''),
-      '',
       '/* ---------- 翻页音效（参数：翻页音效 / 音效来源 / 自定义路径 / 音量）----------',
       '   为什么用 <audio> 元素而不是 Web Audio API：iOS 把 audio/video 归到 media 通道，',
       '   它**忽略静音开关**；Web Audio 属于 ambient 通道，会被静音开关掐掉。所以',
@@ -3217,25 +3011,12 @@ SD.BookPage = (function () {
       '    preloadWindow: PRELOAD     /* 参数「预载页数」*/',
       '  });',
       '  /* change 在翻到新页后触发（同步页码/热点）；',
-      '     flipstart / flipend 管忙标志与收尾；示意框严格跟着这两个事件走：',
-      '     翻页一开始就淡出，翻页结束后（按参数延迟）再淡入。 */',
-      '  fb.on("change", function (i) { cur = i; syncNav(); layoutHint(); });',
-      '  fb.on("flipstart", function () { busy = true; showHint(false); playFlipSound(); });',
+      '     flipstart / flipend 管忙标志与收尾。 */',
+      '  fb.on("change", function (i) { cur = i; syncNav(); });',
+      '  fb.on("flipstart", function () { busy = true; playFlipSound(); });',
       '  fb.on("flipend", function () {',
       '    busy = false;',
       '    syncNav();',
-      '    layoutHint();',
-      '    if (!HINT_ON) return;',
-      '    /* 只在「指定的那张内容页」上展示，而且只对访客展示一次：',
-      '       首次翻到这一页时作引导，之后翻回来/翻别的页都不再打扰。 */',
-      '    if (cur !== HINT_PAGE || _hintShown) return;',
-      '    _hintShown = true;',
-      '    if (HINT_DELAY > 0) {',
-      '      if (hintTimer) clearTimeout(hintTimer);',
-      '      hintTimer = setTimeout(function () { showHint(true); }, HINT_DELAY);',
-      '    } else {',
-      '      showHint(true);',
-      '    }',
       '  });',
       '  } catch (err) {',
       '    if (phBox) {',
@@ -3779,15 +3560,12 @@ SD.BookPage = (function () {
       '    return null;',
       '  }',
       '  function _applyFit() {',
-      '    /* 先把「大图 logo 位置 + 缩略图选中态」同步一次：',
+      '    /* 先把「缩略图选中态」同步一次：',
       '       这件事跟缩放无关，绝不能放在下面那句 zoomed === null 的 return 之后',
       '       —— 读不到缩放状态时那个 return 会让它永远跑不到。 */',
       '    if (window.__syncLot) window.__syncLot();',
       '    var zoomed = _isZoomed();',
       '    if (zoomed === null) return;           /* 状态未知 -> 保持现状 */',
-      '    /* logo 只在「未放大」时显示：放大后画面铺满全屏，logo 会压住细节。',
-      '       跟 object-fit 用同一个 zoomed，不另起判断。 */',
-      '    if (_lotLogo) _lotLogo.style.display = zoomed ? "none" : "";',
       '    var fit = zoomed ? "cover" : "contain";',
       '    var _cs = stage.querySelectorAll("canvas");',
       '    for (var _j = 0; _j < _cs.length; _j++) {',
@@ -3801,7 +3579,7 @@ SD.BookPage = (function () {
       '      }',
       '    }',
       '    placeLotHint();',
-      '    /* 顺带把「大图 logo 位置」和「缩略图选中态」也同步一次 —— 用这套已经在跑的',
+      '    /* 顺带把「缩略图选中态」也同步一次 —— 用这套已经在跑的',
       '       轮询驱动，省得再起一个自己的定时器（那个被证实跑不起来）。 */',
       '    if (window.__syncLot) window.__syncLot();',
       '  }',
@@ -3837,32 +3615,8 @@ SD.BookPage = (function () {
       '    setTimeout(fire, 2500);',
       '  })(list[0]);',
       '',
-      '  /* 大图里的 logo：摆在图片内部的顶部居中（跟着图片上沿走）。',
-      '     只在「未放大」时显示 —— 放大后画面铺满全屏，logo 会压住正在看的细节，',
-      '     显隐由 _applyFit() 按 isZoomed 切 display（见那里）。',
-      '     路径必须在「生成时」算好再写进产物 —— 产物运行环境里没有 state 变量。 */',
-      '  var _lotLogoSrc = ' + JSON.stringify((function () {
-        var lg = (state.book && state.book.logo) || null;
-        if (!lg) return '';
-        return (mode === 'preview') ? (lg.url || '') : ('book/logo' + extOfName(lg.name));
-      })()) + ';',
-      '  var _lotLogo = null;',
-      '  if (_lotLogoSrc) {',
-      '    /* 舞台 #lotStage 是常驻元素：每次打开大图都会走到这里，',
-      '       不先清掉旧的就会开一次叠一个 logo。 */',
-      '    var _oldLotLogo = stage.querySelector("#lotLogo");',
-      '    if (_oldLotLogo && _oldLotLogo.parentNode) {',
-      '      _oldLotLogo.parentNode.removeChild(_oldLotLogo);',
-      '    }',
-      '    _lotLogo = document.createElement("img");',
-      '    _lotLogo.id = "lotLogo";',
-      '    _lotLogo.alt = "";',
-      '    _lotLogo.src = _lotLogoSrc;',
-      '    _lotLogo.style.cssText = "position:absolute;left:50%;transform:translateX(-50%);" +',
-      '      "z-index:4;max-height:44px;max-width:60vw;object-fit:contain;pointer-events:none;" +',
-      '      "filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))";',
-      '    stage.appendChild(_lotLogo);',
-      '  }',
+      '  /* 大图里不再展示 logo（按需求去掉）。背景页那个 logo 在大图打开时由',
+      '     CSS 隐藏（body:has(.lot-modal.on) .book-logo{display:none}）。 */',
       '',
       '  /* 大图里左右拖动旋转 = 在切帧：让底部那条缩略图的选中态跟着当前帧走。',
       '     这一段不自己起定时器，而是交给 _applyFit 那套已经在跑的 200ms 轮询调用',
@@ -3876,23 +3630,7 @@ SD.BookPage = (function () {
       '  var _selStepAt = 0;      /* 上一次走格的时刻 */',
       '  function syncLot() {',
       '    if (!modal.classList.contains("on")) return;',
-      '    /* 大图 logo 的位置：还在加载 → 摆在「正在加载 360…」正上方；',
-      '       已加载 → 贴着图片上沿（图片按 contain 居中，上沿 = (舞台高 - 显示高)/2）。',
-      '       放大时由 _applyFit 直接 display:none，这里只管位置不管显隐。 */',
-      '    if (_lotLogo) {',
-      '      var _loadEl = document.getElementById("lotLoad");',
-      '      var _loading = !!(_loadEl && _loadEl.style.display !== "none");',
-      '      var _cv = stage.querySelector("canvas");',
-      '      if (_loading) {',
-      '        _lotLogo.style.top = "";',
-      '        _lotLogo.style.bottom = "calc(50% + 26px)";',
-      '      } else if (_cv && _cv.width && _cv.height && stage.clientHeight) {',
-      '        _lotLogo.style.bottom = "";',
-      '        var _sh = stage.clientHeight;',
-      '        var _dh = Math.min(_sh, stage.clientWidth / (_cv.width / _cv.height));',
-      '        _lotLogo.style.top = Math.round(Math.max(0, (_sh - _dh) / 2) + 12) + "px";',
-      '      }',
-      '    }',
+
       '    /* 当前帧 → 对应那张缩略图高亮。',
       '       这里取 window.__lotViewer：openSheet360 里那个同名变量会被 _go 内部的 var',
       '       遮蔽掉，用它是永远进不来的（这个坑查了很久）。 */',
@@ -4916,23 +4654,6 @@ window.SD = window.SD || {};
     bookBg: function (doc, v) {
       doc.documentElement.style.background = v;
       if (doc.body) doc.body.style.background = v;
-    },
-    /* 示意框位置：就地挪框，不重建预览（重建会闪一下、还会跳回首页）。
-       角臂长度交给产物里暴露的 __layoutHint 重算。
-       框还不存在（没开「交互示意区」）时返回 false → 走正常重建路径。 */
-    bookHintBox: function (doc, v) {
-      var e = doc.getElementById('hintBox');
-      if (!e) return false;
-      var a = String(v).split(',').map(function (s) { return Number(String(s).trim()); });
-      if (a.length !== 4 || !a.every(function (n) { return isFinite(n); })) return false;
-      e.style.left = a[0] + '%';
-      e.style.top = a[1] + '%';
-      e.style.width = a[2] + '%';
-      e.style.height = a[3] + '%';
-      try {
-        if (doc.defaultView && doc.defaultView.__layoutHint) doc.defaultView.__layoutHint();
-      } catch (err) { /* 预览里没暴露就只挪位置，角臂下次重建时再算 */ }
-      return true;
     }
     /* 这里原本还有一项 bookDotColor（改锚点颜色），但面板上从来没有这个参数，
        那段永远不会被触发 —— 已随锚点样式改成常量一并删除。 */
@@ -6622,19 +6343,6 @@ window.SD = window.SD || {};
   }
 
   /* ================= 启动 ================= */
-  /* 预览里「鼠标拉取示意框」的回传：
-     preview 文档是同源 blob，拖拽结束后用 postMessage 把百分比坐标发过来。
-     这里只写参数 + 同步参数面板（不重建 iframe —— 预览里已经就地更新过框了，
-     重建会闪一下还跳回首页）。 */
-  window.addEventListener('message', function (e) {
-    var d = e.data || {};
-    if (!d || d.type !== 'sd-hint-box' || !d.box) return;
-    if (e.origin && location.origin && e.origin !== location.origin) return;
-    setParam('bookHintBox', d.box.join(','));
-    buildParams();
-    status('示意框已记录：' + d.box.join(', ') + '（开启「交互示意区」后展示）');
-  });
-
   function boot() {
     installErrorBar();
     SD.Preview.mount($('stage-host'));
