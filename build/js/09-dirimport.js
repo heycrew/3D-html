@@ -53,10 +53,14 @@ SD.DirImport = (function () {
         var st = stem(name);
         if (st === '封面') {
           if (!cover) cover = item(e, p, name);
+          else warnings.push({ code: 'multi-cover',
+                               text: '根目录下有多个「封面」，已忽略：' + name });
           return;
         }
         if (st === '封底') {
           if (!back) back = item(e, p, name);
+          else warnings.push({ code: 'multi-back',
+                               text: '根目录下有多个「封底」，已忽略：' + name });
           return;
         }
         other += 1;

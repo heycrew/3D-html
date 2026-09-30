@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-30 17:54</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-30 17:57</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -1928,10 +1928,14 @@ SD.DirImport = (function () {
         var st = stem(name);
         if (st === '封面') {
           if (!cover) cover = item(e, p, name);
+          else warnings.push({ code: 'multi-cover',
+                               text: '根目录下有多个「封面」，已忽略：' + name });
           return;
         }
         if (st === '封底') {
           if (!back) back = item(e, p, name);
+          else warnings.push({ code: 'multi-back',
+                               text: '根目录下有多个「封底」，已忽略：' + name });
           return;
         }
         other += 1;
