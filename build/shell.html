@@ -274,6 +274,24 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
 .modal-body li{margin:3px 0}
 .modal-foot{padding:12px 18px;border-top:1px solid var(--sd-line);display:flex;gap:8px;justify-content:flex-end}
 .mini-note{font-size:11px;color:var(--sd-fg3);padding:6px 12px 10px;line-height:1.6}
+
+/* ---------- 批量导入：识别结果预览 ---------- */
+.plan-list { max-height: 240px; overflow: auto; margin: 8px 0; }
+.plan-list ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.7; }
+.plan-warn { border-left: 3px solid #e0a33a; padding: 6px 10px; margin: 8px 0; font-size: 12px; }
+.plan-warn ul { margin: 4px 0 0; padding-left: 18px; }
+
+/* ---------- 批量导入：上传进度条 ---------- */
+.import-prog {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  z-index: 9999; display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 10px;
+  background: var(--sd-bg2); border: 1px solid var(--sd-line);
+  box-shadow: 0 8px 28px rgba(0,0,0,.4); min-width: 380px;
+}
+.import-prog-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--sd-bg3); overflow: hidden; }
+.import-prog-bar > i { display: block; height: 100%; width: 0; background: #e0a33a; transition: width .2s; }
+.import-prog-txt { font-size: 12px; color: var(--sd-fg2); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -316,6 +334,10 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
         <div style="display:flex;gap:6px;padding:0 12px 10px;align-items:center">
           <button class="btn sm" id="btnUpCover" style="flex:1;justify-content:center">上传封面</button>
           <button class="btn sm" id="btnUpBack" style="flex:1;justify-content:center">上传封底</button>
+        </div>
+        <!-- 批量导入：选一个目录，按「封面/封底 + 数字子目录」自动填满整本书 -->
+        <div style="padding:0 12px 10px">
+          <button class="btn sm" id="btnBatchImport" style="width:100%;justify-content:center">批量导入（选文件夹）</button>
         </div>
         <!-- 书籍 logo：显示在书的上方居中（加载页的加载文案上方也用它） -->
         <div style="display:flex;gap:8px;padding:0 12px 10px;align-items:center">

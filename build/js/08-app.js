@@ -707,6 +707,206 @@ window.SD = window.SD || {};
     });
   }
 
+  /* ================= 批量导入 ================= */
+  /* 选一个目录（Chromium 自带的 webkitdirectory：弹的是系统目录框，
+     纯前端、浏览器版和桌面版行为一致，不需要动 Electron 的 Node 能力）。
+     每个 File 都带 webkitRelativePath，形如「秋拍图录/1/0.jpg」——
+     第一段是用户选中的目录名，识别器会剥掉它。 */
+  function pickDirectory(cb) {
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.webkitdirectory = true;
+    inp.multiple = true;
+    inp.style.display = 'none';
+    inp.addEventListener('change', function () {
+      var list = Array.prototype.slice.call(inp.files || []);
+      if (inp.parentNode) inp.parentNode.removeChild(inp);
+      cb(list);
+    });
+    document.body.appendChild(inp);
+    inp.click();
+  }
+
+  function entriesOf(files) {
+    return files.map(function (f) {
+      return { path: f.webkitRelativePath || f.name, file: f };
+    });
+  }
+
+  var PLAN_PREVIEW_MAX = 40;      /* 预览里最多逐页列这么多行，其余只给汇总 */
+
+  function showImportPlan(plan, onGo) {
+    var t = plan.total;
+    var many = t.pages > (SD.DirImport.WARN_PAGES || 300);
+    var rows = [];
+    plan.pages.slice(0, PLAN_PREVIEW_MAX).forEach(function (p) {
+      var bits = [];
+      bits.push(p.pageImg ? ('本页图 ' + p.pageImg.name) : '缺本页图');
+      if (p.frames.length) bits.push(p.frames.length + ' 张素材');
+      else bits.push('没有 360 素材');
+      rows.push('<li><b>第 ' + p.no + ' 页</b> ' + esc(bits.join(' + ')) + '</li>');
+    });
+    if (plan.pages.length > PLAN_PREVIEW_MAX) {
+      rows.push('<li>…（还有 ' + (plan.pages.length - PLAN_PREVIEW_MAX) + ' 页）</li>');
+    }
+    var warns = plan.warnings.map(function (w) {
+      return '<li>' + esc(w.text) + '</li>';
+    }).join('');
+
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = [
+      '<div class="modal">',
+      '  <h3>识别结果</h3>',
+      '  <p class="mini-note">目录：<b>' + esc(plan.root) + '</b></p>',
+      '  <p' + (many ? ' style="color:#e0a33a"' : '') + '>识别到 <b>' + t.pages + '</b> 页、' +
+      '     <b>' + t.images + '</b> 张图' +
+      (plan.skipped.system ? ('（另有 ' + plan.skipped.system + ' 个系统文件已跳过）') : '') +
+      '。</p>',
+      '  <p>封面：' + (plan.cover ? '✓ ' + esc(plan.cover.name) : '✗ 没有') +
+      '　封底：' + (plan.back ? '✓ ' + esc(plan.back.name) : '✗ 没有') + '</p>',
+      many ? '<p style="color:#e0a33a">页数超过 ' + (SD.DirImport.WARN_PAGES || 300) +
+             ' 页，请确认目录没选错。</p>' : '',
+      '<div class="plan-list"><ul>' + rows.join('') + '</ul></div>',
+      warns ? ('<div class="plan-warn"><b>需要注意</b><ul>' + warns + '</ul></div>') : '',
+      '<p class="mini-note">导入会<strong>清空并重建</strong>整本书（封面、封底、全部内容页）。' +
+      '书籍 logo 与窑口图录条目不受影响。</p>',
+      '  <div class="modal-foot">',
+      '    <button class="btn ghost" data-cancel>取消</button>',
+      '    <button class="btn primary" data-go>' + (many ? '确认导入 ' + t.pages + ' 页' : '开始导入') + '</button>',
+      '  </div>',
+      '</div>'
+    ].join('\n');
+    document.body.appendChild(mask);
+    function close() { if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    mask.addEventListener('click', function (e) {
+      if (e.target === mask || e.target.hasAttribute('data-cancel')) { close(); return; }
+      if (e.target.hasAttribute('data-go')) { close(); onGo(); }
+    });
+  }
+
+  /* 把识别结果一条条传上去。全部成功之后才动 STATE.book ——
+     中途取消或失败时工作台保持原样，不会出现「清了半本」。 */
+  function runBatchImport(plan) {
+    var urlOf = '/@upload';
+    /* 上传队列：每项是「传一组图，结果放回 plan 的哪个位置」 */
+    var jobs = [];
+    if (plan.cover) jobs.push({ kind: 'cover', files: [plan.cover.file] });
+    if (plan.back) jobs.push({ kind: 'back', files: [plan.back.file] });
+    plan.pages.forEach(function (p, i) {
+      if (p.pageImg) jobs.push({ kind: 'pageImg', page: i, files: [p.pageImg.file] });
+      if (p.frames.length) {
+        jobs.push({ kind: 'frames', page: i,
+                    files: p.frames.map(function (f) { return f.file; }) });
+      }
+    });
+
+    var totalImgs = plan.total.images;
+    var doneImgs = 0;
+    var missing = [];
+    var out = { cover: null, back: null, pages: plan.pages.map(function (p) {
+      return { url: '', name: '', file: null, items: [] };
+    }) };
+    var cancelled = false;
+
+    var box = document.createElement('div');
+    box.className = 'import-prog';
+    box.innerHTML = '<div class="import-prog-bar"><i></i></div>' +
+                    '<div class="import-prog-txt"></div>' +
+                    '<button class="btn ghost sm" data-stop>取消</button>';
+    document.body.appendChild(box);
+    var bar = box.querySelector('i');
+    var txt = box.querySelector('.import-prog-txt');
+    box.querySelector('[data-stop]').addEventListener('click', function () {
+      cancelled = true;
+      txt.textContent = '正在取消…';
+    });
+    function setProg(name) {
+      var pct = totalImgs ? Math.round(doneImgs / totalImgs * 100) : 100;
+      bar.style.width = pct + '%';
+      txt.textContent = '正在上传 ' + Math.min(doneImgs + 1, totalImgs) + ' / ' + totalImgs +
+                        (name ? ' · ' + name : '');
+      status('批量导入中 ' + pct + '%');
+    }
+    function finish() {
+      if (box.parentNode) box.parentNode.removeChild(box);
+    }
+
+    var chain = Promise.resolve();
+    jobs.forEach(function (job) {
+      chain = chain.then(function () {
+        if (cancelled) return null;
+        setProg(job.files[0] && job.files[0].name);
+        return SD.Materials.importFiles(job.files, 'x', function (i, n, nm) {
+          /* 这一批内部的进度：doneImgs 已经累加了前面几批 */
+          var pct = totalImgs ? Math.round((doneImgs + i) / totalImgs * 100) : 100;
+          bar.style.width = pct + '%';
+          txt.textContent = '正在上传 ' + (doneImgs + i) + ' / ' + totalImgs + ' · ' + nm;
+          status('批量导入中 ' + pct + '%');
+        }).then(function (items) {
+          doneImgs += job.files.length;
+          if (job.kind === 'cover') out.cover = items[0] || null;
+          else if (job.kind === 'back') out.back = items[0] || null;
+          else if (job.kind === 'pageImg') out.pages[job.page] = items[0] || out.pages[job.page];
+          else if (job.kind === 'frames') out.pages[job.page].items = items || [];
+          /* 上传失败的记下来（importFiles 失败时仍 resolve，只是没有 url） */
+          (items || []).forEach(function (it) {
+            if (!it || !it.url) missing.push((it && it.name) || '（未知文件）');
+          });
+        });
+      });
+    });
+
+    return chain.then(function () {
+      finish();
+      if (cancelled) {
+        status('已取消批量导入');
+        toast('warn', '已取消', '工作台保持原样，没有改动任何书页');
+        return;
+      }
+      /* ---- 到这里所有图都传完了，才动 state（清空重建） ---- */
+      var bk = SD.Book ? SD.Book.book() : (STATE.book = STATE.book || {});
+      bk.cover = out.cover ? { url: out.cover.url, name: out.cover.name, file: out.cover.file } : null;
+      bk.back = out.back ? { url: out.back.url, name: out.back.name, file: out.back.file } : null;
+      bk.pages = out.pages.map(function (p) {
+        return { url: p.url || '', name: p.name || '', file: p.file || null, items: p.items || [] };
+      });
+      bk.active = 0;
+
+      /* 画布比例跟着封面走（和单张上传封面那段一致） */
+      if (bk.cover && bk.cover.url) {
+        var im = new Image();
+        im.onload = function () {
+          if (bk.cover && bk.cover.url === out.cover.url) {
+            bk.cover.w = im.naturalWidth;
+            bk.cover.h = im.naturalHeight;
+            bk.w = im.naturalWidth || bk.w;
+            bk.h = im.naturalHeight || bk.h;
+            SD.Book.render();
+            refresh();
+            SD.Store.autoSave();
+          }
+        };
+        im.src = bk.cover.url;
+      }
+      SD.Book.render();
+      refresh();
+      SD.Store.autoSave();          /* 只在这里存一次 */
+      status('批量导入完成');
+      toast('ok', '批量导入完成',
+        '已导入 ' + plan.total.pages + ' 页 / ' + plan.total.images + ' 张图' +
+        (missing.length ? ('（' + missing.length + ' 张失败）') : ''),
+        missing.length ? 9000 : 5000);
+      if (missing.length) {
+        console.warn('[批量导入] 这些文件没传成功：', missing);
+      }
+    }).catch(function (e) {
+      finish();
+      status('批量导入失败', 'err');
+      toast('err', '批量导入失败', (e && e.message) || '请重试');
+    });
+  }
+
   /* ================= 翻书图录 ================= */
   function pickOneImage(cb) {
     var inp = document.createElement('input');
@@ -762,6 +962,21 @@ window.SD = window.SD || {};
         SD.Book.render();
         refresh();
         toast('ok', '封底已上传');
+      });
+    });
+
+    var batch = $('btnBatchImport');
+    if (batch) batch.addEventListener('click', function () {
+      if (!SERVER_OK) { toast('err', '预览不可用', '请改用「启动工作台.bat」打开工作台', 9000); return; }
+      pickDirectory(function (files) {
+        if (!files.length) return;
+        var plan = SD.DirImport.scan(entriesOf(files));
+        if (!plan.pages.length) {
+          toast('err', '没认出内容页',
+            '选的目录里没找到数字命名的子文件夹。请选到「以 1、2、3… 为直接子目录」的那一层。', 9000);
+          return;
+        }
+        showImportPlan(plan, function () { runBatchImport(plan); });
       });
     });
 
