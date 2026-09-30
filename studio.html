@@ -283,7 +283,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-30 17:33</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-30 17:42</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -3251,10 +3251,13 @@ SD.BookPage = (function () {
       '}',
       'function goToPage(n) {',
       '  var want = Math.max(1, Math.min(total, n));',
+      '  /* 任何一次新的跳页意图都要先自增 seq，作废在途的旧请求 —— 递增必须早于下面的早返回。',
+      '     否则「点回当前页」这条不翻页的分支不自增 seq：先前那次预取的 cb 仍会对上 seq，',
+      '     于是把书翻到旧目标，而用户最后点的是当前页。 */',
+      '  var seq = ++_jumpSeq;',
       '  if (!fb || want - 1 === cur) { syncSeek(); return; }',
       '  /* 连点两个不同页时，两次预取的完成顺序取决于网络 —— 只让最后一次生效，',
       '     否则「点哪页不一定停哪页」。seq 记下本次请求，cb 里对不上就放弃。 */',
-      '  var seq = ++_jumpSeq;',
       '  preloadPage(want, function () {',
       '    if (seq !== _jumpSeq) return;   /* 预取期间又发起了新的跳页 → 放弃这次 */',
       '    /* 真正的等待在 fb.goTo 内部（等目标页 ± preloadWindow 加载完才切页）。',
