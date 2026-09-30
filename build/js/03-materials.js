@@ -69,6 +69,15 @@ SD.Materials = (function () {
     });
   }
 
+  /* 预览图存成什么格式：按原文件类型 —— 原是 PNG（可能有透明）就还是 PNG，
+     其余（JPEG 等）存 JPEG。
+     为什么必须分：实测书页素材 2000×2695 降采样到 960 后，PNG 是 462KB/张
+     （704 张 = 317MB，全压在本地服务内存里），JPEG 只要 59KB/张（共 41MB）。 */
+  function previewMime(file) {
+    if (/png/i.test(file.type || '') || /\.png$/i.test(file.name || '')) return 'image/png';
+    return 'image/jpeg';
+  }
+
   /* ---------- 单张：降采样 + 上传 ---------- */
   function upload(file, axis) {
     return loadImage(file).then(function (o) {
@@ -108,12 +117,21 @@ SD.Materials = (function () {
               URL.revokeObjectURL(o.objUrl);
               resolve(meta);
             });
-        }, 'image/png');
+        }, previewMime(file), 0.85);
       });
     });
   }
 
-  /* ---------- 批量导入（按文件名自然排序，串行上传以免打爆内存） ---------- */
+  /* ---------- 自然排序 ----------
+     识别器（09-dirimport.js）给 360 帧排序要用**同一处**规则：
+     两套规则漂移会让「预览里看到的帧序」和「实际传上去的顺序」不一致，
+     而 360 帧序错一格整个旋转就错乱。 */
+  function naturalCompare(a, b) {
+    return String(a).localeCompare(String(b), 'zh-Hans-CN',
+      { numeric: true, sensitivity: 'base' });
+  }
+
+  /* ---------- 批量导入（串行上传以免打爆内存） ---------- */
   function importFiles(files, axis, onProgress) {
     var list = Array.prototype.slice.call(files).filter(function (f) {
       return /^image\//.test(f.type) ||
@@ -121,10 +139,7 @@ SD.Materials = (function () {
     });
     if (!list.length) return Promise.resolve([]);
 
-    list.sort(function (a, b) {
-      return String(a.name).localeCompare(String(b.name), 'zh-Hans-CN',
-        { numeric: true, sensitivity: 'base' });
-    });
+    list.sort(function (a, b) { return naturalCompare(a.name, b.name); });
 
     var out = [];
     var chain = Promise.resolve();
@@ -189,6 +204,7 @@ SD.Materials = (function () {
     isServer: isServer,
     isFileMode: isFileMode,
     clearServer: clearServer,
+    naturalCompare: naturalCompare,
     importFiles: importFiles,
     demoItems: demoItems,
     PREVIEW_MAX_EDGE: PREVIEW_MAX_EDGE
