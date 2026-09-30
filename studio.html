@@ -301,7 +301,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-30 18:14</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v09-30 18:24</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -5606,6 +5606,9 @@ window.SD = window.SD || {};
     var warns = plan.warnings.map(function (w) {
       return '<li>' + esc(w.text) + '</li>';
     }).join('');
+    /* 窑口图录会被重建成「没有 360 素材」的那几页 —— 提前告诉用户条数，
+       以及「一条都没有」时产物会回退显示全部页面的图墙（既有行为）。 */
+    var noFrames = plan.pages.filter(function (p) { return !p.frames.length; }).length;
 
     var mask = document.createElement('div');
     mask.className = 'modal-mask';
@@ -5632,8 +5635,12 @@ window.SD = window.SD || {};
              ' 页，请确认目录没选错。</p>' : '',
       '    <div class="plan-list"><ul>' + rows.join('') + '</ul></div>',
       warns ? ('<div class="plan-warn"><b>需要注意</b><ul>' + warns + '</ul></div>') : '',
+      '    <p class="mini-note" style="padding:0">窑口图录会重建成 ' + noFrames + ' 条' +
+      (noFrames ? '（没有 360 素材的内容页，按页码顺序，标题写页码）'
+                : ' —— 但没有一页缺 360 素材，所以它是空的：产物里那个按钮会回退显示全部页面') +
+      '。</p>',
       '    <p class="mini-note" style="padding:0">导入会<strong>清空并重建</strong>整本书' +
-      '（封面、封底、全部内容页）。书籍 logo 与窑口图录条目不受影响。</p>',
+      '（封面、封底、全部内容页）。书籍 logo 不受影响。</p>',
       '  </div>',
       '  <div class="modal-foot">',
       '    <button class="btn ghost" data-cancel>取消</button>',
@@ -5740,6 +5747,17 @@ window.SD = window.SD || {};
         return { url: p.url || '', name: p.name || '', file: p.file || null, items: p.items || [] };
       });
       bk.active = 0;
+
+      /* 窑口图录（图墙）：清空重建为「没有 360 素材」的内容页，按页码顺序。
+         为什么要这么做：那些页点不出全景，放进图墙访客才知道有这么些纯图页。
+         注意 page 是「产物页码」—— 1 是封面，所以内容页第 N 页 = N + 1；
+         这里的下标 i 从 0 起，故 i + 2。标题就写页码（目录树里没有别的文字信息）。
+         这是「清空重建」：手工配过的条目会被替换（用户已确认）。 */
+      bk.catalog = [];
+      bk.pages.forEach(function (p, i) {
+        var n = (p.items || []).filter(function (it) { return it && !it.off; }).length;
+        if (!n) bk.catalog.push({ page: i + 2, title: '第 ' + (i + 1) + ' 页', img: null });
+      });
 
       /* 画布比例跟着封面走（和单张上传封面那段一致） */
       if (bk.cover && bk.cover.url) {
