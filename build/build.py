@@ -29,6 +29,7 @@ JS_ORDER = [
     '05-codegen.js',
     '06-hotspots.js',
     '07-export.js',
+    '09-dirimport.js',
     '11-book.js',
     '12-bookpage.js',
     '13-store.js',
