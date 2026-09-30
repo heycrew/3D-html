@@ -757,20 +757,30 @@ window.SD = window.SD || {};
     mask.className = 'modal-mask';
     mask.innerHTML = [
       '<div class="modal">',
-      '  <h3>识别结果</h3>',
-      '  <p class="mini-note">目录：<b>' + esc(plan.root) + '</b></p>',
-      '  <p' + (many ? ' style="color:#e0a33a"' : '') + '>识别到 <b>' + t.pages + '</b> 页、' +
+      /* 结构必须按工作台的模态约定来：.modal > .modal-head + .modal-body + .modal-foot。
+         为什么：.modal 是 flex column + max-height:82vh，而**只有 .modal-body 带
+         overflow:auto** —— 它是唯一会滚动、且能收缩的 flex 子项。
+         之前把所有内容裸放在 .modal 下，结果是：.plan-list（也有 overflow）被压成 0 高
+         （「每页摘要」完全看不见），而 .plan-warn 没有 overflow、min-height:auto 按内容算、
+         40 条告警把 .modal-foot 顶到视口外 —— 按钮就点不到了。 */
+      '  <div class="modal-head">识别结果<span class="spacer"></span>' +
+        (many ? '<span style="color:#e0a33a;font-weight:400;font-size:12px">页数偏多，请确认</span>' : '') +
+        '</div>',
+      '  <div class="modal-body">',
+      '    <p class="mini-note" style="padding:0">目录：<b>' + esc(plan.root) + '</b></p>',
+      '    <p' + (many ? ' style="color:#e0a33a"' : '') + '>识别到 <b>' + t.pages + '</b> 页、' +
       '     <b>' + t.images + '</b> 张图' +
       (plan.skipped.system ? ('（另有 ' + plan.skipped.system + ' 个系统文件已跳过）') : '') +
       '。</p>',
-      '  <p>封面：' + (plan.cover ? '✓ ' + esc(plan.cover.name) : '✗ 没有') +
+      '    <p>封面：' + (plan.cover ? '✓ ' + esc(plan.cover.name) : '✗ 没有') +
       '　封底：' + (plan.back ? '✓ ' + esc(plan.back.name) : '✗ 没有') + '</p>',
       many ? '<p style="color:#e0a33a">页数超过 ' + (SD.DirImport.WARN_PAGES || 300) +
              ' 页，请确认目录没选错。</p>' : '',
-      '<div class="plan-list"><ul>' + rows.join('') + '</ul></div>',
+      '    <div class="plan-list"><ul>' + rows.join('') + '</ul></div>',
       warns ? ('<div class="plan-warn"><b>需要注意</b><ul>' + warns + '</ul></div>') : '',
-      '<p class="mini-note">导入会<strong>清空并重建</strong>整本书（封面、封底、全部内容页）。' +
-      '书籍 logo 与窑口图录条目不受影响。</p>',
+      '    <p class="mini-note" style="padding:0">导入会<strong>清空并重建</strong>整本书' +
+      '（封面、封底、全部内容页）。书籍 logo 与窑口图录条目不受影响。</p>',
+      '  </div>',
       '  <div class="modal-foot">',
       '    <button class="btn ghost" data-cancel>取消</button>',
       '    <button class="btn primary" data-go>' + (many ? '确认导入 ' + t.pages + ' 页' : '开始导入') + '</button>',
