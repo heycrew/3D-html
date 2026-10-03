@@ -188,7 +188,7 @@ SD.Materials = (function () {
                 body: blob
               }).then(function (r) { return r.json(); })
                 .then(function (j) { meta.url = j.url; res(meta); })
-                .catch(function () { res(meta); });
+                .catch(function (e) { meta.err = (e && e.message) || '上传失败'; res(meta); });
             }, 'image/png');
           });
         });

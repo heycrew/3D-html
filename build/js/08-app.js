@@ -803,7 +803,8 @@ window.SD = window.SD || {};
 
     var totalImgs = plan.total.images;
     var doneImgs = 0;
-    var missing = [];
+    var failed = [];    /* 失败项：连「身份」（封面/封底/页图/素材 + 页码）和原 File
+                           一起留着，这样能只重传这几张，不用整本重来 */
     var out = { cover: null, back: null, pages: plan.pages.map(function (p) {
       return { url: '', name: '', file: null, items: [] };
     }) };
@@ -832,6 +833,79 @@ window.SD = window.SD || {};
       if (box.parentNode) box.parentNode.removeChild(box);
     }
 
+    /* ---- 失败清单 + 只重试失败项 ---- */
+    function retryFailed(list, cb) {
+      var left = [];
+      var seq = Promise.resolve();
+      list.forEach(function (f) {
+        seq = seq.then(function () {
+          if (!f.file) { left.push(f); return null; }
+          return SD.Materials.importFiles([f.file], 'x').then(function (items) {
+            var it = (items || [])[0];
+            if (!it || !it.url) {
+              left.push({ kind: f.kind, page: f.page, name: f.name,
+                          err: (it && it.err) || '上传失败', file: f.file });
+              return;
+            }
+            /* 成功：并回 out 里同一个位置，这样最后生效的是完整一本 */
+            if (f.kind === 'cover') out.cover = it;
+            else if (f.kind === 'back') out.back = it;
+            else if (f.kind === 'pageImg') out.pages[f.page] = it;
+            else if (f.kind === 'frames') {
+              out.pages[f.page].items = (out.pages[f.page].items || []).concat([it]);
+            }
+          });
+        });
+      });
+      return seq.then(function () { cb(left); });
+    }
+
+    function showImportFailed(list, onDone) {
+      var mask = document.createElement('div');
+      mask.className = 'modal-mask';
+      var rows = list.map(function (f) {
+        var where = f.kind === 'cover' ? '封面'
+                  : f.kind === 'back' ? '封底'
+                  : f.kind === 'pageImg' ? ('第 ' + (f.page + 1) + ' 页的本页图')
+                  : ('第 ' + (f.page + 1) + ' 页的 360 素材');
+        return '<li><b>' + esc(f.name) + '</b><br><span class="mini-note">' +
+               esc(where) + ' · ' + esc(f.err) + '</span></li>';
+      }).join('');
+      mask.innerHTML = [
+        '<div class="modal">',
+        '  <div class="modal-head">有 ' + list.length + ' 项没传成功</div>',
+        '  <div class="modal-body">',
+        '    <p>书页<strong>没有改动</strong>（要全部成功才生效）。可以只重试下面这几项，' +
+        '已经传成功的不会重传。</p>',
+        '    <div class="plan-list"><ul>' + rows + '</ul></div>',
+        '    <p class="mini-note">如果是「文件过大」这类提示，重试结果也一样，' +
+        '得先处理那张图再重试。</p>',
+        '  </div>',
+        '  <div class="modal-foot">',
+        '    <button class="btn ghost" data-cancel>放弃</button>',
+        '    <button class="btn primary" data-retry>重试这 ' + list.length + ' 项</button>',
+        '  </div>',
+        '</div>'
+      ].join('');
+      document.body.appendChild(mask);
+      var btn = mask.querySelector('[data-retry]');
+      function close() { if (mask.parentNode) mask.parentNode.removeChild(mask); }
+      mask.querySelector('[data-cancel]').addEventListener('click', function () {
+        close();
+        status('批量导入未生效：有 ' + list.length + ' 项没传成功');
+      });
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        btn.textContent = '正在重试…';
+        retryFailed(list, function (still) {
+          close();
+          if (still.length) { showImportFailed(still, onDone); return; }
+          toast('ok', '重试成功', '全部图都传完了，正在写进书页');
+          onDone();
+        });
+      });
+    }
+
     var chain = Promise.resolve();
     jobs.forEach(function (job) {
       chain = chain.then(function () {
@@ -853,22 +927,28 @@ window.SD = window.SD || {};
           else if (job.kind === 'back') out.back = ok[0] || null;
           else if (job.kind === 'pageImg') { if (ok[0]) out.pages[job.page] = ok[0]; }
           else if (job.kind === 'frames') out.pages[job.page].items = ok;
-          /* 失败的记下来，供最后的汇总提示（它们不进 state） */
+          /* 失败的**不写进 state**（§8），但要留下来：连「身份」和原 File 一起记
+             （importFiles 在 meta.file 里存了一份），供「重试失败项」单独重传。 */
           (items || []).forEach(function (it) {
-            if (!it || !it.url) missing.push((it && it.name) || '（未知文件）');
+            if (it && it.url) return;
+            failed.push({ kind: job.kind, page: job.page,
+                          name: (it && it.name) || '（未知文件）',
+                          err: (it && it.err) || '上传失败',
+                          file: (it && it.file) || job.files[0] || null });
           });
         });
       });
     });
 
-    return chain.then(function () {
+    /* ---- 所有图都传完了，才动 state（清空重建）----
+       抽成独立函数：失败项重试成功之后要回到这里再走一遍。 */
+    function afterAll() {
       finish();
       if (cancelled) {
         status('已取消批量导入');
         toast('warn', '已取消', '工作台保持原样，没有改动任何书页');
         return;
       }
-      /* ---- 到这里所有图都传完了，才动 state（清空重建） ---- */
       var bk = SD.Book ? SD.Book.book() : (STATE.book = STATE.book || {});
       bk.cover = out.cover ? { url: out.cover.url, name: out.cover.name, file: out.cover.file } : null;
       bk.back = out.back ? { url: out.back.url, name: out.back.name, file: out.back.file } : null;
@@ -909,12 +989,14 @@ window.SD = window.SD || {};
       SD.Store.autoSave();          /* 只在这里存一次 */
       status('批量导入完成');
       toast('ok', '批量导入完成',
-        '已导入 ' + plan.total.pages + ' 页 / ' + plan.total.images + ' 张图' +
-        (missing.length ? ('（' + missing.length + ' 张失败）') : ''),
-        missing.length ? 9000 : 5000);
-      if (missing.length) {
-        console.warn('[批量导入] 这些文件没传成功：', missing);
-      }
+        '已导入 ' + plan.total.pages + ' 页 / ' + plan.total.images + ' 张图', 5000);
+    }
+
+    /* 有失败项 → **先不动书页**（用户定的规则：全部成功了才改），弹清单单独重试；
+       重试成功后回到 afterAll()，把攒在 out 里的结果一次性写进 state。 */
+    return chain.then(function () {
+      if (failed.length) { showImportFailed(failed, afterAll); return; }
+      afterAll();
     }).catch(function (e) {
       finish();
       status('批量导入失败', 'err');
@@ -1694,22 +1776,27 @@ window.SD = window.SD || {};
     var btnSave = $('btnSaveStore');
     if (btnSave) btnSave.addEventListener('click', function () {
       var bk = SD.Book ? SD.Book.book() : (STATE.book || {});
-      var n = (bk.cover && bk.cover.file ? 1 : 0) + (bk.back && bk.back.file ? 1 : 0);
+      /* 页图和 360 素材要分开数。以前合成一个 n，而「批量导入」时每页的 360 素材
+         就是从它自己的页图生成出来的，同一张源图被数了两遍（704 张显示成 1408），
+         看着像「保存的时候又把老素材存了一遍」。保存本身是覆盖写，不会累积。 */
+      var nPage = (bk.cover && bk.cover.file ? 1 : 0) + (bk.back && bk.back.file ? 1 : 0);
+      var nFrame = 0;
       (bk.pages || []).forEach(function (p) {
-        if (p && p.file) n += 1;
-        n += ((p && p.items) || []).filter(function (it) { return it && it.file; }).length;
+        if (p && p.file) nPage += 1;
+        nFrame += ((p && p.items) || []).filter(function (it) { return it && it.file; }).length;
       });
-      n += (bk.catalog || []).filter(function (c) { return c && c.img && c.img.file; }).length;
-      if (!n) {
+      nPage += (bk.catalog || []).filter(function (c) { return c && c.img && c.img.file; }).length;
+      if (!nPage && !nFrame) {
         toast('warn', '还没有可保存的素材', '先在左栏上传封面 / 内容页图 / 360 素材');
         return;
       }
       status('正在保存素材…');
       SD.Store.saveNow().then(function (ok) {
         if (ok) {
-          status('已保存 · ' + n + ' 个图片素材');
+          var txt = nPage + ' 张页图 + ' + nFrame + ' 帧 360 素材';
+          status('已保存 · ' + txt);
           toast('ok', '素材已保存',
-            '共 ' + n + ' 个图片素材 —— 下次打开工作台会自动恢复，可继续操作', 8000);
+            '共 ' + txt + ' —— 下次打开工作台会自动恢复，可继续操作', 8000);
         } else {
           status('保存失败', 'err');
           toast('err', '保存失败', '浏览器可能禁用了本地存储（无痕模式 / 空间不足）');

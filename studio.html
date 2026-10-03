@@ -301,7 +301,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-01 00:17</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-02 09:44</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -572,8 +572,9 @@ SD.SCHEMA = [
         desc: '拖过多少（占页宽比例）松手才翻过去，不到就回弹' },
       { key: 'bookLoop', label: '循环翻页', type: 'bool', def: false,
         desc: '翻到最后一页再往后翻会回到第 1 页（回翻同理）' },
-      { key: 'bookPreload', label: '预载页数', type: 'num', def: 2, min: 0, max: 5,
-        desc: '当前页前后各预先加载几页；页数很多时调小可省内存' },
+      { key: 'bookPreload', label: '预载页数', type: 'num', def: 6, min: 0, max: 12,
+        desc: '当前页前后各预先加载几页。调小可省内存，但太小会出现「回翻几页就卡一下」' +
+              '（翻页器只保着窗口内的页，窗口外的被淘汰，往回翻到它就得重新加载）' },
       { key: 'bookLoadOn', label: '首次加载提示', type: 'bool', def: true,
         desc: '素材还没就位时先显示一层提示，避免白屏' },
       { key: 'bookLoadText', label: '加载文案', type: 'list', def: '正在装帧…',
@@ -1018,7 +1019,7 @@ SD.Materials = (function () {
                 body: blob
               }).then(function (r) { return r.json(); })
                 .then(function (j) { meta.url = j.url; res(meta); })
-                .catch(function () { res(meta); });
+                .catch(function (e) { meta.err = (e && e.message) || '上传失败'; res(meta); });
             }, 'image/png');
           });
         });
@@ -2318,7 +2319,7 @@ SD.BookPage = (function () {
     var _fit = (_p.bookFit !== 'manual') && _cov && _cov.w && _cov.h;
     var W = _p.bookW || 900, H = _p.bookH || 1200;
     if (_fit) { H = Math.max(1, Math.round(W * _cov.h / _cov.w)); }
-    var bg = p.bookBg || '#000000';   /* 默认纯黑（与 schema 的 def 保持一致） */
+    var bg = p.bookBg || '#ffffff';   /* 兜底用白（与 schema 的 def 一致：桌面背景默认白） */
     /* 锚点（.dot，点页面开 360 时那个脉冲圆点）的尺寸与颜色写死在这里：
        面板上没有对应参数，原先的 p.bookDotSize / p.bookDotColor 永远只会
        取到默认值 —— 「代码里像可配、界面里却改不了」的遗留，已清理成常量。 */
@@ -2527,16 +2528,16 @@ SD.BookPage = (function () {
       '   背景留白；logo 就摆在这块留白的正中（水平居中 + 垂直居中）：',
       '     上方留白高度 = 100vh - 书高',
       '     它的垂直中心 = (100vh - 书高) / 2 / 2 = (100vh - 书高) / 4',
-      '   兜底 max(..., 34px)：书撑满屏幕高度时（电脑/平板）上方留白是 0，',
+      '   兜底 max(..., 58px)：书撑满屏幕高度时（电脑/平板）上方留白是 0，',
       '   若直接用 0 再叠加 translateY(-50%)，logo 会有一半跑到屏幕外面去；',
-      '   所以最少留 34px（= 半高 + 边距），保证它完整可见。 */',
+      '   所以最少留 58px（= 半高 48 + 边距 10），保证它完整可见。 */',
       '.book-logo{position:fixed;left:50%;transform:translate(-50%,-50%);',
-      '  top:max(calc((100vh - min(100vh, 100vw / ' + R + ')) / 4), 34px);',
-      '  z-index:5;max-height:48px;max-width:62vw;object-fit:contain;',
-      '  filter:drop-shadow(0 2px 6px rgba(0,0,0,.45));pointer-events:none;}',
+      '  top:max(calc((100vh - min(100vh, 100vw / ' + R + ')) / 4), 58px);',
+      '  z-index:5;max-height:96px;max-width:86vw;object-fit:contain;',
+      '  pointer-events:none;}',
       '@media (max-width:820px){ .lot-hint{bottom:138px;font-size:11px;}',
       '  .lot-hint{bottom:calc(138px + env(safe-area-inset-bottom, 0px));}',
-      '  .book-logo{max-height:38px;} }',
+      '  .book-logo{max-height:76px;} }',
       '/* 大图弹层打开时：',
       '   1) 底部那条页码导航（窑口目录 / 页码 / 自动翻页）先让位，',
       '      免得和大图里的关闭按钮挤在底部同一块地方；',
@@ -2725,7 +2726,7 @@ SD.BookPage = (function () {
       'var DRAG = ' + (p.bookDrag === false ? 'false' : 'true') + ';',
       'var COMMIT = ' + (p.bookDragCommit === undefined ? .35 : p.bookDragCommit) + ';',
       'var LOOP = ' + (p.bookLoop ? 'true' : 'false') + ';',
-      'var PRELOAD = ' + (p.bookPreload === undefined ? 2 : p.bookPreload) + ';',
+      'var PRELOAD = ' + (p.bookPreload === undefined ? 6 : p.bookPreload) + ';',
       '',
       'var bookEl = document.getElementById("book");',
       '/* ---------- 翻页引擎：@vysmo/flipbook（lib/vysmo-flipbook.min.js）----------',
@@ -2747,10 +2748,12 @@ SD.BookPage = (function () {
       'var cur = 0;',
       'var busy = false;',
       'var fb = null;',
-      '/* 预览里默认停在第 1 张内容页：封面本来就没有 360 素材，停在封面会让',
-      '   底部那条「360 素材缩略图」看起来像没做出来（用户就是这样反馈的）。',
-      '   产物照旧从封面开始 —— 只有 mode=preview 才翻这一下。 */',
-      'var PREVIEW_FIRST = ' + (mode === 'preview' ? 'true' : 'false') + ';',
+      '/* 预览里停在你正在编辑的那一页。active 就是虚拟页序列的下标',
+      '   （0=封面、1..N=内容页、N+1=封底），与产物 PAGES 的下标完全一致，',
+      '   所以不用做任何映射，直接当作初始页。产物照旧从封面开始：那里是 -1。 */',
+      'var PREVIEW_AT = ' + (mode === 'preview' ? String(Math.max(0, Math.min(
+        (state.book && state.book.pages ? state.book.pages.length : 0) + 1,
+        (state.book && state.book.active) || 0))) : '-1') + ';',
       '',
       '/* ---------- 首次加载页（同时是一张操作引导页）----------',
       '   参数：首次加载提示 / 加载文案 / 显示加载进度 / 顶部说明 / 示意框文案。',
@@ -2773,7 +2776,7 @@ SD.BookPage = (function () {
       '  _bs.textContent =',
       '    "#bootLoad{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;" +',
       '    "align-items:center;justify-content:center;box-sizing:border-box;padding:24px;" +',
-      '    "background:' + (p.bookBg || '#000000') + ';color:#b9ae9c;font-size:15px;" +',
+      '    "background:' + (p.bookBg || '#ffffff') + ';color:#b9ae9c;font-size:15px;" +',
       '    "letter-spacing:2px;transition:opacity .35s ease;overflow:hidden;}" +',
       '    "#bootLoad .bl-txt{text-align:center;white-space:pre-line;}" +',
       '    "#bootLoad .bl-prog{margin-top:10px;font-size:13px;opacity:.75;text-align:center;}" +',
@@ -2890,6 +2893,7 @@ SD.BookPage = (function () {
       '  if (pr && pr.catch) pr.catch(function () {}); /* 手势前被拦属正常 */',
       '}',
       'function playFlipSound() {',
+      '  if (!SOUND_ON) return;                        /* 页面上的喇叭 icon 可以就地关掉它 */',
       '  if (!_sndPool.length) return;',
       '  var now = Date.now();',
       '  if (now - _sndAt < 120) return;               /* 连翻节流：别叠成一串噪音 */',
@@ -2898,8 +2902,16 @@ SD.BookPage = (function () {
       '  _playOn(el);',
       '  /* 兜底：这一声被拒（策略或元素异常）时，60ms 后换另一个元素再试一次 */',
       '  setTimeout(function () {',
-      '    if (el.paused && !el.ended) { _playOn(_sndPool[_sndIdx++ % _sndPool.length]); }',
+      '    if (SOUND_ON && el.paused && !el.ended) { _playOn(_sndPool[_sndIdx++ % _sndPool.length]); }',
       '  }, 60);',
+      '}',
+      '/* 给页面右上角那个喇叭 icon 用：立刻静音，连正在播的那一声也停掉。',
+      '   光把 SOUND_ON 置 false 不够 —— 已经 play() 出去的声音还得 pause。 */',
+      'function stopFlipSound() {',
+      '  SOUND_ON = false;',
+      '  _sndPool.forEach(function (el) {',
+      '    try { el.pause(); el.currentTime = 0; } catch (e) {}',
+      '  });',
       '}',
       '/* 首次指针交互时解锁。池里每个元素都要各自解锁一次（iOS 的解锁是按元素的）。',
       '   两个要点：',
@@ -2981,6 +2993,59 @@ SD.BookPage = (function () {
       'function flipNext() { if (fb && !busy && (LOOP || cur < total - 1)) fb.next(); }',
       'function flipPrev() { if (fb && !busy && (LOOP || cur > 0)) fb.prev(); }',
       '',
+      '/* ---- 翻页器崩了之后的自愈 ----',
+      '   背景：vysmo-flipbook 有个缺陷 —— 往回翻到一张「它自己没预加载」的图时，内部',
+      '   runner 会抛 `Runner.render(): "from" URL is not loaded: ...`，而它的状态机就此',
+      '   卡在非 idle；next / prev / goTo 的第一行都是 `if (O !== "idle") return;`，于是',
+      '   之后点哪都没反应（用户报的「回翻几页就卡死、无法操作」）。',
+      '   补 preload 不可能（那个 runner 没暴露），所以只能：发现崩溃就重建翻页器，',
+      '   再回到当前页 —— 用户只觉得顿一下，而不是整页永久卡死。 */',
+      'var _rebuildTimer = null;',
+      'function rebuildFlip() {',
+      '  var at = 0;',
+      '  try { at = (fb && typeof fb.current === "number") ? fb.current : (cur || 0); } catch (e) {}',
+      '  try { if (fb && fb.destroy) fb.destroy(); } catch (e) {}',
+      '  fb = null;',
+      '  busy = false;                              /* busy 卡住的话连按钮都不响应 */',
+      '  /* 只清掉翻页库自己铺的 canvas —— 千万不要 bookEl.innerHTML = ""：',
+      '     #book 里还挂着「点页面开 360」的热点层 #dotsLayer，清掉之后 dotsLayer 这个',
+      '     变量仍指向那个游离节点，后续所有写入都落不到页面上，表现就是',
+      '     「自愈之后点页面再也开不出大图」（用户报过）。 */',
+      '  try {',
+      '    if (bookEl) {',
+      '      var _oldCv = bookEl.querySelectorAll("canvas");',
+      '      for (var _ci = 0; _ci < _oldCv.length; _ci++) {',
+      '        if (_oldCv[_ci].parentNode) _oldCv[_ci].parentNode.removeChild(_oldCv[_ci]);',
+      '      }',
+      '    }',
+      '  } catch (e) {}',
+      '  initFlip();',
+      '  /* 兜底#1：万一 #dotsLayer 不在了（结构不同的旧产物），补一个再重新取。',
+      '     它是 book 的子元素，样式由产物里的 .dots 规则负责，这里只要 class + id。 */',
+      '  try {',
+      '    if (bookEl && !document.getElementById("dotsLayer")) {',
+      '      var _dl = document.createElement("div");',
+      '      _dl.className = "dots";',
+      '      _dl.id = "dotsLayer";',
+      '      bookEl.appendChild(_dl);',
+      '    }',
+      '  } catch (e) {}',
+      '  /* 兜底#2：无论如何都把变量重新指向页面上那个节点，别留着旧引用。 */',
+      '  try { dotsLayer = document.getElementById("dotsLayer"); } catch (e) {}',
+      '  var goBack = function () {',
+      '    try { if (fb && fb.goTo) fb.goTo(at, { instant: true }); } catch (e) {}',
+      '  };',
+      '  try {',
+      '    if (fb && fb.ready && fb.ready.then) fb.ready.then(goBack, goBack);',
+      '    else goBack();',
+      '  } catch (e) { goBack(); }',
+      '}',
+      'window.addEventListener("error", function (e) {',
+      '  var m = (e && (e.message || (e.error && e.error.message))) || "";',
+      '  if (!/is not loaded/i.test(m) || !/preload|Runner\\.render/i.test(m)) return;',
+      '  if (_rebuildTimer) return;                 /* 一次崩溃只重建一次，别连着重启 */',
+      '  _rebuildTimer = setTimeout(function () { _rebuildTimer = null; rebuildFlip(); }, 60);',
+      '});',
       'function initFlip() {',
       '  if (!total) {',
       '    /* 一页有图的都没有：只留占位提示，不建翻页器 */',
@@ -3097,9 +3162,12 @@ SD.BookPage = (function () {
       '    };',
       '    function pick(i) {',
       '      dismiss();',
-      '      cur = i;',
-      '      syncNav();',
-      '      if (fb && fb.goTo) { try { fb.goTo(i); } catch (e) {} }',
+      '      /* 复用 goToPage，别再直接 fb.goTo —— 这条就是「卡死」的根因：',
+      '         goToPage 有 _jumpSeq 守卫、会先 preloadPage 预检、并把取不到的图换成占位图；',
+      '         而裸调 fb.goTo 一旦撞上取不到的图，翻页器会永远等它、从此停在「动画中」，',
+      '         之后所有翻页请求被静默忽略（用户报的「点第 1 个目录就卡住、再也动不了」）。',
+      '         注意坐标系：row.pageIndex 是 0-based 的产物索引，goToPage 要 1-based 页码。 */',
+      '      goToPage(i + 1);',
       '    }',
       '    var btn = document.getElementById("navThumb");',
       '    if (btn) btn.addEventListener("click", function (e) { e.stopPropagation(); open(); });',
@@ -3198,10 +3266,28 @@ SD.BookPage = (function () {
       '  };',
       '  list.forEach(function (src) {',
       '    var im = new Image();',
-      '    im.onload = function () {',
-      '      if (im.decode) im.decode().then(fin, fin); else fin();',
+      '    var done = false;',
+      '    var once = function () { if (done) return; done = true; fin(); };',
+      '    var blankIt = function () {',
+      '      for (var k = 0; k < PAGES.length; k++) {',
+      '        if (PAGES[k] && PAGES[k].src === src) PAGES[k].src = blankSrc();',
+      '      }',
       '    };',
-      '    im.onerror = fin;',
+      '    /* 超时兜底：图请求可能「挂住」—— 既不 load 也不 error（连接卡住、服务器不响应、',
+      '       网络半断）。那样 left 永远不归零、cb() 永远不调，goToPage 就停死在这里；而且',
+      '       库后面还会去加载同一张图、同样挂住，于是「点哪页都不动、之后再也翻不了」。',
+      '       到点就按失败处理：换占位图 + 继续往下走，别让一张取不到的图拖住整个翻页器。 */',
+      '    var guard = setTimeout(function () { if (done) return; blankIt(); once(); }, 3000);',
+      '    im.onload = function () {',
+      '      clearTimeout(guard);',
+      '      if (im.decode) im.decode().then(once, once); else once();',
+      '    };',
+      '    /* 坏图当场换成占位图（和首屏 bootFlip 里那道一个道理）。',
+      '       为什么必须在这里换：fb.goTo 内部要等「目标页 ± preloadWindow」的图都加载完',
+      '       才切页，只要有一张图永远取不到，它就不会 resolve —— 翻页器从此停在「动画中」，',
+      '       把后续所有 goTo / 翻页请求静默忽略，表现为「点了没反应、之后再翻也不动」。',
+      '       预加载既然失败，就说明这张图取不到，先换成占位图，别让它把翻页器拖死。 */',
+      '    im.onerror = function () { clearTimeout(guard); blankIt(); once(); };',
       '    im.src = src;',
       '  });',
       '}',
@@ -3238,6 +3324,14 @@ SD.BookPage = (function () {
       '        setTimeout(function () {',
       '          if (_jumpTipSeq === tipSeq) hideJumpTip();',
       '        }, 2600);',
+      '        /* 光弹提示不够：库在这里已经把状态机卡在非 idle 了（next / prev / goTo',
+      '           第一行都是 if (O !== "idle") return），于是目录跳转、前后翻页、自动翻页、',
+      '           进度条全部静默失效 —— 用户报的「加载失败以后什么都点不动」。',
+      '           注意这是 Promise 的 reject、被 .catch 接住了，不会触发 window error，',
+      '           所以挂在 error 上的那个自愈等不到它，必须在这儿显式调重建。',
+      '           延迟放在失败提示之后：让用户先看到原因，再悄悄把翻页器修好。 */',
+      '        if (_rebuildTimer) return;',
+      '        _rebuildTimer = setTimeout(function () { _rebuildTimer = null; rebuildFlip(); }, 2600);',
       '      });',
       '    } else {',
       '      /* goTo 没返回 thenable（同步完成）：不必留提示 */',
@@ -3470,9 +3564,27 @@ SD.BookPage = (function () {
       '        le = document.createElement("div");',
       '        le.id = "lotLoad";',
       '        le.style.cssText = "position:absolute;left:50%;top:50%;" +',
-      '          "transform:translate(-50%,-50%);color:#b9ae9c;font-size:14px;" +',
+      '          "transform:translate(-50%,-50%);display:flex;flex-direction:column;" +',
+      '          "align-items:center;gap:12px;" +',
+      '          "color:#b9ae9c;font-size:14px;" +',
       '          "letter-spacing:2px;pointer-events:none;z-index:4";',
-      '        le.textContent = "正在加载 360…";',
+      '        /* 文案与 logo 都和「加载书籍」用同一套：',
+      '           · 文案取 LOAD_TXT —— 就是首屏那句（参数「加载文案」配的，没配则「正在装帧…」）；',
+      '           · logo 复用页面上那张 #bookLogo（同一张书籍 logo，没上传就不占位）。',
+      '           它此刻被 CSS 隐藏着（大图打开时 .book-logo 要藏），但元素还在，src 读得到。 */',
+      '        var _lgEl0 = document.getElementById("bookLogo");',
+      '        var _lgSrc0 = _lgEl0 ? _lgEl0.getAttribute("src") : "";',
+      '        if (_lgSrc0) {',
+      '          var _ll = document.createElement("img");',
+      '          _ll.src = _lgSrc0;',
+      '          _ll.alt = "";',
+      '          _ll.setAttribute("style",',
+      '            "max-height:64px;max-width:60vw;object-fit:contain;");',
+      '          le.appendChild(_ll);',
+      '        }',
+      '        var _lt = document.createElement("div");',
+      '        _lt.textContent = LOAD_TXT;',
+      '        le.appendChild(_lt);',
       '        stage.appendChild(le);',
       '      }',
       '      le.style.display = "";',
@@ -4120,41 +4232,49 @@ SD.BookPage = (function () {
       '    "border:0;border-radius:999px;cursor:pointer;font:inherit;font-size:13px;" +',
       '    "color:#e8dccb;background:rgba(0,0,0,.42);letter-spacing:1px;" +',
       '    "-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)";',
-      '  var IS_WX = /MicroMessenger/i.test(navigator.userAgent);',
-      '  /* 微信内置浏览器里网页无法主动打开分享面板（微信官方限制：',
-      '     「代码不可以主动拉起好友列表或者朋友圈进行转发」）。',
-      '     所以微信里点分享时，明确告诉用户去点右上角 ··· —— 那条路一直能用，',
-      '     而且「分享到朋友圈 / 发送给朋友」都在里面。 */',
-      '  function wxGuide() {',
-      '    var old = document.getElementById("wxGuide");',
-      '    if (old) return;',
-      '    var box = document.createElement("div");',
-      '    box.id = "wxGuide";',
-      '    box.style.cssText = "position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.8);" +',
-      '      "color:#fff;display:flex;flex-direction:column;align-items:center;" +',
-      '      "justify-content:flex-start;padding:16vh 24px 0;box-sizing:border-box;" +',
-      '      "text-align:center;font-size:15px;line-height:1.9;letter-spacing:1px";',
-      '    box.innerHTML =',
-      '      \'<div style="font-size:32px;line-height:1;margin-bottom:12px">↗</div>\' +',
-      '      \'<div>点右上角 <b style="font-size:18px">···</b> 就能分享</div>\' +',
-      '      \'<div style="margin-top:6px">「分享到朋友圈」或「发送给朋友」</div>\';',
-      '    var bar = document.createElement("button");',
-      '    bar.textContent = "复制链接";',
-      '    bar.style.cssText = "margin-top:26px;padding:11px 26px;border:0;border-radius:999px;" +',
-      '      "font:inherit;font-size:15px;color:#111;background:#fff;cursor:pointer;";',
-      '    bar.addEventListener("click", function (ev) {',
-      '      ev.stopPropagation();',
-      '      copyShareText(bar);',
+      '  /* 翻页音效开着时，在分享按钮左边放一个喇叭按钮：点一下静音、再点恢复。',
+      '     图标用内联 SVG 而不是 emoji —— emoji 是彩色的，和这套暗色胶囊按钮不搭；',
+      '     SVG 走 stroke="currentColor"，颜色跟着按钮的文字色走，单色。',
+      '     按钮一直留着（不像「点一下就消失」那样没法再开回来），只换图标与 title。 */',
+      '  if (SOUND_ON) {',
+      '    var sBtn = document.createElement("button");',
+      '    sBtn.id = "soundBtn";',
+      '    sBtn.type = "button";',
+      '    var SVG_HEAD = \'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" \' +',
+      '      \'stroke="currentColor" stroke-width="2" stroke-linecap="round" \' +',
+      '      \'stroke-linejoin="round" aria-hidden="true">\';',
+      '    var ICON_ON = SVG_HEAD +',
+      '      \'<path d="M11 5 6 9H3v6h3l5 4V5z"/>\' +',
+      '      \'<path d="M15.5 8.5a5 5 0 0 1 0 7"/>\' +',
+      '      \'<path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>\';',
+      '    var ICON_OFF = SVG_HEAD +',
+      '      \'<path d="M11 5 6 9H3v6h3l5 4V5z"/>\' +',
+      '      \'<path d="M17 9l5 6"/><path d="M22 9l-5 6"/></svg>\';',
+      '    sBtn.style.cssText = "position:fixed;right:80px;z-index:80;width:34px;height:34px;" +',
+      '      "padding:0;display:flex;align-items:center;justify-content:center;" +',
+      '      "top:calc(14px + env(safe-area-inset-top, 0px));" +',
+      '      "border:0;border-radius:999px;cursor:pointer;" +',
+      '      "color:#e8dccb;background:rgba(0,0,0,.42);" +',
+      '      "-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)";',
+      '    var _sndMuted = false;',
+      '    var paint = function () {',
+      '      sBtn.innerHTML = _sndMuted ? ICON_OFF : ICON_ON;',
+      '      sBtn.title = _sndMuted ? "恢复翻页音效" : "关闭翻页音效";',
+      '      sBtn.setAttribute("aria-label", sBtn.title);',
+      '    };',
+      '    sBtn.addEventListener("click", function (ev2) {',
+      '      ev2.stopPropagation();',
+      '      _sndMuted = !_sndMuted;',
+      '      if (_sndMuted) {',
+      '        stopFlipSound();                      /* 置 false + 停掉正在播的那一声 */',
+      '      } else {',
+      '        SOUND_ON = true;',
+      '        unlockSound();                        /* 重新解锁（pause 过的元素要再走一次） */',
+      '      }',
+      '      paint();',
       '    });',
-      '    box.appendChild(bar);',
-      '    var tip = document.createElement("div");',
-      '    tip.style.cssText = "margin-top:18px;font-size:12px;opacity:.7";',
-      '    tip.textContent = "点空白处关闭";',
-      '    box.appendChild(tip);',
-      '    box.addEventListener("click", function () {',
-      '      if (box.parentNode) box.parentNode.removeChild(box);',
-      '    });',
-      '    document.body.appendChild(box);',
+      '    paint();',
+      '    document.body.appendChild(sBtn);',
       '  }',
       '  /* 复制「分享文案 + 链接」，顺便给按钮一个文字反馈 */',
       '  function copyShareText(el) {',
@@ -4182,12 +4302,13 @@ SD.BookPage = (function () {
       '  btn.addEventListener("click", function (e) {',
       '    e.stopPropagation();',
       '    var data = { title: SHARE_TITLE, text: SHARE_TEXT, url: location.href };',
-      '    if (navigator.share) {          /* 手机浏览器（乃至部分 iOS 微信）→ 系统分享面板 */',
+      '    /* 有系统分享就走它 —— 微信里也走它，不做「点右上角」引导层。',
+      '       没有系统分享的环境（多为电脑）退化成复制链接。 */',
+      '    if (navigator.share) {',
       '      try { navigator.share(data).catch(function () {}); } catch (err) {}',
       '      return;',
       '    }',
-      '    if (IS_WX) { wxGuide(); return; }       /* 微信里没有系统分享 → 引导右上角 */',
-      '    copyShareText(btn);                     /* 其余环境（多为电脑）→ 复制链接 */',
+      '    copyShareText(btn);',
       '  });',
       '  document.body.appendChild(btn);',
       '})();',
@@ -4223,7 +4344,7 @@ SD.BookPage = (function () {
       '  if (!PAGES.length) { initFlip(); hideBoot(); return; }',
       '  PAGES.forEach(function (pg) { if (!pg.src) pg.src = blankSrc(); });',
       '  window.__pages = PAGES;   /* 诊断用：探针靠它断言「坏页没被剔除、占位图生效」*/',
-      '  var first = (PREVIEW_FIRST && PAGES.length > 2) ? 1 : 0;',
+      '  var first = (PREVIEW_AT >= 0 && PREVIEW_AT < PAGES.length) ? PREVIEW_AT : 0;',
       '  var n = Math.min(PAGES.length, first + PRELOAD + 2);',
       '  var left = n;',
       '  bootProg(0, n);',
@@ -4233,8 +4354,8 @@ SD.BookPage = (function () {
       '    if (--left > 0) return;',
       '    initFlip();',
       '    var _rest = function () {',
-      '      if (PREVIEW_FIRST && total > 2 && fb && fb.goTo) {',
-      '        try { fb.goTo(1, { instant: true }); cur = 1; syncNav(); } catch (e) {}',
+      '      if (first > 0 && fb && fb.goTo) {',
+      '        try { fb.goTo(first, { instant: true }); cur = first; syncNav(); } catch (e) {}',
       '      }',
       '      requestAnimationFrame(hideBoot);',
       '    };',
@@ -5395,7 +5516,8 @@ window.SD = window.SD || {};
 
     var totalImgs = plan.total.images;
     var doneImgs = 0;
-    var missing = [];
+    var failed = [];    /* 失败项：连「身份」（封面/封底/页图/素材 + 页码）和原 File
+                           一起留着，这样能只重传这几张，不用整本重来 */
     var out = { cover: null, back: null, pages: plan.pages.map(function (p) {
       return { url: '', name: '', file: null, items: [] };
     }) };
@@ -5424,6 +5546,79 @@ window.SD = window.SD || {};
       if (box.parentNode) box.parentNode.removeChild(box);
     }
 
+    /* ---- 失败清单 + 只重试失败项 ---- */
+    function retryFailed(list, cb) {
+      var left = [];
+      var seq = Promise.resolve();
+      list.forEach(function (f) {
+        seq = seq.then(function () {
+          if (!f.file) { left.push(f); return null; }
+          return SD.Materials.importFiles([f.file], 'x').then(function (items) {
+            var it = (items || [])[0];
+            if (!it || !it.url) {
+              left.push({ kind: f.kind, page: f.page, name: f.name,
+                          err: (it && it.err) || '上传失败', file: f.file });
+              return;
+            }
+            /* 成功：并回 out 里同一个位置，这样最后生效的是完整一本 */
+            if (f.kind === 'cover') out.cover = it;
+            else if (f.kind === 'back') out.back = it;
+            else if (f.kind === 'pageImg') out.pages[f.page] = it;
+            else if (f.kind === 'frames') {
+              out.pages[f.page].items = (out.pages[f.page].items || []).concat([it]);
+            }
+          });
+        });
+      });
+      return seq.then(function () { cb(left); });
+    }
+
+    function showImportFailed(list, onDone) {
+      var mask = document.createElement('div');
+      mask.className = 'modal-mask';
+      var rows = list.map(function (f) {
+        var where = f.kind === 'cover' ? '封面'
+                  : f.kind === 'back' ? '封底'
+                  : f.kind === 'pageImg' ? ('第 ' + (f.page + 1) + ' 页的本页图')
+                  : ('第 ' + (f.page + 1) + ' 页的 360 素材');
+        return '<li><b>' + esc(f.name) + '</b><br><span class="mini-note">' +
+               esc(where) + ' · ' + esc(f.err) + '</span></li>';
+      }).join('');
+      mask.innerHTML = [
+        '<div class="modal">',
+        '  <div class="modal-head">有 ' + list.length + ' 项没传成功</div>',
+        '  <div class="modal-body">',
+        '    <p>书页<strong>没有改动</strong>（要全部成功才生效）。可以只重试下面这几项，' +
+        '已经传成功的不会重传。</p>',
+        '    <div class="plan-list"><ul>' + rows + '</ul></div>',
+        '    <p class="mini-note">如果是「文件过大」这类提示，重试结果也一样，' +
+        '得先处理那张图再重试。</p>',
+        '  </div>',
+        '  <div class="modal-foot">',
+        '    <button class="btn ghost" data-cancel>放弃</button>',
+        '    <button class="btn primary" data-retry>重试这 ' + list.length + ' 项</button>',
+        '  </div>',
+        '</div>'
+      ].join('');
+      document.body.appendChild(mask);
+      var btn = mask.querySelector('[data-retry]');
+      function close() { if (mask.parentNode) mask.parentNode.removeChild(mask); }
+      mask.querySelector('[data-cancel]').addEventListener('click', function () {
+        close();
+        status('批量导入未生效：有 ' + list.length + ' 项没传成功');
+      });
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        btn.textContent = '正在重试…';
+        retryFailed(list, function (still) {
+          close();
+          if (still.length) { showImportFailed(still, onDone); return; }
+          toast('ok', '重试成功', '全部图都传完了，正在写进书页');
+          onDone();
+        });
+      });
+    }
+
     var chain = Promise.resolve();
     jobs.forEach(function (job) {
       chain = chain.then(function () {
@@ -5445,22 +5640,28 @@ window.SD = window.SD || {};
           else if (job.kind === 'back') out.back = ok[0] || null;
           else if (job.kind === 'pageImg') { if (ok[0]) out.pages[job.page] = ok[0]; }
           else if (job.kind === 'frames') out.pages[job.page].items = ok;
-          /* 失败的记下来，供最后的汇总提示（它们不进 state） */
+          /* 失败的**不写进 state**（§8），但要留下来：连「身份」和原 File 一起记
+             （importFiles 在 meta.file 里存了一份），供「重试失败项」单独重传。 */
           (items || []).forEach(function (it) {
-            if (!it || !it.url) missing.push((it && it.name) || '（未知文件）');
+            if (it && it.url) return;
+            failed.push({ kind: job.kind, page: job.page,
+                          name: (it && it.name) || '（未知文件）',
+                          err: (it && it.err) || '上传失败',
+                          file: (it && it.file) || job.files[0] || null });
           });
         });
       });
     });
 
-    return chain.then(function () {
+    /* ---- 所有图都传完了，才动 state（清空重建）----
+       抽成独立函数：失败项重试成功之后要回到这里再走一遍。 */
+    function afterAll() {
       finish();
       if (cancelled) {
         status('已取消批量导入');
         toast('warn', '已取消', '工作台保持原样，没有改动任何书页');
         return;
       }
-      /* ---- 到这里所有图都传完了，才动 state（清空重建） ---- */
       var bk = SD.Book ? SD.Book.book() : (STATE.book = STATE.book || {});
       bk.cover = out.cover ? { url: out.cover.url, name: out.cover.name, file: out.cover.file } : null;
       bk.back = out.back ? { url: out.back.url, name: out.back.name, file: out.back.file } : null;
@@ -5501,12 +5702,14 @@ window.SD = window.SD || {};
       SD.Store.autoSave();          /* 只在这里存一次 */
       status('批量导入完成');
       toast('ok', '批量导入完成',
-        '已导入 ' + plan.total.pages + ' 页 / ' + plan.total.images + ' 张图' +
-        (missing.length ? ('（' + missing.length + ' 张失败）') : ''),
-        missing.length ? 9000 : 5000);
-      if (missing.length) {
-        console.warn('[批量导入] 这些文件没传成功：', missing);
-      }
+        '已导入 ' + plan.total.pages + ' 页 / ' + plan.total.images + ' 张图', 5000);
+    }
+
+    /* 有失败项 → **先不动书页**（用户定的规则：全部成功了才改），弹清单单独重试；
+       重试成功后回到 afterAll()，把攒在 out 里的结果一次性写进 state。 */
+    return chain.then(function () {
+      if (failed.length) { showImportFailed(failed, afterAll); return; }
+      afterAll();
     }).catch(function (e) {
       finish();
       status('批量导入失败', 'err');
@@ -6286,22 +6489,27 @@ window.SD = window.SD || {};
     var btnSave = $('btnSaveStore');
     if (btnSave) btnSave.addEventListener('click', function () {
       var bk = SD.Book ? SD.Book.book() : (STATE.book || {});
-      var n = (bk.cover && bk.cover.file ? 1 : 0) + (bk.back && bk.back.file ? 1 : 0);
+      /* 页图和 360 素材要分开数。以前合成一个 n，而「批量导入」时每页的 360 素材
+         就是从它自己的页图生成出来的，同一张源图被数了两遍（704 张显示成 1408），
+         看着像「保存的时候又把老素材存了一遍」。保存本身是覆盖写，不会累积。 */
+      var nPage = (bk.cover && bk.cover.file ? 1 : 0) + (bk.back && bk.back.file ? 1 : 0);
+      var nFrame = 0;
       (bk.pages || []).forEach(function (p) {
-        if (p && p.file) n += 1;
-        n += ((p && p.items) || []).filter(function (it) { return it && it.file; }).length;
+        if (p && p.file) nPage += 1;
+        nFrame += ((p && p.items) || []).filter(function (it) { return it && it.file; }).length;
       });
-      n += (bk.catalog || []).filter(function (c) { return c && c.img && c.img.file; }).length;
-      if (!n) {
+      nPage += (bk.catalog || []).filter(function (c) { return c && c.img && c.img.file; }).length;
+      if (!nPage && !nFrame) {
         toast('warn', '还没有可保存的素材', '先在左栏上传封面 / 内容页图 / 360 素材');
         return;
       }
       status('正在保存素材…');
       SD.Store.saveNow().then(function (ok) {
         if (ok) {
-          status('已保存 · ' + n + ' 个图片素材');
+          var txt = nPage + ' 张页图 + ' + nFrame + ' 帧 360 素材';
+          status('已保存 · ' + txt);
           toast('ok', '素材已保存',
-            '共 ' + n + ' 个图片素材 —— 下次打开工作台会自动恢复，可继续操作', 8000);
+            '共 ' + txt + ' —— 下次打开工作台会自动恢复，可继续操作', 8000);
         } else {
           status('保存失败', 'err');
           toast('err', '保存失败', '浏览器可能禁用了本地存储（无痕模式 / 空间不足）');
