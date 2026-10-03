@@ -301,7 +301,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-03 22:18</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-03 22:29</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -2727,7 +2727,7 @@ SD.BookPage = (function () {
     return [
       '/* 产物自带的版本标记：?diag 会把它显示出来 —— 免得再出现「以为线上是新版、',
       '   其实还是旧文件」这种误判。改动引擎选择 / 探测 / 自检逻辑时顺手改一下。 */',
-      'var BOOK_VER = "2026-10-03f 撤兜底+canvas实况诊断";',
+      'var BOOK_VER = "2026-10-03h 零副作用诊断+翻页按钮";',
       'var SHEETS = ' + SD.Codegen.safeJson(pages, false) + ';',
       'var BASE = ' + SD.Codegen.safeJson(keep, false) + ';',
       '/* 这里原本把书页比例塞给 CI360 的 aspectRatio。实测它只改容器高度',
@@ -4780,6 +4780,32 @@ SD.BookPage = (function () {
       '    box.textContent = lines.join("\\n");',
       '    box.onclick = function () { if (box.parentNode) box.parentNode.removeChild(box); };',
       '    document.body.appendChild(box);',
+      '    /* ---------- 诊断按钮：直接调翻页 API ----------',
+      '       目的：把「手势识别」和「翻页本身能不能动」彻底分开。',
+      '         点按钮能翻 → 翻页机制没问题，坏的是手势那一环；',
+      '         点按钮也不动 → 翻页这件事本身在这台机器上失效。',
+      '       只在 ?diag 下出现，点一下会自动刷新上面的数据。 */',
+      '    if (!document.getElementById("flipDiagBtns")) {',
+      '      var bar = document.createElement("div");',
+      '      bar.id = "flipDiagBtns";',
+      '      bar.style.cssText = "position:fixed;left:50%;bottom:110px;transform:translateX(-50%);" +',
+      '        "z-index:9999;display:flex;gap:16px";',
+      '      var mkBtn = function (label, fn) {',
+      '        var b = document.createElement("button");',
+      '        b.textContent = label;',
+      '        b.style.cssText = "font:16px/1 monospace;padding:16px 22px;border:0;border-radius:12px;" +',
+      '          "background:rgba(0,220,90,.9);color:#00220c;font-weight:700";',
+      '        b.onclick = function (ev) {',
+      '          if (ev && ev.stopPropagation) ev.stopPropagation();',
+      '          try { fn(); } catch (e) {}',
+      '          flipDiag();',
+      '        };',
+      '        bar.appendChild(b);',
+      '      };',
+      '      mkBtn("← 上一页", function () { if (fb && fb.prev) fb.prev(); });',
+      '      mkBtn("下一页 →", function () { if (fb && fb.next) fb.next(); });',
+      '      document.body.appendChild(bar);',
+      '    }',
       '  } catch (e) {}',
       '}',
       '/* 手势事件计数（只在 ?diag 下被 flipDiag 调用）*/',
