@@ -301,7 +301,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-03 21:52</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-03 21:53</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -2732,7 +2732,13 @@ SD.BookPage = (function () {
       '   做法：给 canvas 的 getContext 加一层，凡是要 webgl / webgl2 的都强制',
       '   preserveDrawingBuffer。否则绘制缓冲在合成之后就被清空，过一会儿再去',
       '   readPixels 只会读到空白 —— 那是假阳性，会把好机器误判成坏的。',
-      '   只覆盖这一个选项，其它参数原样透传。 */',
+      '   只覆盖这一个选项，其它参数原样透传。',
+      '   ★★ 不要把它当无用代码删掉 —— 它很可能就是「书页区全空白」被治好的原因：',
+      '   真机时间线对得上：没有它的时候（685a18f）华为那台一片空白；带上它之后',
+      '   （483d779 起）同一台机器画面正常出来了。推测是 Mali 这类驱动上',
+      '   preserveDrawingBuffer 会把 canvas 的合成路径从「GL 纹理直接合成」换成需要',
+      '   回读的那条，恰好绕开了 Chromium 40615157 那个坑。代价只是一点显存/带宽，',
+      '   换「能看见」非常划算。 */',
       'try {',
       '  var _gc0 = HTMLCanvasElement.prototype.getContext;',
       '  HTMLCanvasElement.prototype.getContext = function (t, o) {',
