@@ -301,7 +301,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-04 01:42</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-04 01:56</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -2428,6 +2428,14 @@ SD.BookPage = (function () {
       '.dot:hover .tip{opacity:1;}',
       '.dot.off .tip::after{content:" （未上传 360）";color:#c9bda9;}',
 
+      '/* 「死帧」补偿用的极轻动画（见 JS 里的同名逻辑）。',
+      '   微信 XWeb 在页面静止时不产生渲染帧，requestAnimationFrame 几乎不回调',
+      '   （真机 diag: 13.6 秒只回调 1 次），而 WebGL 引擎完全靠 rAF 渲染 ——',
+      '   表现就是「打开一片空白，手指一碰才出现」。挂上这条动画后合成器持续出帧，',
+      '   rAF 恢复正常。1×1px、只动 transform，不触发重绘、不干扰翻页。 */',
+      '@keyframes fbTick{from{transform:translateZ(0) scale(1);}to{transform:translateZ(0) scale(1.002);}}',
+      'body.fb-tick::after{content:"";position:fixed;left:0;top:0;width:1px;height:1px;',
+      '  pointer-events:none;z-index:0;animation:fbTick .5s linear infinite alternate;}',
       '/* 左右翻页热区 */',
       '.corner{position:absolute;bottom:0;width:22%;height:26%;z-index:50;cursor:pointer;}',
       '.corner.prev{left:0;}',
@@ -3212,6 +3220,32 @@ SD.BookPage = (function () {
       '   它已被下面的 createCanvasFlip（canvas 卷曲）取代 —— 后者观感更接近翻书，',
       '   同样不依赖 GPU。移除而不是留着，是因为产物是长期分发的单文件，',
       '   留死代码会让后面的人以为还有两条降级路径。要回退请看 git 历史。 */',
+      '/* ---------- 「死帧」补偿 ----------',
+      '   微信 XWeb（安卓）在页面静止时不产生渲染帧，requestAnimationFrame 几乎不回调：',
+      '   真机 diag 显示 13.6 秒里只回调 1 次。而 @vysmo 的 WebGL 渲染完全依赖 rAF，',
+      '   于是「打开一片空白，手指一碰才出现」（一碰就有帧了）。',
+      '   对策：探测 rAF 是否卡住，卡住就给 body 挂 .fb-tick（一条 1×1px 的极轻动画，',
+      '   只动 transform、走合成线程、不触发重绘），让合成器持续出帧，rAF 自然恢复。',
+      '   只有真的发生死帧才启用 —— iOS / PC 的 rAF 正常，永远不会打开它。 */',
+      '(function () {',
+      '  if (!window.requestAnimationFrame) return;',
+      '  var start = function () {',
+      '    if (!document.body) return;',
+      '    var alive = Date.now(), on = false;',
+      '    (function loop() { alive = Date.now(); window.requestAnimationFrame(loop); })();',
+      '    setInterval(function () {',
+      '      if (on) return;',
+      '      if (Date.now() - alive > 900) {',
+      '        on = true;',
+      '        try { document.body.classList.add("fb-tick"); } catch (e) {}',
+      '        if (window.console) console.warn("[flip] 页面静止时不产生渲染帧（微信内核特性）→ 启用 fb-tick 续帧");',
+      '      }',
+      '    }, 600);',
+      '  };',
+      '  if (document.body) start();',
+      '  else document.addEventListener("DOMContentLoaded", start, { once: true });',
+      '})();',
+      '',
       '/* ---------- WebGL 失效兜底：看门狗 + 引擎降级 ----------',
       '   真机现象（华为 / 微信 XWeb）：翻页时 WebGL context 会丢，库此时 render 抛错，',
       '   而异常打断了它的补间链 → 库内部 isFlipping 永久为 true → 之后所有翻页请求',
