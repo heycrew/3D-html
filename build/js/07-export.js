@@ -105,6 +105,40 @@ SD.Export = (function () {
     return s || 'file';
   }
 
+  /* ---------- 导出时限制图片最大边长 ----------
+     纹理显存与像素数成正比：一张 1500×2000 的 RGBA 纹理约 12MB，而翻页库的
+     窗口是 2×预载+3 页 —— 默认配置下就是 180MB 量级，移动 GPU 直接崩
+     （症状：WebGL context lost → 书页空白/翻不动）。
+     这里把超限的页面图等比缩到 1600 以内，占用降到约 1/4，画质影响很小。 */
+  var PAGE_MAX_EDGE = 1600;
+  function shrinkIfBig(blob) {
+    return new Promise(function (res) {
+      if (!blob || !blob.size) { res(blob); return; }
+      var url = URL.createObjectURL(blob);
+      var im = new Image();
+      im.onload = function () {
+        try {
+          var m = Math.max(im.naturalWidth, im.naturalHeight);
+          if (m <= PAGE_MAX_EDGE) { URL.revokeObjectURL(url); res(blob); return; }
+          var k = PAGE_MAX_EDGE / m;
+          var cv = document.createElement('canvas');
+          cv.width = Math.max(1, Math.round(im.naturalWidth * k));
+          cv.height = Math.max(1, Math.round(im.naturalHeight * k));
+          cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+          cv.toBlob(function (b) {
+            URL.revokeObjectURL(url);
+            res(b || blob);
+          }, 'image/jpeg', 0.9);
+        } catch (e) {
+          URL.revokeObjectURL(url);
+          res(blob);
+        }
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); res(blob); };
+      im.src = url;
+    });
+  }
+
   async function writeIn(dir, relPath, data) {
     var parts = String(relPath).split('/');
     var name = safeName(parts.pop());
@@ -203,7 +237,7 @@ SD.Export = (function () {
       var put = async function (item, rel) {
         if (!item || !item.url) return;
         var blob = item.file || await (await fetch(item.url)).blob();
-        await writeIn(dir, rel, blob);
+        await writeIn(dir, rel, await shrinkIfBig(blob));
         tick(rel);
       };
       if (bk.cover && bk.cover.url) await put(bk.cover, 'book/cover' + extOf(bk.cover.name));
@@ -233,7 +267,7 @@ SD.Export = (function () {
       for (var i = 0; i < items.length; i++) {
         var f = items[i].file;
         var blob = f || await (await fetch(items[i].url)).blob();
-        await writeIn(dir, 'images/' + names[i], blob);
+        await writeIn(dir, 'images/' + names[i], await shrinkIfBig(blob));
         tick(names[i]);
       }
     }

@@ -120,9 +120,10 @@ SD.SCHEMA = [
         desc: '拖过多少（占页宽比例）松手才翻过去，不到就回弹' },
       { key: 'bookLoop', label: '循环翻页', type: 'bool', def: false,
         desc: '翻到最后一页再往后翻会回到第 1 页（回翻同理）' },
-      { key: 'bookPreload', label: '预载页数', type: 'num', def: 6, min: 0, max: 12,
-        desc: '当前页前后各预先加载几页。调小可省内存，但太小会出现「回翻几页就卡一下」' +
-              '（翻页器只保着窗口内的页，窗口外的被淘汰，往回翻到它就得重新加载）' },
+      { key: 'bookPreload', label: '预载页数', type: 'num', def: 2, min: 0, max: 12,
+        desc: '当前页前后各预先加载几页。它直接决定纹理显存：窗口 = 2×预载+3 页，' +
+              '一张 1500×2000 的图约占 12MB —— 默认 6 就是 180MB 量级，移动 GPU 会崩' +
+              '（症状是书页空白、怎么翻都不动）。调小省显存；太小则回翻时会卡一下' },
       { key: 'bookLoadOn', label: '首次加载提示', type: 'bool', def: true,
         desc: '素材还没就位时先显示一层提示，避免白屏' },
       { key: 'bookLoadText', label: '加载文案', type: 'list', def: '正在装帧…',
