@@ -301,7 +301,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-04 22:20</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-04 22:24</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -2752,7 +2752,7 @@ SD.BookPage = (function () {
     return [
       '/* 产物自带的版本标记：?diag 会把它显示出来 —— 免得再出现「以为线上是新版、',
       '   其实还是旧文件」这种误判。改动引擎选择 / 探测 / 自检逻辑时顺手改一下。 */',
-      'var BOOK_VER = "2026-10-03j 手机端固定走canvas引擎";',
+      'var BOOK_VER = "2026-10-03k 遮罩等封面就绪";',
       'var SHEETS = ' + SD.Codegen.safeJson(pages, false) + ';',
       'var BASE = ' + SD.Codegen.safeJson(keep, false) + ';',
       '/* 这里原本把书页比例塞给 CI360 的 aspectRatio。实测它只改容器高度',
@@ -3595,7 +3595,29 @@ SD.BookPage = (function () {
       '  /* bootFlip 已经预加载过封面，这里不必再等一圈：直接就绪，画面什么时候出现',
       '     交给 startWarm 的轮询。之前这里等「所有图 complete」，在懒加载下永远等不到；',
       '     而且它顺手覆盖了 im.onload，会把 ensure() 挂的回调冲掉 —— 一并去掉。 */',
-      '  var readyPromise = Promise.resolve();',
+      '  /* 就绪 = 当前页的图真的画得出来了（既不是「decode 完成」，也不是「整本到齐」）。',
+      '     boot 的时序是：预载 n 张 → initFlip → fb.ready → hideBoot（撤加载遮罩）。',
+      '     如果这里立刻 resolve，遮罩会在封面还没画上去的时候就撤掉 —— 用户看到的就是',
+      '     「预载结束了还是空白，滑一下才出现」（本地图小解码快，看不出差别；',
+      '     真机 1600px 大图解码慢才会暴露）。所以等到第一页真正可画再放行，',
+      '     并且撤遮罩之前先 draw() 一次，把封面落实。',
+      '     上限 5 秒：图片坏了或太慢也不能把加载页锁死（bootFlip 那边另有更长的兜底）。',
+      '     注意别重犯早先那两版的错：一版等「全部图 complete」，会在 hideBoot 时覆盖',
+      '     im.onload；一版只等 decode()，decode 慢就一次都不画。这里只等「当前页可画',
+      '     + 超时」，不碰任何 onload。 */',
+      '  var readyPromise = new Promise(function (resolve) {',
+      '    var _t0 = performance.now();',
+      '    var _settle = function () {',
+      '      try { draw(); } catch (e) {}          /* 撤遮罩前先把封面落上 */',
+      '      resolve();',
+      '    };',
+      '    var _chk = function () {',
+      '      if (pageReady(imgs[curI]) || performance.now() - _t0 > 5000) { _settle(); return; }',
+      '      setTimeout(_chk, 120);',
+      '    };',
+      '    startWarm();     /* 图片一到就有两次机会：轮询 + onload 都调 startWarm */',
+      '    _chk();',
+      '  });',
       '',
       '  var ro = null;',
       '  function destroy() {',
@@ -5015,9 +5037,10 @@ SD.BookPage = (function () {
       '       resolve 也不 reject（库内部没有失败分支），于是 _rest 永不执行 ——',
       '       表现就是页面永远停在「已加载 N / N 页」，这是安卓 / 鸿蒙微信里的真实故障。',
       '       引擎选择（webgl2OK）已经把这种情况提前挡掉了，但为防万一（驱动古怪、',
-      '       探测误判），这里再兜一道：3 秒还没 ready 就照常进书，',
-      '       别让加载页把整个图录锁死。 */',
-      '    var _fail = setTimeout(_rest, 3000);',
+      '       探测误判），这里再兜一道，别让加载页把整个图录锁死。',
+      '       7 秒：要长于 canvas 引擎 readyPromise 那 5 秒（它在等封面画出来），',
+      '       否则这道兜底会抢先把遮罩撤掉，封面就来不及落上了。 */',
+      '    var _fail = setTimeout(_rest, 7000);',
       '    var _ok = function () { clearTimeout(_fail); _rest(); };',
       '    if (fb && fb.ready && fb.ready.then) fb.ready.then(_ok, _ok);',
       '    else _ok();',
