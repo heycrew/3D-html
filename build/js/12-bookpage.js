@@ -482,7 +482,7 @@ SD.BookPage = (function () {
     return [
       '/* 产物自带的版本标记：?diag 会把它显示出来 —— 免得再出现「以为线上是新版、',
       '   其实还是旧文件」这种误判。改动引擎选择 / 探测 / 自检逻辑时顺手改一下。 */',
-      'var BOOK_VER = "2026-10-03h 零副作用诊断+翻页按钮";',
+      'var BOOK_VER = "2026-10-03i 安卓常驻续帧+rafΔ诊断";',
       'var SHEETS = ' + SD.Codegen.safeJson(pages, false) + ';',
       'var BASE = ' + SD.Codegen.safeJson(keep, false) + ';',
       '/* 这里原本把书页比例塞给 CI360 的 aspectRatio。实测它只改容器高度',
