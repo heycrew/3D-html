@@ -272,7 +272,7 @@ window.SD = window.SD || {};
   }
 
   /* ================= 素材 =================
-     单品模式的「素材面板」已下线（左侧那一栏只剩书页与窑口图录），
+     单品模式的「素材面板」已下线（左侧那一栏只剩书页与图录），
      所以这里第一件事就是「面板不在就什么都不做」—— 它现在只在
      单品路径下才会被真正用到，而那条路已经没有了。 */
   function renderMaterials() {
@@ -437,7 +437,7 @@ window.SD = window.SD || {};
     $('stageMeta').textContent = ratio ? ('比例 ' + ratio) : '';
   }
 
-  /* ================= 窑口图录（产物底部那个按钮里的条目） =================
+  /* ================= 图录（产物底部那个按钮里的条目） =================
      每条 = 页码（产物里的真实页码，1 = 封面）+ 标题 + 可选自定义图。
      自定义图留空时，产物里自动回退成该页的图。 */
   var _catKey = '';
@@ -559,7 +559,7 @@ window.SD = window.SD || {};
        导入页面图）都会走到这里。以前只有动素材本身时才刷新它，所以换到
        另一页之后，下面那栏还显示着上一页的素材。 */
     page360Render();
-    catRender();          /* 窑口图录那一栏（key 不变时不重建，输标题不掉焦点） */
+    catRender();          /* 图录那一栏（key 不变时不重建，输标题不掉焦点） */
     logoRender();         /* 左栏「上传书籍 logo」旁边的缩略图 */
     SD.Preview.schedule(STATE);
 
@@ -735,7 +735,7 @@ window.SD = window.SD || {};
     var warns = plan.warnings.map(function (w) {
       return '<li>' + esc(w.text) + '</li>';
     }).join('');
-    /* 窑口图录会被重建成「没有 360 素材」的那几页 —— 提前告诉用户条数，
+    /* 图录会被重建成「没有 360 素材」的那几页 —— 提前告诉用户条数，
        以及「一条都没有」时产物会回退显示全部页面的图墙（既有行为）。 */
     var noFrames = plan.pages.filter(function (p) { return !p.frames.length; }).length;
 
@@ -764,7 +764,7 @@ window.SD = window.SD || {};
              ' 页，请确认目录没选错。</p>' : '',
       '    <div class="plan-list"><ul>' + rows.join('') + '</ul></div>',
       warns ? ('<div class="plan-warn"><b>需要注意</b><ul>' + warns + '</ul></div>') : '',
-      '    <p class="mini-note" style="padding:0">窑口图录会重建成 ' + noFrames + ' 条' +
+      '    <p class="mini-note" style="padding:0">图录会重建成 ' + noFrames + ' 条' +
       (noFrames ? '（没有 360 素材的内容页，按页码顺序，标题写页码）'
                 : ' —— 但没有一页缺 360 素材，所以它是空的：产物里那个按钮会回退显示全部页面') +
       '。</p>',
@@ -957,7 +957,7 @@ window.SD = window.SD || {};
       });
       bk.active = 0;
 
-      /* 窑口图录（图墙）：清空重建为「没有 360 素材」的内容页，按页码顺序。
+      /* 图录（图墙）：清空重建为「没有 360 素材」的内容页，按页码顺序。
          为什么要这么做：那些页点不出全景，放进图墙访客才知道有这么些纯图页。
          注意 page 是「产物页码」—— 1 是封面，所以内容页第 N 页 = N + 1；
          这里的下标 i 从 0 起，故 i + 2。标题就写页码（目录树里没有别的文字信息）。
@@ -1101,7 +1101,7 @@ window.SD = window.SD || {};
       });
     });
 
-    /* 窑口图录：产物底部那个按钮里的条目（页码 + 标题 + 自定义图） */
+    /* 图录：产物底部那个按钮里的条目（页码 + 标题 + 自定义图） */
     var addCat = $('btnAddCat');
     if (addCat) addCat.addEventListener('click', function () { SD.Book.addCatalog(); });
   }
@@ -1216,7 +1216,7 @@ window.SD = window.SD || {};
       /* 书籍 logo 同样要重新传一遍（/@mat 地址一次性） */
       STATE.book.logo = await upSheet(snap.book.logo);
 
-      /* 窑口图录：页码与标题直接恢复，自定义图要重新传一遍
+      /* 图录：页码与标题直接恢复，自定义图要重新传一遍
          （/@mat/... 是一次性地址，服务一重启就失效） */
       var cats = [];
       for (var q = 0; q < ((snap.book.catalog) || []).length; q++) {
@@ -1263,7 +1263,7 @@ window.SD = window.SD || {};
         pages: ((bk.pages) || []).map(function (p) {
           return { name: p.name || '' };
         }),
-        /* 窑口图录：结构与文字可以带走，自定义图不带（导入后重新选） */
+        /* 图录：结构与文字可以带走，自定义图不带（导入后重新选） */
         catalog: ((bk.catalog) || []).map(function (c) {
           return { page: c.page || 1, title: c.title || '',
                    imgName: (c.img && c.img.name) || '' };
@@ -1297,7 +1297,7 @@ window.SD = window.SD || {};
     STATE.book.pages = ((conf.book && conf.book.pages) || []).map(function (p) {
       return { url: '', file: null, name: p.name || '' };
     });
-    /* 窑口图录：页码与标题恢复，自定义图留空待重新选 */
+    /* 图录：页码与标题恢复，自定义图留空待重新选 */
     STATE.book.catalog = ((conf.book && conf.book.catalog) || []).map(function (c) {
       return { page: c.page || 1, title: c.title || '', img: null };
     });
@@ -1610,7 +1610,7 @@ window.SD = window.SD || {};
       reupload(bk.cover);
       reupload(bk.back);
       (bk.pages || []).forEach(reupload);
-      /* 窑口图录的自定义图也是素材，一起换新地址 */
+      /* 图录的自定义图也是素材，一起换新地址 */
       (bk.catalog || []).forEach(function (c) { if (c) reupload(c.img); });
 
       if (!jobs.length) return false;
@@ -1744,11 +1744,11 @@ window.SD = window.SD || {};
 
     /* 「清空本地工程」= 清掉这个工程用到的**全部图片素材**：
        IndexedDB 里存的工程快照、本地服务内存里的 /@mat 素材、以及内存里
-       书页 / 封面 / 封底 / 每页 360 / 窑口图录自定义图的引用。 */
+       书页 / 封面 / 封底 / 每页 360 / 图录自定义图的引用。 */
     var btnWipe = $('btnWipeStore');
     if (btnWipe) btnWipe.addEventListener('click', function () {
       if (!confirm('确定清空本地工程吗？\n\n' +
-                   '书页图、360 素材、窑口图录自定义图与参数都会消失，不可恢复。')) return;
+                   '书页图、360 素材、图录自定义图与参数都会消失，不可恢复。')) return;
       var clearLocal = SD.Materials && SD.Materials.clearServer
         ? SD.Materials.clearServer() : Promise.resolve();
       Promise.resolve(clearLocal).catch(function () {}).then(function () {

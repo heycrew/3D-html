@@ -301,7 +301,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
     <span class="logo">◎</span>
     <span>360° 全景展示工作台<small>Cloudimage 360 View 4.10.0</small></span>
     <span id="verTag" title="构建时间，用来确认浏览器用的是不是最新版工作台"
-      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-04 22:24</span>
+      style="margin-left:10px;font-size:11px;color:#7f8896;border:1px solid var(--sd-line);border-radius:4px;padding:2px 6px">v10-08 22:00</span>
   </div>
   <div class="topbar-sep"></div>
   <!-- 「页面类型」下拉已去掉：单品 360 展示下线，工作台只做翻书图录 -->
@@ -358,10 +358,10 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
           <div id="page360List" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px"></div>
           <div id="page360Hint" style="font-size:11px;color:var(--sd-fg3);margin-top:6px"></div>
         </div>
-        <!-- 窑口目录：产物底部那个按钮里的条目，逐条配「页码 + 标题 + 自定义图」 -->
+        <!-- 目录：产物底部那个按钮里的条目，逐条配「页码 + 标题 + 自定义图」 -->
         <div style="padding:10px 12px;border-top:1px solid var(--sd-line)">
           <div style="display:flex;align-items:center;font-size:12px;color:var(--sd-fg2);margin-bottom:6px">
-            窑口目录
+            目录
             <span style="flex:1"></span>
             <button class="btn ghost sm" id="btnAddCat">＋ 添加条目</button>
           </div>
@@ -370,7 +370,7 @@ select:focus,input[type=text]:focus,input[type=number]:focus,textarea:focus{bord
         </div>
       </div>
       <!-- 「单品 360 展示」的素材面板与页面类型入口都已下线：这一栏现在只有
-           书页与窑口目录；底层生成/素材函数仍保留，只是不再有 UI 调用它们。 -->
+           书页与目录；底层生成/素材函数仍保留，只是不再有 UI 调用它们。 -->
     </div>
   </aside>
 
@@ -589,11 +589,11 @@ SD.SCHEMA = [
         desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
               '已保存的工程仍用它当时的值）' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true,
-        desc: '底部那条：左边「窑口图录」、中间页码、右边「自动翻页」。' +
+        desc: '底部那条：左边「图录」、中间页码、右边「自动翻页」。' +
               '点页码会展开一条拖动进度条（拖动时显示第几页，松手跳过去）' },
-      { key: 'bookCatalogTitle', label: '窑口目录按钮名', type: 'text', def: '窑口目录',
-        desc: '底部那条左侧按钮与图墙标题的文字（默认「窑口目录」）。图墙内容由工作台' +
-              '左侧「窑口目录」里配的条目决定（页码 + 标题 + 自定义图）；一条都没配时照旧显示全部页面' },
+      { key: 'bookCatalogTitle', label: '目录按钮名', type: 'text', def: '目录',
+        desc: '底部那条左侧按钮与图墙标题的文字（默认「目录」）。图墙内容由工作台' +
+              '左侧「目录」里配的条目决定（页码 + 标题 + 自定义图）；一条都没配时照旧显示全部页面' },
       { key: 'bookPage360Bar', label: '360 素材缩略图', type: 'bool', def: true,
         desc: '导航条上方那条：这一页有几张 360 素材就画几张缩略图，' +
               '点第 N 张就从第 N 帧开始看；本页没有 360 素材时整条自动隐藏' },
@@ -608,7 +608,7 @@ SD.SCHEMA = [
               '但「媒体音量」被调到 0 时任何网页都发不出声' },
       { key: 'bookSoundKind', label: '音效来源', type: 'select', def: 'builtin',
         options: [['builtin', '内置音效'], ['custom', '自定义路径']],
-        desc: '内置音效就是项目自带的 lib/sound/book-voice.mp3；想换成自己的录音选「自定义路径」' },
+        desc: '内置音效指 lib/sound/book-voice.mp3 —— 该音频不随仓库分发，请自行放入该路径（或选「自定义路径」填你自己的录音地址）' },
       { key: 'bookSoundCustom', label: '自定义音效路径', type: 'text', def: '',
         placeholder: '如 ./sound/my-turn.mp3 或 https://…',
         desc: '选「自定义路径」时生效；导出产物请把文件放进导出目录再填相对路径' },
@@ -629,7 +629,7 @@ SD.SCHEMA = [
         placeholder: '留空则用页面标题',
         desc: '分享卡片上的标题（留空就用上面的「页面标题」）' },
       { key: 'bookShareBase', label: '站点地址', type: 'text', def: '',
-        placeholder: '例如 https://pqn.funsun.cn/auction/',
+        placeholder: '例如 https://example.com/catalog/',
         desc: '填部署后的网址（结尾带 /）。微信抓取分享卡片时不执行网页脚本，' +
               '只认 HTML 源码里的绝对地址，所以封面图必须在这里拼成完整网址 —— ' +
               '不填的话微信又抓不到图，可能「发送给朋友」点了没反应' },
@@ -1335,7 +1335,7 @@ SD.Codegen = (function () {
       '<meta charset="utf-8">',
       '<meta name="viewport" content="width=device-width,initial-scale=1">',
       /* 内联图标：否则浏览器会去请求 /favicon.ico 拿一个 404 ——
-         线上（七牛等静态托管）控制台也会挂一条红字 */
+         线上（静态托管）控制台也会挂一条红字 */
       '<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2214%22%20fill=%22%2312100e%22/%3E%3Ctext%20x=%2232%22%20y=%2243%22%20font-family=%22Arial,sans-serif%22%20font-size=%2226%22%20font-weight=%22700%22%20text-anchor=%22middle%22%20fill=%22%23ffb340%22%3E360%3C/text%3E%3C/svg%3E">',
       '<title>' + esc(title) + '</title>',
       '<style>',
@@ -1695,7 +1695,7 @@ SD.Export = (function () {
   }
 
   /* 文件名净化：Windows 不允许 \ / : * ? " < > | 出现在文件名里，
-     而窑口图录的自定义图用的是「上传时的原始文件名」——
+     而图录的自定义图用的是「上传时的原始文件名」——
      带个冒号或问号就会让 getFileHandle 直接抛错，整个导出报「导出失败」。
      这里统一换成下划线，顺手去掉首尾空格与点（Windows 也不允许结尾是点）。 */
   function safeName(name) {
@@ -1783,7 +1783,7 @@ SD.Export = (function () {
 
     /* 导出前先清掉「上一次导出留下的」内容。
        为什么必须清：这里是只写不删的，换了素材再导出到同一个目录时，
-       上一版的图片会一直躺在里面（比如已经删掉的书页、换过的窑口图录），
+       上一版的图片会一直躺在里面（比如已经删掉的书页、换过的图录），
        打包上传就带着「之前进度的图片」。只删我们自己生成的项 ——
        images/ book/ lib/ 三个目录 + 四个已知文件，用户目录里的其它文件一律不碰。 */
     var KILL_DIRS = ['images', 'book', 'lib', 'vendor', 'doc'];
@@ -1805,10 +1805,12 @@ SD.Export = (function () {
           n += (bk1.back && bk1.back.url) ? 1 : 0;
           n += ((bk1.catalog) || []).filter(function (c) {
                  return c && c.img && c.img.url;
-               }).length;   /* 窑口图录的自定义图 */
+               }).length;   /* 图录的自定义图 */
           return n;
         })() : items.length);
-    var total = nImgs + 4;
+    /* 进度总步数 = 图片数 + lib 两份（360-view / vysmo-flipbook）+ serve.ps1。
+       翻页音效属可选素材（仓库不附带音频），存在才复制、不单独计步。 */
+    var total = nImgs + 3;
     var step = 0;
     function tick(label) {
       step++;
@@ -1857,7 +1859,7 @@ SD.Export = (function () {
         }
       }
       if (bk.back && bk.back.url) await put(bk.back, 'book/back' + extOf(bk.back.name));
-      /* 窑口图录的自定义图 → book/catalog/ 下（文件名与页面里的引用保持一致） */
+      /* 图录的自定义图 → book/catalog/ 下（文件名与页面里的引用保持一致） */
       var catRows = (bk.catalog) || [];
       for (var ci = 0; ci < catRows.length; ci++) {
         var cg = catRows[ci] && catRows[ci].img;
@@ -1873,15 +1875,22 @@ SD.Export = (function () {
       }
     }
 
-    /* 3) lib/ —— 360 查看器 + 翻页库 + 内置音效，都得在：书页靠翻页库、
-       360 靠查看器、开了翻页音效时靠 sound/book-voice.mp3。
-       少一个就有一半功能是坏的（之前这里只复制了 360，导出的书页翻不动）。 */
-    var LIBS = ['360-view.min.js', 'vysmo-flipbook.min.js', 'sound/book-voice.mp3'];
+    /* 3) lib/ —— 360 查看器与翻页库必须在：书页靠翻页库、360 靠查看器。
+       少一个就有一半功能是坏的（之前这里只复制了 360，导出的书页翻不动）。
+       这两项计入进度（对应上面 total 里的 2）。 */
+    var LIBS = ['360-view.min.js', 'vysmo-flipbook.min.js'];
     for (var li = 0; li < LIBS.length; li++) {
       var libBytes = await fetchBytes('lib/' + LIBS[li]);
       await writeIn(dir, 'lib/' + LIBS[li], libBytes);
       tick('lib/' + LIBS[li]);
     }
+
+    /* 翻页音效：可选素材 —— 仓库不附带音频文件，本地若放了就一起导出。
+       放没放都不会报错；只是开了「翻页音效」又没这个文件时，页面是无声的。 */
+    try {
+      var sndBytes = await fetchBytes('lib/sound/book-voice.mp3');
+      if (sndBytes) await writeIn(dir, 'lib/sound/book-voice.mp3', sndBytes);
+    } catch (e) { /* 没放音效：正常，跳过 */ }
 
     /* 4) serve.ps1 */
     var ps = await fetchBytes('serve.ps1');
@@ -2208,7 +2217,7 @@ SD.Book = (function () {
     });
   }
 
-  /* ---------- 窑口图录条目 ----------
+  /* ---------- 图录条目 ----------
      产物底部那个按钮里的内容：每条 = 页码 + 标题 +（可选）自定义图。
      数组顺序就是显示顺序；自定义图为空时，展示时自动回退成该页的图。 */
   function catalog() {
@@ -2221,7 +2230,7 @@ SD.Book = (function () {
     var list = catalog();
     /* 默认指向第 1 张内容页（页码 2 = 封面之后的第一张；只有封面时退回 1） */
     list.push({ page: Math.min(2, lastIndex()), title: '', img: null });
-    afterChange('已添加一条窑口图录');
+    afterChange('已添加一条图录');
   }
 
   function removeCatalog(i) {
@@ -2512,7 +2521,7 @@ SD.BookPage = (function () {
       '  border:1px solid rgba(255,255,255,.16);transition:transform .16s ease;}',
       '.ts-item:hover img{transform:translateY(-2px);}',
       '.ts-item.is-cur img{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.5);}',
-      '/* 窑口图录条目：标题在图下方（工作台里逐条配），页码在标题下面 */',
+      '/* 图录条目：标题在图下方（工作台里逐条配），页码在标题下面 */',
       '.ts-name{font-size:13px;line-height:1.4;text-align:center;color:#fff;opacity:.95;',
       '  max-width:100%;word-break:break-all;}',
       '.ts-num{font-size:12px;letter-spacing:1px;opacity:.8;}',
@@ -2537,7 +2546,7 @@ SD.BookPage = (function () {
       '  aspect-ratio:auto !important;max-height:100% !important;}',
       '.lot-stage .cloudimage-360-inner-box{width:100% !important;height:100% !important;',
       '  aspect-ratio:auto !important;}',
-      '/* 「第 x 页」标题不再显示：弹层里看的是拍品，页号是多余干扰 */',
+      '/* 「第 x 页」标题不再显示：弹层里看的是内容，页号是多余干扰 */',
       '.lot-stage .lot-title{display:none;}',
       '.lot-stage .cloudimage-360 img{object-fit:contain;}',
       /* 画布尺寸交给容器（width/height:100%），显示比例由 object-fit 决定：
@@ -2549,7 +2558,7 @@ SD.BookPage = (function () {
       '.lot-stage .cloudimage-360 canvas{width:100% !important;height:100% !important;',
       '  object-fit:contain;display:block;}',
       '/* 360 的初始图标（那个 360° 圆标）不展示：它本来是「可拖动」的提示，',
-      '   但弹层底部已经有一行中文操作说明，圆标只会压住拍品的边角。 */',
+      '   但弹层底部已经有一行中文操作说明，圆标只会压住内容的边角。 */',
       '.lot-stage .cloudimage-initial-icon{display:none !important;}',
       '.jump-tip{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);',
       '  z-index:60;padding:8px 16px;border-radius:999px;font-size:13px;',
@@ -2584,7 +2593,7 @@ SD.BookPage = (function () {
       '  .lot-hint{bottom:calc(138px + env(safe-area-inset-bottom, 0px));}',
       '  .book-logo{max-height:76px;} }',
       '/* 大图弹层打开时：',
-      '   1) 底部那条页码导航（窑口目录 / 页码 / 自动翻页）先让位，',
+      '   1) 底部那条页码导航（目录 / 页码 / 自动翻页）先让位，',
       '      免得和大图里的关闭按钮挤在底部同一块地方；',
       '   2) 书页上那个 logo 也一起藏起来 —— 大图里有它自己的 logo，',
       '      留着背景那个会叠在一起。 */',
@@ -2678,9 +2687,9 @@ SD.BookPage = (function () {
     out.push('<div class="corner prev" id="cPrev"></div>');
     out.push('<div class="corner next" id="cNext"></div>');
 
-    /* 图墙按钮 / 标题的名字可配（默认「窑口目录」） */
+    /* 图墙按钮 / 标题的名字可配（默认「目录」） */
     var catTitle = SD.Codegen.esc(
-      String((state.params || {}).bookCatalogTitle || '').trim() || '窑口目录');
+      String((state.params || {}).bookCatalogTitle || '').trim() || '目录');
 
     if ((state.params || {}).bookShowNav !== false) {
       out.push('<div class="nav-wrap" id="navWrap">');
@@ -2707,7 +2716,7 @@ SD.BookPage = (function () {
     }
 
     /* 图墙：黑色半透明盖住当前页，三张一行；图下面标页码。
-       工作台配了「窑口图录」条目时按配置渲染（标题 + 自定义图），没配就照旧
+       工作台配了「图录」条目时按配置渲染（标题 + 自定义图），没配就照旧
        显示全部页面 —— 回退逻辑在脚本里（见 CATALOG）。 */
     out.push('<div class="thumb-sheet" id="thumbSheet" hidden>');
     out.push('  <div class="ts-head">');
@@ -3155,7 +3164,7 @@ SD.BookPage = (function () {
       '    /* 第二关（关键）：真的画一帧 —— 注意不是 clear 一下就算了。',
       '       华为 / 荣耀这类 Mali GPU 的微信 WebView 上，WebGL2 的 context 能建出来、',
       '       VERSION 也报 2.0，但 GPU 实际画不出东西（Chromium 40615157 一类问题），',
-      '       表现就是书页区全空 —— 而纯 DOM / <img> 一切正常（真机实测：窑口目录的图墙',
+      '       表现就是书页区全空 —— 而纯 DOM / <img> 一切正常（真机实测：目录的图墙',
       '       能正常显示，就是书页空白）。',
       '       为什么不能用 clear + readPixels：清屏走的是另一条路径，那种机器上照样读得回',
       '       清的颜色（本地实测：连没有真实 GPU 的环境都能读回洋红），等于测不出来。',
@@ -3751,9 +3760,9 @@ SD.BookPage = (function () {
       '  window.__fb = fb;   /* 诊断用：控制台可直接调 next/prev/goTo/seek */',
       '  syncNav();',
       '',
-      '  /* ---------- 窑口图录（图墙） ----------',
+      '  /* ---------- 图录（图墙） ----------',
       '     页码旁边那个按钮点开的东西：黑色半透明盖住当前页，三张一行。',
-      '     内容来自工作台配的「窑口图录」条目（页码 + 标题 + 自定义图）；',
+      '     内容来自工作台配的「图录」条目（页码 + 标题 + 自定义图）；',
       '     一条都没配时回退成「全部页面」—— 老工程行为完全不变。',
       '     点其中一张就关掉图墙并跳到它指向的那一页。 */',
       '  (function () {',
@@ -3773,7 +3782,7 @@ SD.BookPage = (function () {
       '        b.type = "button";',
       '        b.className = "ts-item";',
       '        /* data-i 记的是「点它要跳到第几页」，不是它在图墙里的序号 ——',
-      '           窑口图录允许重复指向同一页，也不必按页码顺序排。 */',
+      '           图录允许重复指向同一页，也不必按页码顺序排。 */',
       '        b.setAttribute("data-i", String(row.pageIndex));',
       '        var im = document.createElement("img");',
       '        /* 图本来就在页面上加载过，直接拿原图当缩略图，不再多生成一份小图 */',
@@ -3787,7 +3796,7 @@ SD.BookPage = (function () {
       '          nm.textContent = row.title;',
       '          b.appendChild(nm);',
       '        }',
-      '        /* 不再显示页码：工作台配了「窑口图录」时下面已经有标题，',
+      '        /* 不再显示页码：工作台配了「图录」时下面已经有标题，',
       '           没配时一排页码也只是噪音（页码在底部导航条上一直都有）。 */',
       '        b.addEventListener("click", function () { pick(row.pageIndex); });',
       '        grid.appendChild(b);',
@@ -3870,7 +3879,7 @@ SD.BookPage = (function () {
       '  }, 240);',
       '}',
       '/* 进度条「点别处就收回」：',
-      '   点窑口图录、点书页空白、点任何别处，都算「这次拖页结束了」。',
+      '   点图录、点书页空白、点任何别处，都算「这次拖页结束了」。',
       '   用捕获阶段（第三个参数 true）—— 那些按钮多半会 stopPropagation，',
       '   挂在冒泡阶段会被挡掉；捕获阶段在最外层先跑，不受影响。',
       '   点进度条自己放过；点页码放过（它本身就是开关）。 */',
@@ -3885,7 +3894,7 @@ SD.BookPage = (function () {
       '   收窄预检之后，跳到一个还没加载过的页要现场下载。翻页库的 goTo 内部会等',
       '   目标页 ± preloadWindow 加载完才开始切页 —— 那段等待必须给用户反馈，',
       '   而且可以提前用 <img> 把它灌进 HTTP 缓存（线上 CDN 带缓存头，库里随后的',
-      '   fetch 就会命中）。这样点窑口图录的条目、拖完进度条都不会「点了没反应」。 */',
+      '   fetch 就会命中）。这样点图录的条目、拖完进度条都不会「点了没反应」。 */',
       'var _jumpTip = null, _jumpTipSeq = 0, _jumpSeq = 0;',
       'function showJumpTip(text) {',
       '  if (!_jumpTip) {',
@@ -5270,8 +5279,7 @@ SD.BookPage = (function () {
       '     这样 CSS 里的 env(safe-area-inset-*) 才有值可用（底部菜单靠它避开系统手势区）。',
       '     没有这一条时 safe-area-inset-bottom 恒为 0，底部那条就会被小白条压住。 -->',
       '<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">',
-      /* 内联图标：否则浏览器会去请求 /favicon.ico 拿一个 404 —— 线上（七牛等
-         静态托管）控制台也会挂一条红字，客户截图问「是不是报错」很尴尬 */
+      /* 内联图标：否则浏览器会去请求 /favicon.ico 拿一个 404 —— 线上静态托管平台控制台也会挂一条红字，客户截图问「是不是报错」很尴尬 */
       '<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2214%22%20fill=%22%2312100e%22/%3E%3Ctext%20x=%2232%22%20y=%2243%22%20font-family=%22Arial,sans-serif%22%20font-size=%2226%22%20font-weight=%22700%22%20text-anchor=%22middle%22%20fill=%22%23ffb340%22%3E360%3C/text%3E%3C/svg%3E">',
       '<title>' + SD.Codegen.esc(title) + '</title>',
       '<!-- 分享卡片：封面图 + 文案（微信 / 朋友圈 / 微博 / 浏览器都用这几个标签）。',
@@ -5303,7 +5311,7 @@ SD.BookPage = (function () {
     ].join('\n');
   }
 
-  /* ---------- 窑口图录：条目 → 产物里那条图墙 ----------
+  /* ---------- 图录：条目 → 产物里那条图墙 ----------
      工作台配好的条目（页码 + 标题 + 可选自定义图）在这里解析成可直接渲染的数组。
      没配（或全被删掉）时返回 null —— 调用方回退成「全部页面的图墙」，
      老工程的行为因此完全不变。
@@ -5440,7 +5448,7 @@ SD.Store = (function () {
             })
           };
         }),
-        /* 窑口图录条目（页码 + 标题 + 可选的自定义图），数组顺序就是显示顺序 */
+        /* 图录条目（页码 + 标题 + 可选的自定义图），数组顺序就是显示顺序 */
         catalog: ((bk.catalog) || []).map(function (c) {
           return { page: c.page || 1, title: c.title || '', img: fileOf(c.img) };
         })
@@ -5815,7 +5823,7 @@ window.SD = window.SD || {};
   }
 
   /* ================= 素材 =================
-     单品模式的「素材面板」已下线（左侧那一栏只剩书页与窑口图录），
+     单品模式的「素材面板」已下线（左侧那一栏只剩书页与图录），
      所以这里第一件事就是「面板不在就什么都不做」—— 它现在只在
      单品路径下才会被真正用到，而那条路已经没有了。 */
   function renderMaterials() {
@@ -5980,7 +5988,7 @@ window.SD = window.SD || {};
     $('stageMeta').textContent = ratio ? ('比例 ' + ratio) : '';
   }
 
-  /* ================= 窑口图录（产物底部那个按钮里的条目） =================
+  /* ================= 图录（产物底部那个按钮里的条目） =================
      每条 = 页码（产物里的真实页码，1 = 封面）+ 标题 + 可选自定义图。
      自定义图留空时，产物里自动回退成该页的图。 */
   var _catKey = '';
@@ -6102,7 +6110,7 @@ window.SD = window.SD || {};
        导入页面图）都会走到这里。以前只有动素材本身时才刷新它，所以换到
        另一页之后，下面那栏还显示着上一页的素材。 */
     page360Render();
-    catRender();          /* 窑口图录那一栏（key 不变时不重建，输标题不掉焦点） */
+    catRender();          /* 图录那一栏（key 不变时不重建，输标题不掉焦点） */
     logoRender();         /* 左栏「上传书籍 logo」旁边的缩略图 */
     SD.Preview.schedule(STATE);
 
@@ -6278,7 +6286,7 @@ window.SD = window.SD || {};
     var warns = plan.warnings.map(function (w) {
       return '<li>' + esc(w.text) + '</li>';
     }).join('');
-    /* 窑口图录会被重建成「没有 360 素材」的那几页 —— 提前告诉用户条数，
+    /* 图录会被重建成「没有 360 素材」的那几页 —— 提前告诉用户条数，
        以及「一条都没有」时产物会回退显示全部页面的图墙（既有行为）。 */
     var noFrames = plan.pages.filter(function (p) { return !p.frames.length; }).length;
 
@@ -6307,7 +6315,7 @@ window.SD = window.SD || {};
              ' 页，请确认目录没选错。</p>' : '',
       '    <div class="plan-list"><ul>' + rows.join('') + '</ul></div>',
       warns ? ('<div class="plan-warn"><b>需要注意</b><ul>' + warns + '</ul></div>') : '',
-      '    <p class="mini-note" style="padding:0">窑口图录会重建成 ' + noFrames + ' 条' +
+      '    <p class="mini-note" style="padding:0">图录会重建成 ' + noFrames + ' 条' +
       (noFrames ? '（没有 360 素材的内容页，按页码顺序，标题写页码）'
                 : ' —— 但没有一页缺 360 素材，所以它是空的：产物里那个按钮会回退显示全部页面') +
       '。</p>',
@@ -6500,7 +6508,7 @@ window.SD = window.SD || {};
       });
       bk.active = 0;
 
-      /* 窑口图录（图墙）：清空重建为「没有 360 素材」的内容页，按页码顺序。
+      /* 图录（图墙）：清空重建为「没有 360 素材」的内容页，按页码顺序。
          为什么要这么做：那些页点不出全景，放进图墙访客才知道有这么些纯图页。
          注意 page 是「产物页码」—— 1 是封面，所以内容页第 N 页 = N + 1；
          这里的下标 i 从 0 起，故 i + 2。标题就写页码（目录树里没有别的文字信息）。
@@ -6644,7 +6652,7 @@ window.SD = window.SD || {};
       });
     });
 
-    /* 窑口图录：产物底部那个按钮里的条目（页码 + 标题 + 自定义图） */
+    /* 图录：产物底部那个按钮里的条目（页码 + 标题 + 自定义图） */
     var addCat = $('btnAddCat');
     if (addCat) addCat.addEventListener('click', function () { SD.Book.addCatalog(); });
   }
@@ -6759,7 +6767,7 @@ window.SD = window.SD || {};
       /* 书籍 logo 同样要重新传一遍（/@mat 地址一次性） */
       STATE.book.logo = await upSheet(snap.book.logo);
 
-      /* 窑口图录：页码与标题直接恢复，自定义图要重新传一遍
+      /* 图录：页码与标题直接恢复，自定义图要重新传一遍
          （/@mat/... 是一次性地址，服务一重启就失效） */
       var cats = [];
       for (var q = 0; q < ((snap.book.catalog) || []).length; q++) {
@@ -6806,7 +6814,7 @@ window.SD = window.SD || {};
         pages: ((bk.pages) || []).map(function (p) {
           return { name: p.name || '' };
         }),
-        /* 窑口图录：结构与文字可以带走，自定义图不带（导入后重新选） */
+        /* 图录：结构与文字可以带走，自定义图不带（导入后重新选） */
         catalog: ((bk.catalog) || []).map(function (c) {
           return { page: c.page || 1, title: c.title || '',
                    imgName: (c.img && c.img.name) || '' };
@@ -6840,7 +6848,7 @@ window.SD = window.SD || {};
     STATE.book.pages = ((conf.book && conf.book.pages) || []).map(function (p) {
       return { url: '', file: null, name: p.name || '' };
     });
-    /* 窑口图录：页码与标题恢复，自定义图留空待重新选 */
+    /* 图录：页码与标题恢复，自定义图留空待重新选 */
     STATE.book.catalog = ((conf.book && conf.book.catalog) || []).map(function (c) {
       return { page: c.page || 1, title: c.title || '', img: null };
     });
@@ -7153,7 +7161,7 @@ window.SD = window.SD || {};
       reupload(bk.cover);
       reupload(bk.back);
       (bk.pages || []).forEach(reupload);
-      /* 窑口图录的自定义图也是素材，一起换新地址 */
+      /* 图录的自定义图也是素材，一起换新地址 */
       (bk.catalog || []).forEach(function (c) { if (c) reupload(c.img); });
 
       if (!jobs.length) return false;
@@ -7287,11 +7295,11 @@ window.SD = window.SD || {};
 
     /* 「清空本地工程」= 清掉这个工程用到的**全部图片素材**：
        IndexedDB 里存的工程快照、本地服务内存里的 /@mat 素材、以及内存里
-       书页 / 封面 / 封底 / 每页 360 / 窑口图录自定义图的引用。 */
+       书页 / 封面 / 封底 / 每页 360 / 图录自定义图的引用。 */
     var btnWipe = $('btnWipeStore');
     if (btnWipe) btnWipe.addEventListener('click', function () {
       if (!confirm('确定清空本地工程吗？\n\n' +
-                   '书页图、360 素材、窑口图录自定义图与参数都会消失，不可恢复。')) return;
+                   '书页图、360 素材、图录自定义图与参数都会消失，不可恢复。')) return;
       var clearLocal = SD.Materials && SD.Materials.clearServer
         ? SD.Materials.clearServer() : Promise.resolve();
       Promise.resolve(clearLocal).catch(function () {}).then(function () {

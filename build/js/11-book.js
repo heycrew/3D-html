@@ -157,7 +157,7 @@ SD.Book = (function () {
     });
   }
 
-  /* ---------- 窑口图录条目 ----------
+  /* ---------- 图录条目 ----------
      产物底部那个按钮里的内容：每条 = 页码 + 标题 +（可选）自定义图。
      数组顺序就是显示顺序；自定义图为空时，展示时自动回退成该页的图。 */
   function catalog() {
@@ -170,7 +170,7 @@ SD.Book = (function () {
     var list = catalog();
     /* 默认指向第 1 张内容页（页码 2 = 封面之后的第一张；只有封面时退回 1） */
     list.push({ page: Math.min(2, lastIndex()), title: '', img: null });
-    afterChange('已添加一条窑口图录');
+    afterChange('已添加一条图录');
   }
 
   function removeCatalog(i) {

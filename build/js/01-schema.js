@@ -137,11 +137,11 @@ SD.SCHEMA = [
         desc: '书页四周的留白底色，默认纯黑（注意：改默认值只影响新工程，' +
               '已保存的工程仍用它当时的值）' },
       { key: 'bookShowNav', label: '显示页码导航', type: 'bool', def: true,
-        desc: '底部那条：左边「窑口图录」、中间页码、右边「自动翻页」。' +
+        desc: '底部那条：左边「图录」、中间页码、右边「自动翻页」。' +
               '点页码会展开一条拖动进度条（拖动时显示第几页，松手跳过去）' },
-      { key: 'bookCatalogTitle', label: '窑口目录按钮名', type: 'text', def: '窑口目录',
-        desc: '底部那条左侧按钮与图墙标题的文字（默认「窑口目录」）。图墙内容由工作台' +
-              '左侧「窑口目录」里配的条目决定（页码 + 标题 + 自定义图）；一条都没配时照旧显示全部页面' },
+      { key: 'bookCatalogTitle', label: '目录按钮名', type: 'text', def: '目录',
+        desc: '底部那条左侧按钮与图墙标题的文字（默认「目录」）。图墙内容由工作台' +
+              '左侧「目录」里配的条目决定（页码 + 标题 + 自定义图）；一条都没配时照旧显示全部页面' },
       { key: 'bookPage360Bar', label: '360 素材缩略图', type: 'bool', def: true,
         desc: '导航条上方那条：这一页有几张 360 素材就画几张缩略图，' +
               '点第 N 张就从第 N 帧开始看；本页没有 360 素材时整条自动隐藏' },
@@ -156,7 +156,7 @@ SD.SCHEMA = [
               '但「媒体音量」被调到 0 时任何网页都发不出声' },
       { key: 'bookSoundKind', label: '音效来源', type: 'select', def: 'builtin',
         options: [['builtin', '内置音效'], ['custom', '自定义路径']],
-        desc: '内置音效就是项目自带的 lib/sound/book-voice.mp3；想换成自己的录音选「自定义路径」' },
+        desc: '内置音效指 lib/sound/book-voice.mp3 —— 该音频不随仓库分发，请自行放入该路径（或选「自定义路径」填你自己的录音地址）' },
       { key: 'bookSoundCustom', label: '自定义音效路径', type: 'text', def: '',
         placeholder: '如 ./sound/my-turn.mp3 或 https://…',
         desc: '选「自定义路径」时生效；导出产物请把文件放进导出目录再填相对路径' },
@@ -177,7 +177,7 @@ SD.SCHEMA = [
         placeholder: '留空则用页面标题',
         desc: '分享卡片上的标题（留空就用上面的「页面标题」）' },
       { key: 'bookShareBase', label: '站点地址', type: 'text', def: '',
-        placeholder: '例如 https://pqn.funsun.cn/auction/',
+        placeholder: '例如 https://example.com/catalog/',
         desc: '填部署后的网址（结尾带 /）。微信抓取分享卡片时不执行网页脚本，' +
               '只认 HTML 源码里的绝对地址，所以封面图必须在这里拼成完整网址 —— ' +
               '不填的话微信又抓不到图，可能「发送给朋友」点了没反应' },

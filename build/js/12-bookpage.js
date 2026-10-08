@@ -242,7 +242,7 @@ SD.BookPage = (function () {
       '  border:1px solid rgba(255,255,255,.16);transition:transform .16s ease;}',
       '.ts-item:hover img{transform:translateY(-2px);}',
       '.ts-item.is-cur img{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.5);}',
-      '/* 窑口图录条目：标题在图下方（工作台里逐条配），页码在标题下面 */',
+      '/* 图录条目：标题在图下方（工作台里逐条配），页码在标题下面 */',
       '.ts-name{font-size:13px;line-height:1.4;text-align:center;color:#fff;opacity:.95;',
       '  max-width:100%;word-break:break-all;}',
       '.ts-num{font-size:12px;letter-spacing:1px;opacity:.8;}',
@@ -267,7 +267,7 @@ SD.BookPage = (function () {
       '  aspect-ratio:auto !important;max-height:100% !important;}',
       '.lot-stage .cloudimage-360-inner-box{width:100% !important;height:100% !important;',
       '  aspect-ratio:auto !important;}',
-      '/* 「第 x 页」标题不再显示：弹层里看的是拍品，页号是多余干扰 */',
+      '/* 「第 x 页」标题不再显示：弹层里看的是内容，页号是多余干扰 */',
       '.lot-stage .lot-title{display:none;}',
       '.lot-stage .cloudimage-360 img{object-fit:contain;}',
       /* 画布尺寸交给容器（width/height:100%），显示比例由 object-fit 决定：
@@ -279,7 +279,7 @@ SD.BookPage = (function () {
       '.lot-stage .cloudimage-360 canvas{width:100% !important;height:100% !important;',
       '  object-fit:contain;display:block;}',
       '/* 360 的初始图标（那个 360° 圆标）不展示：它本来是「可拖动」的提示，',
-      '   但弹层底部已经有一行中文操作说明，圆标只会压住拍品的边角。 */',
+      '   但弹层底部已经有一行中文操作说明，圆标只会压住内容的边角。 */',
       '.lot-stage .cloudimage-initial-icon{display:none !important;}',
       '.jump-tip{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);',
       '  z-index:60;padding:8px 16px;border-radius:999px;font-size:13px;',
@@ -314,7 +314,7 @@ SD.BookPage = (function () {
       '  .lot-hint{bottom:calc(138px + env(safe-area-inset-bottom, 0px));}',
       '  .book-logo{max-height:76px;} }',
       '/* 大图弹层打开时：',
-      '   1) 底部那条页码导航（窑口目录 / 页码 / 自动翻页）先让位，',
+      '   1) 底部那条页码导航（目录 / 页码 / 自动翻页）先让位，',
       '      免得和大图里的关闭按钮挤在底部同一块地方；',
       '   2) 书页上那个 logo 也一起藏起来 —— 大图里有它自己的 logo，',
       '      留着背景那个会叠在一起。 */',
@@ -408,9 +408,9 @@ SD.BookPage = (function () {
     out.push('<div class="corner prev" id="cPrev"></div>');
     out.push('<div class="corner next" id="cNext"></div>');
 
-    /* 图墙按钮 / 标题的名字可配（默认「窑口目录」） */
+    /* 图墙按钮 / 标题的名字可配（默认「目录」） */
     var catTitle = SD.Codegen.esc(
-      String((state.params || {}).bookCatalogTitle || '').trim() || '窑口目录');
+      String((state.params || {}).bookCatalogTitle || '').trim() || '目录');
 
     if ((state.params || {}).bookShowNav !== false) {
       out.push('<div class="nav-wrap" id="navWrap">');
@@ -437,7 +437,7 @@ SD.BookPage = (function () {
     }
 
     /* 图墙：黑色半透明盖住当前页，三张一行；图下面标页码。
-       工作台配了「窑口图录」条目时按配置渲染（标题 + 自定义图），没配就照旧
+       工作台配了「图录」条目时按配置渲染（标题 + 自定义图），没配就照旧
        显示全部页面 —— 回退逻辑在脚本里（见 CATALOG）。 */
     out.push('<div class="thumb-sheet" id="thumbSheet" hidden>');
     out.push('  <div class="ts-head">');
@@ -885,7 +885,7 @@ SD.BookPage = (function () {
       '    /* 第二关（关键）：真的画一帧 —— 注意不是 clear 一下就算了。',
       '       华为 / 荣耀这类 Mali GPU 的微信 WebView 上，WebGL2 的 context 能建出来、',
       '       VERSION 也报 2.0，但 GPU 实际画不出东西（Chromium 40615157 一类问题），',
-      '       表现就是书页区全空 —— 而纯 DOM / <img> 一切正常（真机实测：窑口目录的图墙',
+      '       表现就是书页区全空 —— 而纯 DOM / <img> 一切正常（真机实测：目录的图墙',
       '       能正常显示，就是书页空白）。',
       '       为什么不能用 clear + readPixels：清屏走的是另一条路径，那种机器上照样读得回',
       '       清的颜色（本地实测：连没有真实 GPU 的环境都能读回洋红），等于测不出来。',
@@ -1481,9 +1481,9 @@ SD.BookPage = (function () {
       '  window.__fb = fb;   /* 诊断用：控制台可直接调 next/prev/goTo/seek */',
       '  syncNav();',
       '',
-      '  /* ---------- 窑口图录（图墙） ----------',
+      '  /* ---------- 图录（图墙） ----------',
       '     页码旁边那个按钮点开的东西：黑色半透明盖住当前页，三张一行。',
-      '     内容来自工作台配的「窑口图录」条目（页码 + 标题 + 自定义图）；',
+      '     内容来自工作台配的「图录」条目（页码 + 标题 + 自定义图）；',
       '     一条都没配时回退成「全部页面」—— 老工程行为完全不变。',
       '     点其中一张就关掉图墙并跳到它指向的那一页。 */',
       '  (function () {',
@@ -1503,7 +1503,7 @@ SD.BookPage = (function () {
       '        b.type = "button";',
       '        b.className = "ts-item";',
       '        /* data-i 记的是「点它要跳到第几页」，不是它在图墙里的序号 ——',
-      '           窑口图录允许重复指向同一页，也不必按页码顺序排。 */',
+      '           图录允许重复指向同一页，也不必按页码顺序排。 */',
       '        b.setAttribute("data-i", String(row.pageIndex));',
       '        var im = document.createElement("img");',
       '        /* 图本来就在页面上加载过，直接拿原图当缩略图，不再多生成一份小图 */',
@@ -1517,7 +1517,7 @@ SD.BookPage = (function () {
       '          nm.textContent = row.title;',
       '          b.appendChild(nm);',
       '        }',
-      '        /* 不再显示页码：工作台配了「窑口图录」时下面已经有标题，',
+      '        /* 不再显示页码：工作台配了「图录」时下面已经有标题，',
       '           没配时一排页码也只是噪音（页码在底部导航条上一直都有）。 */',
       '        b.addEventListener("click", function () { pick(row.pageIndex); });',
       '        grid.appendChild(b);',
@@ -1600,7 +1600,7 @@ SD.BookPage = (function () {
       '  }, 240);',
       '}',
       '/* 进度条「点别处就收回」：',
-      '   点窑口图录、点书页空白、点任何别处，都算「这次拖页结束了」。',
+      '   点图录、点书页空白、点任何别处，都算「这次拖页结束了」。',
       '   用捕获阶段（第三个参数 true）—— 那些按钮多半会 stopPropagation，',
       '   挂在冒泡阶段会被挡掉；捕获阶段在最外层先跑，不受影响。',
       '   点进度条自己放过；点页码放过（它本身就是开关）。 */',
@@ -1615,7 +1615,7 @@ SD.BookPage = (function () {
       '   收窄预检之后，跳到一个还没加载过的页要现场下载。翻页库的 goTo 内部会等',
       '   目标页 ± preloadWindow 加载完才开始切页 —— 那段等待必须给用户反馈，',
       '   而且可以提前用 <img> 把它灌进 HTTP 缓存（线上 CDN 带缓存头，库里随后的',
-      '   fetch 就会命中）。这样点窑口图录的条目、拖完进度条都不会「点了没反应」。 */',
+      '   fetch 就会命中）。这样点图录的条目、拖完进度条都不会「点了没反应」。 */',
       'var _jumpTip = null, _jumpTipSeq = 0, _jumpSeq = 0;',
       'function showJumpTip(text) {',
       '  if (!_jumpTip) {',
@@ -3000,8 +3000,7 @@ SD.BookPage = (function () {
       '     这样 CSS 里的 env(safe-area-inset-*) 才有值可用（底部菜单靠它避开系统手势区）。',
       '     没有这一条时 safe-area-inset-bottom 恒为 0，底部那条就会被小白条压住。 -->',
       '<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">',
-      /* 内联图标：否则浏览器会去请求 /favicon.ico 拿一个 404 —— 线上（七牛等
-         静态托管）控制台也会挂一条红字，客户截图问「是不是报错」很尴尬 */
+      /* 内联图标：否则浏览器会去请求 /favicon.ico 拿一个 404 —— 线上静态托管平台控制台也会挂一条红字，客户截图问「是不是报错」很尴尬 */
       '<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2214%22%20fill=%22%2312100e%22/%3E%3Ctext%20x=%2232%22%20y=%2243%22%20font-family=%22Arial,sans-serif%22%20font-size=%2226%22%20font-weight=%22700%22%20text-anchor=%22middle%22%20fill=%22%23ffb340%22%3E360%3C/text%3E%3C/svg%3E">',
       '<title>' + SD.Codegen.esc(title) + '</title>',
       '<!-- 分享卡片：封面图 + 文案（微信 / 朋友圈 / 微博 / 浏览器都用这几个标签）。',
@@ -3033,7 +3032,7 @@ SD.BookPage = (function () {
     ].join('\n');
   }
 
-  /* ---------- 窑口图录：条目 → 产物里那条图墙 ----------
+  /* ---------- 图录：条目 → 产物里那条图墙 ----------
      工作台配好的条目（页码 + 标题 + 可选自定义图）在这里解析成可直接渲染的数组。
      没配（或全被删掉）时返回 null —— 调用方回退成「全部页面的图墙」，
      老工程的行为因此完全不变。

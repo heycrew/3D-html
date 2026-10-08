@@ -94,7 +94,7 @@ SD.Export = (function () {
   }
 
   /* 文件名净化：Windows 不允许 \ / : * ? " < > | 出现在文件名里，
-     而窑口图录的自定义图用的是「上传时的原始文件名」——
+     而图录的自定义图用的是「上传时的原始文件名」——
      带个冒号或问号就会让 getFileHandle 直接抛错，整个导出报「导出失败」。
      这里统一换成下划线，顺手去掉首尾空格与点（Windows 也不允许结尾是点）。 */
   function safeName(name) {
@@ -182,7 +182,7 @@ SD.Export = (function () {
 
     /* 导出前先清掉「上一次导出留下的」内容。
        为什么必须清：这里是只写不删的，换了素材再导出到同一个目录时，
-       上一版的图片会一直躺在里面（比如已经删掉的书页、换过的窑口图录），
+       上一版的图片会一直躺在里面（比如已经删掉的书页、换过的图录），
        打包上传就带着「之前进度的图片」。只删我们自己生成的项 ——
        images/ book/ lib/ 三个目录 + 四个已知文件，用户目录里的其它文件一律不碰。 */
     var KILL_DIRS = ['images', 'book', 'lib', 'vendor', 'doc'];
@@ -204,10 +204,12 @@ SD.Export = (function () {
           n += (bk1.back && bk1.back.url) ? 1 : 0;
           n += ((bk1.catalog) || []).filter(function (c) {
                  return c && c.img && c.img.url;
-               }).length;   /* 窑口图录的自定义图 */
+               }).length;   /* 图录的自定义图 */
           return n;
         })() : items.length);
-    var total = nImgs + 4;
+    /* 进度总步数 = 图片数 + lib 两份（360-view / vysmo-flipbook）+ serve.ps1。
+       翻页音效属可选素材（仓库不附带音频），存在才复制、不单独计步。 */
+    var total = nImgs + 3;
     var step = 0;
     function tick(label) {
       step++;
@@ -256,7 +258,7 @@ SD.Export = (function () {
         }
       }
       if (bk.back && bk.back.url) await put(bk.back, 'book/back' + extOf(bk.back.name));
-      /* 窑口图录的自定义图 → book/catalog/ 下（文件名与页面里的引用保持一致） */
+      /* 图录的自定义图 → book/catalog/ 下（文件名与页面里的引用保持一致） */
       var catRows = (bk.catalog) || [];
       for (var ci = 0; ci < catRows.length; ci++) {
         var cg = catRows[ci] && catRows[ci].img;
@@ -272,15 +274,22 @@ SD.Export = (function () {
       }
     }
 
-    /* 3) lib/ —— 360 查看器 + 翻页库 + 内置音效，都得在：书页靠翻页库、
-       360 靠查看器、开了翻页音效时靠 sound/book-voice.mp3。
-       少一个就有一半功能是坏的（之前这里只复制了 360，导出的书页翻不动）。 */
-    var LIBS = ['360-view.min.js', 'vysmo-flipbook.min.js', 'sound/book-voice.mp3'];
+    /* 3) lib/ —— 360 查看器与翻页库必须在：书页靠翻页库、360 靠查看器。
+       少一个就有一半功能是坏的（之前这里只复制了 360，导出的书页翻不动）。
+       这两项计入进度（对应上面 total 里的 2）。 */
+    var LIBS = ['360-view.min.js', 'vysmo-flipbook.min.js'];
     for (var li = 0; li < LIBS.length; li++) {
       var libBytes = await fetchBytes('lib/' + LIBS[li]);
       await writeIn(dir, 'lib/' + LIBS[li], libBytes);
       tick('lib/' + LIBS[li]);
     }
+
+    /* 翻页音效：可选素材 —— 仓库不附带音频文件，本地若放了就一起导出。
+       放没放都不会报错；只是开了「翻页音效」又没这个文件时，页面是无声的。 */
+    try {
+      var sndBytes = await fetchBytes('lib/sound/book-voice.mp3');
+      if (sndBytes) await writeIn(dir, 'lib/sound/book-voice.mp3', sndBytes);
+    } catch (e) { /* 没放音效：正常，跳过 */ }
 
     /* 4) serve.ps1 */
     var ps = await fetchBytes('serve.ps1');

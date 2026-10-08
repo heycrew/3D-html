@@ -28,3 +28,14 @@ Thumbs.db
 desktop.ini
 .DS_Store
 .superpowers/  
+
+# ===== 内部文档（不随开源仓库分发）=====
+# 开发计划 / 调研记录 / 部署笔记：只在本机保留。
+docs/
+部署到七牛云.txt
+
+# ===== 翻页音效（不随仓库分发，使用者自行放置）=====
+# 导出的页面会去读 lib/sound/book-voice.mp3；该音频不包含在仓库中，
+# 详见 THIRD-PARTY-NOTICES.md。本地放了文件仍可正常导出。
+lib/sound/book-voice.mp3
+build/vendor/sound/book-voice.mp3

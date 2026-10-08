@@ -93,7 +93,7 @@ SD.Store = (function () {
             })
           };
         }),
-        /* 窑口图录条目（页码 + 标题 + 可选的自定义图），数组顺序就是显示顺序 */
+        /* 图录条目（页码 + 标题 + 可选的自定义图），数组顺序就是显示顺序 */
         catalog: ((bk.catalog) || []).map(function (c) {
           return { page: c.page || 1, title: c.title || '', img: fileOf(c.img) };
         })
